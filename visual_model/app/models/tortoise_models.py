@@ -31,6 +31,10 @@ class User(Model):
     reset_token = fields.CharField(max_length=255, null=True, description="密码重置令牌")
     reset_token_expires = fields.DatetimeField(null=True, description="重置令牌过期时间")
     
+    # 邮箱验证码（用于密码重置等）
+    verification_code = fields.CharField(max_length=10, null=True, description="验证码")
+    code_expires_at = fields.DatetimeField(null=True, description="验证码过期时间")
+    
     # 登录信息
     last_login = fields.DatetimeField(null=True, description="最后登录时间")
     

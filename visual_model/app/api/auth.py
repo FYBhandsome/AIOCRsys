@@ -14,7 +14,7 @@ from app.models.auth import (
 from app.models.tortoise_models import User
 from app.core.security import verify_password, create_access_token, get_password_hash
 from app.core.auth_middleware import get_current_user
-from app.core.email_service import email_service, generate_reset_token
+from app.core.email_service import email_service, generate_reset_token, generate_verification_code
 from app.core.logger import logger
 from config import settings
 
@@ -274,7 +274,7 @@ async def get_current_user_info(current_user: TokenData = Depends(get_current_us
 async def request_password_reset(request: PasswordResetRequest):
     """请求密码重置
     
-    发送密码重置邮件
+    发送验证码到邮箱（有效期2分钟）
     """
     try:
         # 查找用户
@@ -284,7 +284,7 @@ async def request_password_reset(request: PasswordResetRequest):
         if not user:
             logger.warning(f"密码重置请求: 邮箱不存在 - {request.email}")
             return {
-                "message": "如果该邮箱已注册，您将收到密码重置邮件"
+                "message": "如果该邮箱已注册，您将收到验证码邮件"
             }
         
         # 检查邮件服务是否启用
@@ -294,24 +294,32 @@ async def request_password_reset(request: PasswordResetRequest):
                 detail="邮件服务未启用，请联系管理员"
             )
         
-        # 生成重置令牌
-        reset_token = generate_reset_token()
-        user.reset_token = reset_token
-        user.reset_token_expires = datetime.utcnow() + timedelta(hours=1)
-        await user.save()
+        # 检查是否已有有效的验证码（2分钟内）
+        now = datetime.utcnow()
+        if user.verification_code and user.code_expires_at and user.code_expires_at > now:
+            # 还有有效的验证码，重新发送相同的验证码
+            verification_code = user.verification_code
+            logger.info(f"重新发送现有验证码: {user.email}")
+        else:
+            # 生成新的6位验证码
+            verification_code = generate_verification_code()
+            user.verification_code = verification_code
+            user.code_expires_at = now + timedelta(minutes=2)
+            await user.save()
+            logger.info(f"生成新验证码: {user.email}")
         
-        # 发送重置邮件
-        reset_link = f"{settings.FRONTEND_URL}/reset-password?token={reset_token}"
-        await email_service.send_password_reset_email(
+        # 发送验证码邮件
+        await email_service.send_verification_code_email(
             user.email,
             user.username,
-            reset_link
+            verification_code
         )
         
-        logger.info(f"密码重置邮件已发送: {user.email}")
+        logger.info(f"验证码邮件已发送: {user.email}")
         
         return {
-            "message": "如果该邮箱已注册，您将收到密码重置邮件"
+            "message": "如果该邮箱已注册，您将收到验证码邮件",
+            "expires_in": 120  # 2分钟 = 120秒
         }
         
     except HTTPException:
@@ -328,28 +336,47 @@ async def request_password_reset(request: PasswordResetRequest):
 async def confirm_password_reset(confirm: PasswordResetConfirm):
     """确认密码重置
     
-    使用令牌重置密码
+    使用验证码重置密码
     """
     try:
-        # 查找具有有效令牌的用户
-        user = await User.filter(
-            reset_token=confirm.token,
-            reset_token_expires__gt=datetime.utcnow()
-        ).first()
+        # 查找用户
+        user = await User.filter(email=confirm.email).first()
         
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="无效或过期的重置令牌"
+                detail="邮箱不存在"
+            )
+        
+        # 检查验证码是否存在
+        if not user.verification_code:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="请先获取验证码"
+            )
+        
+        # 检查验证码是否过期
+        if not user.code_expires_at or user.code_expires_at <= datetime.utcnow():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="验证码已过期，请重新获取"
+            )
+        
+        # 验证验证码
+        if user.verification_code != confirm.verification_code:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="验证码错误"
             )
         
         # 更新密码
         user.password = get_password_hash(confirm.new_password)
-        user.reset_token = None
-        user.reset_token_expires = None
+        # 清除验证码
+        user.verification_code = None
+        user.code_expires_at = None
         await user.save()
         
-        logger.info(f"密码重置成功: {user.username}")
+        logger.info(f"密码重置成功: {user.username} ({user.email})")
         
         return {
             "message": "密码重置成功，请使用新密码登录"

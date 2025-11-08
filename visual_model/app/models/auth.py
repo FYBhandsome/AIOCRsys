@@ -63,12 +63,19 @@ class UserResponse(BaseModel):
 
 
 class PasswordResetRequest(BaseModel):
-    """密码重置请求"""
+    """密码重置请求（发送验证码）"""
     email: EmailStr = Field(..., description="注册邮箱")
 
 
 class PasswordResetConfirm(BaseModel):
-    """密码重置确认"""
+    """密码重置确认（使用验证码）"""
+    email: EmailStr = Field(..., description="邮箱")
+    verification_code: str = Field(..., min_length=6, max_length=6, description="6位验证码")
+    new_password: str = Field(..., min_length=6, description="新密码")
+
+
+class PasswordResetConfirmOld(BaseModel):
+    """密码重置确认（旧版本，使用token）"""
     token: str = Field(..., description="重置令牌")
     new_password: str = Field(..., min_length=6, description="新密码")
 

@@ -314,6 +314,133 @@ class EmailService:
         """
         
         return await self.send_email(to_email, subject, body, html)
+    
+    async def send_verification_code_email(
+        self,
+        to_email: str,
+        username: str,
+        verification_code: str
+    ) -> bool:
+        """发送验证码邮件（用于密码重置）
+        
+        Args:
+            to_email: 收件人邮箱
+            username: 用户名
+            verification_code: 6位验证码
+            
+        Returns:
+            bool: 发送成功返回True，否则False
+        """
+        subject = "综测计算助手 - 密码重置验证码"
+        
+        body = f"""
+        您好 {username}，
+        
+        您正在进行密码重置操作。
+        
+        您的验证码是：{verification_code}
+        
+        验证码有效期为2分钟，请尽快使用。
+        
+        如果这不是您本人的操作，请忽略此邮件。
+        
+        ---
+        综测计算助手团队
+        """
+        
+        html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    line-height: 1.6;
+                    color: #333;
+                }}
+                .container {{
+                    max-width: 600px;
+                    margin: 0 auto;
+                    padding: 20px;
+                    background-color: #f9f9f9;
+                }}
+                .header {{
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    padding: 30px;
+                    text-align: center;
+                    border-radius: 10px 10px 0 0;
+                }}
+                .content {{
+                    background: white;
+                    padding: 30px;
+                    border-radius: 0 0 10px 10px;
+                }}
+                .code-box {{
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    font-size: 32px;
+                    font-weight: bold;
+                    letter-spacing: 8px;
+                    text-align: center;
+                    padding: 20px;
+                    margin: 30px 0;
+                    border-radius: 10px;
+                    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+                }}
+                .warning {{
+                    background-color: #fff3cd;
+                    border-left: 4px solid #ffc107;
+                    padding: 15px;
+                    margin: 20px 0;
+                }}
+                .footer {{
+                    text-align: center;
+                    margin-top: 20px;
+                    color: #666;
+                    font-size: 12px;
+                }}
+                .highlight {{
+                    color: #667eea;
+                    font-weight: bold;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>🔐 密码重置验证码</h1>
+                </div>
+                <div class="content">
+                    <p>您好 <strong>{username}</strong>，</p>
+                    <p>您正在进行密码重置操作。</p>
+                    <p>请使用以下验证码完成验证：</p>
+                    <div class="code-box">
+                        {verification_code}
+                    </div>
+                    <p style="text-align: center; color: #999; font-size: 14px;">
+                        验证码有效期为 <span class="highlight">2分钟</span>，请尽快使用
+                    </p>
+                    <div class="warning">
+                        <strong>⚠️ 安全提示：</strong>
+                        <ul>
+                            <li>如果这不是您本人的操作，请立即忽略此邮件</li>
+                            <li>请勿将验证码透露给他人</li>
+                            <li>验证码仅用于本次密码重置</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="footer">
+                    <p>综测计算助手团队</p>
+                    <p>{datetime.now().strftime('%Y年%m月%d日 %H:%M')}</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        return await self.send_email(to_email, subject, body, html)
 
 
 def generate_reset_token() -> str:
@@ -323,6 +450,16 @@ def generate_reset_token() -> str:
         str: 随机生成的令牌字符串
     """
     return secrets.token_urlsafe(32)
+
+
+def generate_verification_code() -> str:
+    """生成6位数字验证码
+    
+    Returns:
+        str: 6位数字验证码
+    """
+    import random
+    return ''.join([str(random.randint(0, 9)) for _ in range(6)])
 
 
 # 创建全局邮件服务实例
