@@ -1,0 +1,157 @@
+# Environment variables and sensitive files (MUST NOT UPLOAD)
+.env
+.env.*
+!.env.example
+
+# Conda environment
+.conda/
+
+# Custom modules to exclude
+utils/
+license_client/
+docs/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.pyc
+*.pyo
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+.hypothesis/
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+
+# Node.js / Frontend
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+.npm
+.yarn/
+
+# Build outputs
+dist/
+build/
+*.bundle.js
+*.bundle.css
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+database_backup_*.db
+data/database.db
+data/database.db-shm
+data/database.db-wal
+data/*.db
+
+# Logs
+logs/
+*.log
+app.log
+
+# Temporary files
+temp/
+tmp/
+*.tmp
+*.temp
+
+# Uploads (user generated content)
+uploads/
+!uploads/.gitkeep
+
+# Results
+results/
+!results/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Environment variables and sensitive config
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+*.crt
+*.cert
+secrets.json
+config_local.py
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Test coverage
+.coverage
+coverage/
+*.cover
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Model files (uncomment if models are large and stored elsewhere)
+# *.pth
+# *.pt
+# *.onnx
+# *.pb
+# *.h5
+
+# macOS
+*.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
