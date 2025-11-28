@@ -271,6 +271,16 @@ class Settings(BaseSettings):
         Path(self.TEMP_DIR).mkdir(parents=True, exist_ok=True)
         Path(self.RESULT_DIR).mkdir(parents=True, exist_ok=True)
 
+    @property
+    def DATABASE_DIR(self) -> str:
+        """数据库目录路径"""
+        return str(BASE_DIR / "data")
+
+    @property
+    def LOGS_DIR(self) -> str:
+        """日志目录路径"""
+        return str(BASE_DIR / "logs")
+
 
 # 创建全局配置实例
 settings = Settings()

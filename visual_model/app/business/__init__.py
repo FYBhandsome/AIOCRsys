@@ -4,6 +4,5 @@
 业务逻辑模块初始化文件
 """
 
-from .certificate_ocr import CertificateOCRService
-
-__all__ = ["CertificateOCRService"]
+# 业务逻辑模块现在主要通过API路由提供服务
+__all__ = []

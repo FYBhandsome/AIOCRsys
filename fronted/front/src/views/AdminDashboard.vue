@@ -7,21 +7,21 @@
         <p class="welcome-subtitle">管理系统规则，配置综测标准，确保评分公平公正</p>
       </div>
       <div class="welcome-stats">
-        <el-card class="stat-card">
+        <el-card class="stat-card" v-loading="loading">
           <div class="stat-icon">📋</div>
           <div class="stat-info">
             <div class="stat-value">{{ ruleCount }}</div>
             <div class="stat-label">综测规则</div>
           </div>
         </el-card>
-        <el-card class="stat-card">
+        <el-card class="stat-card" v-loading="loading">
           <div class="stat-icon">👥</div>
           <div class="stat-info">
             <div class="stat-value">{{ totalUsers }}</div>
             <div class="stat-label">系统用户</div>
           </div>
         </el-card>
-        <el-card class="stat-card">
+        <el-card class="stat-card" v-loading="loading">
           <div class="stat-icon">✅</div>
           <div class="stat-info">
             <div class="stat-value">{{ approvedCount }}</div>
@@ -38,7 +38,7 @@
         快速操作
       </h2>
       <el-row :gutter="20">
-        <el-col :xs="24" :sm="12" :md="8">
+        <el-col :xs="24" :sm="12" :md="6">
           <el-card class="action-card" @click="activeTab = 'upload'">
             <div class="action-icon">📤</div>
             <h3 class="action-title">上传综测规则</h3>
@@ -46,7 +46,7 @@
             <el-button type="primary" size="small">立即上传</el-button>
           </el-card>
         </el-col>
-        <el-col :xs="24" :sm="12" :md="8">
+        <el-col :xs="24" :sm="12" :md="6">
           <el-card class="action-card" @click="activeTab = 'manage'">
             <div class="action-icon">⚙️</div>
             <h3 class="action-title">规则管理</h3>
@@ -54,12 +54,28 @@
             <el-button type="success" size="small">管理规则</el-button>
           </el-card>
         </el-col>
-        <el-col :xs="24" :sm="12" :md="8">
+        <el-col :xs="24" :sm="12" :md="6">
+          <el-card class="action-card" @click="navigateToScoreConfig">
+            <div class="action-icon">📊</div>
+            <h3 class="action-title">综测配置</h3>
+            <p class="action-desc">配置A/B/C类权重和成绩字段</p>
+            <el-button type="danger" size="small">配置综测</el-button>
+          </el-card>
+        </el-col>
+        <el-col :xs="24" :sm="12" :md="6">
           <el-card class="action-card" @click="activeTab = 'system'">
             <div class="action-icon">🔧</div>
             <h3 class="action-title">系统设置</h3>
             <p class="action-desc">配置系统参数和权限</p>
             <el-button type="warning" size="small">系统配置</el-button>
+          </el-card>
+        </el-col>
+        <el-col :xs="24" :sm="12" :md="6">
+          <el-card class="action-card" @click="navigateToSystemMonitor">
+            <div class="action-icon">📈</div>
+            <h3 class="action-title">系统监控</h3>
+            <p class="action-desc">查看RAG系统和向量数据库状态</p>
+            <el-button type="info" size="small">系统监控</el-button>
           </el-card>
         </el-col>
       </el-row>
@@ -110,6 +126,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useUserStore } from '@/store'
 import { Lightning, Upload, DocumentCopy, Setting } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
@@ -119,6 +136,7 @@ import SystemSettings from '@/components/SystemSettings.vue'
 import AIAssistant from '@/components/AIAssistant.vue'
 import { adminAPI } from '@/services/api'
 
+const router = useRouter()
 const userStore = useUserStore()
 
 // 统计数据
@@ -135,18 +153,30 @@ const ruleDocuments = ref([])
 
 // 加载管理员数据
 const loadAdminData = async () => {
+  // 如果已有数据，不再重复加载
+  if (ruleCount.value > 0 || totalUsers.value > 0) {
+    return
+  }
+  
   loading.value = true
   try {
-    // 并发加载多个数据
-    const [rulesRes, usersRes] = await Promise.all([
-      adminAPI.getRuleDocuments(false).catch(err => {
-        console.warn('获取规则文档失败:', err)
-        return []
-      }),
-      adminAPI.getUsers().catch(err => {
-        console.warn('获取用户列表失败:', err)
-        return []
-      })
+    // 并发加载多个数据，设置超时时间为5秒
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('请求超时')), 5000)
+    )
+    
+    const [rulesRes, usersRes] = await Promise.race([
+      Promise.all([
+        adminAPI.getRuleDocuments(false).catch(err => {
+          console.warn('获取规则文档失败:', err)
+          return []
+        }),
+        adminAPI.getUsers().catch(err => {
+          console.warn('获取用户列表失败:', err)
+          return []
+        })
+      ]),
+      timeoutPromise
     ])
     
     // 更新规则文档数据
@@ -160,6 +190,10 @@ const loadAdminData = async () => {
     approvedCount.value = ruleDocuments.value.filter(doc => !doc.enabled).length
   } catch (error) {
     console.error('加载管理员数据失败:', error)
+    // 静默失败，使用默认值
+    ruleCount.value = 0
+    totalUsers.value = 0
+    approvedCount.value = 0
   } finally {
     loading.value = false
   }
@@ -170,6 +204,16 @@ const refreshData = () => {
   loadAdminData()
 }
 
+// 导航到综测配置页面
+const navigateToScoreConfig = () => {
+  router.push('/admin/comprehensive-score-config')
+}
+
+// 导航到系统监控页面
+const navigateToSystemMonitor = () => {
+  router.push('/admin/system-monitor')
+}
+
 // 暴露给子组件
 defineExpose({
   refreshData
@@ -177,7 +221,10 @@ defineExpose({
 
 // 组件挂载时加载数据
 onMounted(() => {
-  loadAdminData()
+  // 延迟加载，避免切换角色时的阻塞
+  setTimeout(() => {
+    loadAdminData()
+  }, 100)
 })
 </script>
 
@@ -375,6 +422,27 @@ onMounted(() => {
   .action-card {
     margin-bottom: 15px;
   }
+}
+
+/* 加载状态优化 */
+:deep(.el-loading-mask) {
+  background-color: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(2px);
+}
+
+:deep(.el-loading-spinner) {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+:deep(.el-loading-spinner .el-loading-text) {
+  color: #ff6f00;
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+:deep(.el-loading-spinner .path) {
+  stroke: #ff6f00;
 }
 </style>
 

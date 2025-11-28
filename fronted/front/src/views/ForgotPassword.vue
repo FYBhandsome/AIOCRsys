@@ -103,7 +103,7 @@
 import { ref, reactive, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
-import api from '../services/api'
+import { authAPI } from '../services/api'
 
 const router = useRouter()
 
@@ -180,9 +180,7 @@ const handleSendCode = async () => {
     
     loading.value = true
     
-    const response = await api.post('/auth/password/reset-request', {
-      email: form.email
-    })
+    const response = await authAPI.requestPasswordReset(form.email)
     
     ElMessage.success('验证码已发送到您的邮箱，请查收（有效期2分钟）')
     codeSent.value = true
@@ -210,11 +208,11 @@ const handleResetPassword = async () => {
     
     loading.value = true
     
-    await api.post('/auth/password/reset-confirm', {
-      email: form.email,
-      verification_code: form.verificationCode,
-      new_password: form.newPassword
-    })
+    await authAPI.confirmPasswordReset(
+      form.email,
+      form.verificationCode,
+      form.newPassword
+    )
     
     ElMessage.success('密码重置成功！正在跳转到登录页...')
     

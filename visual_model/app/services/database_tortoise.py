@@ -13,8 +13,8 @@ from app.core.logger import logger
 from app.core.exceptions import DatabaseException
 from app.core.db_connection import get_db_connection_manager
 from app.models.tortoise_models import (
-    User, Student, Activity, ScoreRecord, 
-    ComprehensiveScore, File
+    User, Student, AcademicScore, 
+    ComprehensiveScoreConfig, ComprehensiveScore, File, Certificate
 )
 from config import settings
 
@@ -204,182 +204,129 @@ class DatabaseService:
             logger.error(f"删除学生失败: {e}", exc_info=True)
             raise DatabaseException(f"删除学生失败: {str(e)}")
     
-    # 活动相关操作
-    async def create_activity(self, name: str, type: str, details: Dict[str, Any], 
-                            score: float, student_id: str, 
-                            status: str = "pending") -> Activity:
-        """创建活动"""
+    # 学业成绩相关操作
+    async def create_academic_score(self, student_id: str, student_name: str,
+                                    total_score: float = 0.0,
+                                    semester: str = None, academic_year: str = None,
+                                    **kwargs) -> AcademicScore:
+        """创建学业成绩记录"""
         try:
-            activity = await Activity.create(
-                name=name,
-                type=type,
-                details=details,
-                score=score,
+            score = await AcademicScore.create(
                 student_id=student_id,
-                status=status
-            )
-            logger.info(f"创建活动成功: {name}")
-            return activity
-        except Exception as e:
-            logger.error(f"创建活动失败: {e}", exc_info=True)
-            raise DatabaseException(f"创建活动失败: {str(e)}")
-    
-    async def save_activity(self, activity) -> Activity:
-        """保存活动"""
-        try:
-            await activity.save()
-            logger.info(f"保存活动成功: {activity.id}")
-            return activity
-        except Exception as e:
-            logger.error(f"保存活动失败: {e}", exc_info=True)
-            raise DatabaseException(f"保存活动失败: {str(e)}")
-    
-    async def get_activity(self, activity_id: int) -> Optional[Activity]:
-        """获取活动"""
-        try:
-            return await Activity.get_or_none(id=activity_id).prefetch_related('student')
-        except Exception as e:
-            logger.error(f"获取活动失败: {e}", exc_info=True)
-            raise DatabaseException(f"获取活动失败: {str(e)}")
-    
-    async def get_activities(self, student_id: str = None, status: str = None, 
-                           type: str = None, limit: int = None, 
-                           offset: int = None) -> List[Activity]:
-        """获取活动列表"""
-        try:
-            query = Activity.all()
-            
-            if student_id:
-                query = query.filter(student_id=student_id)
-            if status:
-                query = query.filter(status=status)
-            if type:
-                query = query.filter(type=type)
-            
-            if offset:
-                query = query.offset(offset)
-            if limit:
-                query = query.limit(limit)
-            
-            return await query.prefetch_related('student')
-        except Exception as e:
-            logger.error(f"获取活动列表失败: {e}", exc_info=True)
-            raise DatabaseException(f"获取活动列表失败: {str(e)}")
-    
-    async def update_activity(self, activity_id: int, **kwargs) -> bool:
-        """更新活动信息"""
-        try:
-            activity = await Activity.get_or_none(id=activity_id)
-            if not activity:
-                return False
-            
-            await activity.update_from_dict(kwargs)
-            await activity.save()
-            logger.info(f"更新活动信息成功: {activity_id}")
-            return True
-        except DoesNotExist:
-            logger.error(f"更新活动失败，活动不存在: {activity_id}")
-            return False
-        except Exception as e:
-            logger.error(f"更新活动失败: {e}", exc_info=True)
-            raise DatabaseException(f"更新活动失败: {str(e)}")
-    
-    async def delete_activity(self, activity_id: int) -> bool:
-        """删除活动"""
-        try:
-            activity = await Activity.get_or_none(id=activity_id)
-            if not activity:
-                return False
-            
-            await activity.delete()
-            logger.info(f"删除活动成功: {activity_id}")
-            return True
-        except DoesNotExist:
-            logger.error(f"删除活动失败，活动不存在: {activity_id}")
-            return False
-        except Exception as e:
-            logger.error(f"删除活动失败: {e}", exc_info=True)
-            raise DatabaseException(f"删除活动失败: {str(e)}")
-    
-    # 分数记录相关操作
-    async def create_score_record(self, total_score: float, details: Dict[str, Any], 
-                                student_id: str) -> ScoreRecord:
-        """创建分数记录"""
-        try:
-            score_record = await ScoreRecord.create(
+                student_name=student_name,
                 total_score=total_score,
-                details=details,
-                student_id=student_id
+                semester=semester,
+                academic_year=academic_year,
+                **kwargs
             )
-            logger.info(f"创建分数记录成功: {total_score}")
-            return score_record
+            logger.info(f"创建学业成绩记录成功: {student_id} - {semester}")
+            return score
+        except IntegrityError as e:
+            logger.error(f"创建学业成绩记录失败（已存在）: {student_id} - {semester}")
+            raise DatabaseException(f"该学生在此学期的成绩记录已存在")
         except Exception as e:
-            logger.error(f"创建分数记录失败: {e}", exc_info=True)
-            raise DatabaseException(f"创建分数记录失败: {str(e)}")
+            logger.error(f"创建学业成绩记录失败: {e}", exc_info=True)
+            raise DatabaseException(f"创建学业成绩记录失败: {str(e)}")
     
-    async def save_score_record(self, score_record) -> ScoreRecord:
-        """保存分数记录"""
+    async def get_academic_score(self, score_id: int) -> Optional[AcademicScore]:
+        """获取学业成绩记录"""
         try:
-            await score_record.save()
-            logger.info(f"保存分数记录成功: {score_record.id}")
-            return score_record
+            return await AcademicScore.get_or_none(id=score_id).prefetch_related('student')
         except Exception as e:
-            logger.error(f"保存分数记录失败: {e}", exc_info=True)
-            raise DatabaseException(f"保存分数记录失败: {str(e)}")
+            logger.error(f"获取学业成绩记录失败: {e}", exc_info=True)
+            raise DatabaseException(f"获取学业成绩记录失败: {str(e)}")
     
-    async def update_score_record(self, score_record) -> bool:
-        """更新分数记录"""
+    async def get_academic_scores(self, student_id: str = None, semester: str = None,
+                                 academic_year: str = None, class_name: str = None,
+                                 limit: int = None, offset: int = None) -> List[AcademicScore]:
+        """获取学业成绩记录列表"""
         try:
-            await score_record.save()
-            logger.info(f"更新分数记录成功: {score_record.id}")
-            return True
-        except Exception as e:
-            logger.error(f"更新分数记录失败: {e}", exc_info=True)
-            raise DatabaseException(f"更新分数记录失败: {str(e)}")
-    
-    async def delete_score_record(self, score_id: str) -> bool:
-        """删除分数记录"""
-        try:
-            score_record = await ScoreRecord.get_or_none(id=score_id)
-            if not score_record:
-                return False
-            
-            await score_record.delete()
-            logger.info(f"删除分数记录成功: {score_id}")
-            return True
-        except DoesNotExist:
-            logger.error(f"删除分数记录失败，记录不存在: {score_id}")
-            return False
-        except Exception as e:
-            logger.error(f"删除分数记录失败: {e}", exc_info=True)
-            raise DatabaseException(f"删除分数记录失败: {str(e)}")
-    
-    async def get_score_record(self, record_id: int) -> Optional[ScoreRecord]:
-        """获取分数记录"""
-        try:
-            return await ScoreRecord.get_or_none(id=record_id).prefetch_related('student')
-        except Exception as e:
-            logger.error(f"获取分数记录失败: {e}", exc_info=True)
-            raise DatabaseException(f"获取分数记录失败: {str(e)}")
-    
-    async def get_score_records(self, student_id: str = None, limit: int = None, 
-                              offset: int = None) -> List[ScoreRecord]:
-        """获取分数记录列表"""
-        try:
-            query = ScoreRecord.all()
+            query = AcademicScore.all()
             
             if student_id:
                 query = query.filter(student_id=student_id)
+            if semester:
+                query = query.filter(semester=semester)
+            if academic_year:
+                query = query.filter(academic_year=academic_year)
+            if class_name:
+                query = query.filter(class_name=class_name)
             
             if offset:
                 query = query.offset(offset)
             if limit:
                 query = query.limit(limit)
             
-            return await query.prefetch_related('student')
+            return await query.prefetch_related('student').order_by('-created_at')
         except Exception as e:
-            logger.error(f"获取分数记录列表失败: {e}", exc_info=True)
-            raise DatabaseException(f"获取分数记录列表失败: {str(e)}")
+            logger.error(f"获取学业成绩记录列表失败: {e}", exc_info=True)
+            raise DatabaseException(f"获取学业成绩记录列表失败: {str(e)}")
+    
+    async def update_academic_score(self, score_id: int, **kwargs) -> bool:
+        """更新学业成绩记录"""
+        try:
+            score = await AcademicScore.get_or_none(id=score_id)
+            if not score:
+                return False
+            
+            await score.update_from_dict(kwargs)
+            await score.save()
+            logger.info(f"更新学业成绩记录成功: {score_id}")
+            return True
+        except DoesNotExist:
+            logger.error(f"更新学业成绩记录失败，记录不存在: {score_id}")
+            return False
+        except Exception as e:
+            logger.error(f"更新学业成绩记录失败: {e}", exc_info=True)
+            raise DatabaseException(f"更新学业成绩记录失败: {str(e)}")
+    
+    async def delete_academic_score(self, score_id: int) -> bool:
+        """删除学业成绩记录"""
+        try:
+            score = await AcademicScore.get_or_none(id=score_id)
+            if not score:
+                return False
+            
+            await score.delete()
+            logger.info(f"删除学业成绩记录成功: {score_id}")
+            return True
+        except DoesNotExist:
+            logger.error(f"删除学业成绩记录失败，记录不存在: {score_id}")
+            return False
+        except Exception as e:
+            logger.error(f"删除学业成绩记录失败: {e}", exc_info=True)
+            raise DatabaseException(f"删除学业成绩记录失败: {str(e)}")
+    
+    async def upsert_academic_score(self, student_id: str, semester: str, 
+                                   academic_year: str, **kwargs) -> AcademicScore:
+        """创建或更新学业成绩记录（如果已存在则更新）"""
+        try:
+            # 查找是否已存在
+            score = await AcademicScore.get_or_none(
+                student_id=student_id,
+                semester=semester,
+                academic_year=academic_year
+            )
+            
+            if score:
+                # 更新现有记录
+                await score.update_from_dict(kwargs)
+                await score.save()
+                logger.info(f"更新学业成绩记录: {student_id} - {semester}")
+            else:
+                # 创建新记录
+                score = await AcademicScore.create(
+                    student_id=student_id,
+                    semester=semester,
+                    academic_year=academic_year,
+                    **kwargs
+                )
+                logger.info(f"创建学业成绩记录: {student_id} - {semester}")
+            
+            return score
+        except Exception as e:
+            logger.error(f"创建/更新学业成绩记录失败: {e}", exc_info=True)
+            raise DatabaseException(f"创建/更新学业成绩记录失败: {str(e)}")
     
     # 综测成绩相关操作
     async def create_comprehensive_score(self, student_id: str, semester: str, 
@@ -429,6 +376,125 @@ class DatabaseService:
         except Exception as e:
             logger.error(f"获取综测成绩列表失败: {e}", exc_info=True)
             raise DatabaseException(f"获取综测成绩列表失败: {str(e)}")
+    
+    async def upsert_comprehensive_score(self, student_id: str, semester: str, 
+                                        academic_year: str, **kwargs) -> ComprehensiveScore:
+        """创建或更新综测成绩（如果已存在则更新）"""
+        try:
+            # 查找是否已存在
+            score = await ComprehensiveScore.get_or_none(
+                student_id=student_id,
+                semester=semester,
+                academic_year=academic_year
+            )
+            
+            if score:
+                # 更新现有记录
+                await score.update_from_dict(kwargs)
+                await score.save()
+                logger.info(f"更新综测成绩: {student_id} - {semester}")
+            else:
+                # 创建新记录
+                score = await ComprehensiveScore.create(
+                    student_id=student_id,
+                    semester=semester,
+                    academic_year=academic_year,
+                    **kwargs
+                )
+                logger.info(f"创建综测成绩: {student_id} - {semester}")
+            
+            return score
+        except Exception as e:
+            logger.error(f"创建/更新综测成绩失败: {e}", exc_info=True)
+            raise DatabaseException(f"创建/更新综测成绩失败: {str(e)}")
+    
+    # 综测配置相关操作
+    async def create_comprehensive_score_config(self, name: str, **kwargs) -> ComprehensiveScoreConfig:
+        """创建综测配置"""
+        try:
+            config = await ComprehensiveScoreConfig.create(
+                name=name,
+                **kwargs
+            )
+            logger.info(f"创建综测配置成功: {name}")
+            return config
+        except Exception as e:
+            logger.error(f"创建综测配置失败: {e}", exc_info=True)
+            raise DatabaseException(f"创建综测配置失败: {str(e)}")
+    
+    async def get_comprehensive_score_config(self, config_id: int) -> Optional[ComprehensiveScoreConfig]:
+        """获取综测配置"""
+        try:
+            return await ComprehensiveScoreConfig.get_or_none(id=config_id)
+        except Exception as e:
+            logger.error(f"获取综测配置失败: {e}", exc_info=True)
+            raise DatabaseException(f"获取综测配置失败: {str(e)}")
+    
+    async def get_default_comprehensive_score_config(self) -> Optional[ComprehensiveScoreConfig]:
+        """获取默认综测配置"""
+        try:
+            return await ComprehensiveScoreConfig.get_or_none(is_default=True, is_active=True)
+        except Exception as e:
+            logger.error(f"获取默认综测配置失败: {e}", exc_info=True)
+            raise DatabaseException(f"获取默认综测配置失败: {str(e)}")
+    
+    async def get_comprehensive_score_configs(self, is_active: bool = None, 
+                                             limit: int = None, offset: int = None) -> List[ComprehensiveScoreConfig]:
+        """获取综测配置列表"""
+        try:
+            query = ComprehensiveScoreConfig.all()
+            
+            if is_active is not None:
+                query = query.filter(is_active=is_active)
+            
+            if offset:
+                query = query.offset(offset)
+            if limit:
+                query = query.limit(limit)
+            
+            return await query.order_by('-created_at')
+        except Exception as e:
+            logger.error(f"获取综测配置列表失败: {e}", exc_info=True)
+            raise DatabaseException(f"获取综测配置列表失败: {str(e)}")
+    
+    async def update_comprehensive_score_config(self, config_id: int, **kwargs) -> bool:
+        """更新综测配置"""
+        try:
+            config = await ComprehensiveScoreConfig.get_or_none(id=config_id)
+            if not config:
+                return False
+            
+            # 如果设置为默认配置，先取消其他配置的默认状态
+            if kwargs.get('is_default', False):
+                await ComprehensiveScoreConfig.filter(is_default=True).update(is_default=False)
+            
+            await config.update_from_dict(kwargs)
+            await config.save()
+            logger.info(f"更新综测配置成功: {config_id}")
+            return True
+        except Exception as e:
+            logger.error(f"更新综测配置失败: {e}", exc_info=True)
+            raise DatabaseException(f"更新综测配置失败: {str(e)}")
+    
+    async def delete_comprehensive_score_config(self, config_id: int) -> bool:
+        """删除综测配置"""
+        try:
+            config = await ComprehensiveScoreConfig.get_or_none(id=config_id)
+            if not config:
+                return False
+            
+            # 不允许删除默认配置
+            if config.is_default:
+                raise DatabaseException("不允许删除默认配置")
+            
+            await config.delete()
+            logger.info(f"删除综测配置成功: {config_id}")
+            return True
+        except DatabaseException:
+            raise
+        except Exception as e:
+            logger.error(f"删除综测配置失败: {e}", exc_info=True)
+            raise DatabaseException(f"删除综测配置失败: {str(e)}")
     
     # 文件相关操作
     async def create_file(self, id: str, filename: str, 
@@ -495,6 +561,175 @@ class DatabaseService:
         except Exception as e:
             logger.error(f"删除文件记录失败: {e}", exc_info=True)
             raise DatabaseException(f"删除文件记录失败: {str(e)}")
+    
+    # ============================================================================
+    # 证书相关操作
+    # ============================================================================
+    
+    async def create_certificate(
+        self,
+        student_id: str,
+        file_id: str,
+        filename: str,
+        file_path: Optional[str] = None,
+        title: Optional[str] = None,
+        level: Optional[str] = None,
+        issuer: Optional[str] = None,
+        issue_date: Optional[str] = None,
+        raw_text: Optional[str] = None,
+        category: str = "C",
+        score: float = 0.0,
+        classification_reason: Optional[str] = None,
+        ocr_result: Optional[Dict[str, Any]] = None,
+        certificate_info: Optional[Dict[str, Any]] = None,
+        status: str = "pending"
+    ) -> Certificate:
+        """创建证书记录"""
+        try:
+            certificate = await Certificate.create(
+                student_id=student_id,
+                file_id=file_id,
+                filename=filename,
+                file_path=file_path,
+                title=title,
+                level=level,
+                issuer=issuer,
+                issue_date=issue_date,
+                raw_text=raw_text,
+                category=category,
+                score=score,
+                classification_reason=classification_reason,
+                ocr_result=ocr_result,
+                certificate_info=certificate_info,
+                status=status
+            )
+            logger.info(f"创建证书记录成功: student_id={student_id}, title={title}")
+            return certificate
+        except Exception as e:
+            logger.error(f"创建证书记录失败: {e}", exc_info=True)
+            raise DatabaseException(f"创建证书记录失败: {str(e)}")
+    
+    async def get_certificates(
+        self,
+        student_id: Optional[str] = None,
+        category: Optional[str] = None,
+        status: Optional[str] = None
+    ) -> List[Certificate]:
+        """获取证书列表"""
+        try:
+            query = Certificate.all()
+            
+            if student_id:
+                query = query.filter(student_id=student_id)
+            if category:
+                query = query.filter(category=category)
+            if status:
+                query = query.filter(status=status)
+            
+            return await query.order_by('-created_at')
+        except Exception as e:
+            logger.error(f"获取证书列表失败: {e}", exc_info=True)
+            raise DatabaseException(f"获取证书列表失败: {str(e)}")
+    
+    async def get_student_certificates_summary(
+        self,
+        student_id: str,
+        status: str = "approved"
+    ) -> Dict[str, float]:
+        """获取学生证书汇总（A类和C类总分）"""
+        try:
+            certificates = await Certificate.filter(
+                student_id=student_id,
+                status=status
+            ).all()
+            
+            a_total = sum(c.score for c in certificates if c.category == "A")
+            c_total = sum(c.score for c in certificates if c.category == "C")
+            
+            return {
+                "a_total_score": a_total,
+                "c_total_score": c_total,
+                "a_count": sum(1 for c in certificates if c.category == "A"),
+                "c_count": sum(1 for c in certificates if c.category == "C"),
+                "total_count": len(certificates)
+            }
+        except Exception as e:
+            logger.error(f"获取学生证书汇总失败: {e}", exc_info=True)
+            raise DatabaseException(f"获取学生证书汇总失败: {str(e)}")
+    
+    async def update_certificate_status(
+        self,
+        certificate_id: int,
+        status: str,
+        reviewed_by: Optional[str] = None,
+        review_comment: Optional[str] = None
+    ) -> bool:
+        """更新证书状态"""
+        try:
+            certificate = await Certificate.get_or_none(id=certificate_id)
+            if not certificate:
+                return False
+            
+            certificate.status = status
+            if reviewed_by:
+                certificate.reviewed_by = reviewed_by
+            if review_comment:
+                certificate.review_comment = review_comment
+            certificate.reviewed_at = datetime.now()
+            
+            await certificate.save()
+            logger.info(f"更新证书状态成功: id={certificate_id}, status={status}")
+            return True
+        except Exception as e:
+            logger.error(f"更新证书状态失败: {e}", exc_info=True)
+            raise DatabaseException(f"更新证书状态失败: {str(e)}")
+    
+    async def update_comprehensive_score_with_certificates(
+        self,
+        student_id: str,
+        semester: str,
+        academic_year: str
+    ) -> bool:
+        """根据证书更新综测成绩中的A类和C类分数"""
+        try:
+            # 获取证书汇总
+            cert_summary = await self.get_student_certificates_summary(
+                student_id=student_id,
+                status="approved"
+            )
+            
+            # 获取现有的综测成绩
+            comp_scores = await self.get_comprehensive_scores(
+                student_id=student_id,
+                semester=semester,
+                academic_year=academic_year
+            )
+            
+            if comp_scores:
+                # 更新现有记录
+                comp_score = comp_scores[0]
+                comp_score.a_total_score = cert_summary["a_total_score"]
+                comp_score.c_total_score = cert_summary["c_total_score"]
+                await comp_score.save()
+                logger.info(f"更新综测成绩证书分数: student_id={student_id}")
+            else:
+                # 如果没有综测成绩记录，创建一个新的
+                await self.upsert_comprehensive_score(
+                    student_id=student_id,
+                    semester=semester,
+                    academic_year=academic_year,
+                    a_total_score=cert_summary["a_total_score"],
+                    b_total_score=0.0,
+                    c_total_score=cert_summary["c_total_score"],
+                    total_score=0.0,
+                    remarks="仅证书分数"
+                )
+                logger.info(f"创建综测成绩记录（仅证书）: student_id={student_id}")
+            
+            return True
+        except Exception as e:
+            logger.error(f"更新综测成绩证书分数失败: {e}", exc_info=True)
+            raise DatabaseException(f"更新综测成绩证书分数失败: {str(e)}")
 
 
 # 创建全局数据库服务实例

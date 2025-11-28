@@ -269,7 +269,7 @@ async def get_current_user_info(current_user: TokenData = Depends(get_current_us
             detail=f"获取用户信息失败: {str(e)}"
         )
 
-
+# 请求密码重置
 @router.post("/password/reset-request")
 async def request_password_reset(request: PasswordResetRequest):
     """请求密码重置
@@ -331,7 +331,7 @@ async def request_password_reset(request: PasswordResetRequest):
             detail=f"密码重置请求失败: {str(e)}"
         )
 
-
+# 确认密码重置
 @router.post("/password/reset-confirm")
 async def confirm_password_reset(confirm: PasswordResetConfirm):
     """确认密码重置
@@ -391,7 +391,7 @@ async def confirm_password_reset(confirm: PasswordResetConfirm):
             detail=f"密码重置失败: {str(e)}"
         )
 
-
+# 修改密码
 @router.post("/password/change")
 async def change_password(
     password_change: PasswordChange,

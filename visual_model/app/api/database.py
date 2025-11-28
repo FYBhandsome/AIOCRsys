@@ -10,8 +10,8 @@ from pydantic import BaseModel
 from app.models.auth import TokenData
 from app.core.auth_middleware import get_admin_user
 from app.models.tortoise_models import (
-    User, Student, Activity, ScoreRecord, 
-    ComprehensiveScore, File
+    User, Student, AcademicScore,
+    ComprehensiveScore, ComprehensiveScoreConfig, File
 )
 from app.core.logger import logger
 
@@ -40,18 +40,18 @@ class DeleteRequest(BaseModel):
 TABLE_MODELS = {
     "users": User,
     "students": Student,
-    "activities": Activity,
-    "score_records": ScoreRecord,
+    "academic_scores": AcademicScore,
     "comprehensive_scores": ComprehensiveScore,
+    "comprehensive_score_configs": ComprehensiveScoreConfig,
     "files": File
 }
 
 TABLE_DESCRIPTIONS = {
     "users": "用户信息表",
     "students": "学生信息表",
-    "activities": "学生活动表",
-    "score_records": "分数记录表",
+    "academic_scores": "学业成绩表",
     "comprehensive_scores": "综测类别总成绩表",
+    "comprehensive_score_configs": "综测成绩配置表",
     "files": "文件表"
 }
 

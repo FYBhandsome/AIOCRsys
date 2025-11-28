@@ -89,7 +89,7 @@
               </el-form-item>
               
               <div class="form-footer">
-                <router-link to="/reset-password">忘记密码？</router-link>
+                <router-link to="/forgot-password">忘记密码？</router-link>
               </div>
             </el-form>
             

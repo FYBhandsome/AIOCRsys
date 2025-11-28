@@ -4,11 +4,15 @@
 管理员API路由
 """
 from fastapi import APIRouter, Depends, File, UploadFile, HTTPException
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
+from pydantic import BaseModel, Field
 
 from app.models.auth import TokenData
 from app.core.auth_middleware import get_admin_user
 from app.services.rag_client import get_rag_client
+from app.services.database_tortoise import DatabaseService
+from app.services.dependencies import get_db_service
+from app.services.comprehensive_score_service import get_comprehensive_score_calculation_service
 from app.core.logger import logger
 
 
@@ -395,6 +399,9 @@ async def update_system_settings(
     logger.info(f"管理员 {current_user.username} 更新系统设置")
     
     # TODO: 实现设置持久化
+    # 目前仅记录日志，实际持久化需要进一步实现
+    logger.info(f"系统设置更新: {settings_data}")
+    
     return {
         "message": "系统设置已更新（部分设置需重启服务）",
         "settings": settings_data
@@ -410,10 +417,13 @@ async def list_users(
     current_user: TokenData = Depends(get_admin_user)
 ):
     """获取用户列表"""
-    # TODO: 从数据库查询用户
+    # 从数据库查询用户
+    from app.utils.business_logic import get_users_from_db
+    users = await get_users_from_db()
+    
     return {
-        "total": 0,
-        "users": []
+        "total": len(users),
+        "users": users
     }
 
 
@@ -425,8 +435,15 @@ async def create_user(
     """创建新用户"""
     logger.info(f"管理员 {current_user.username} 创建新用户")
     
-    # TODO: 实现用户创建
-    return {"message": "用户创建成功"}
+    # 实现用户创建
+    from app.utils.business_logic import create_user_in_db
+    try:
+        result = await create_user_in_db(user_data)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.delete("/users/{user_id}")
@@ -437,6 +454,615 @@ async def delete_user(
     """删除用户"""
     logger.info(f"管理员 {current_user.username} 删除用户: {user_id}")
     
-    # TODO: 实现用户删除
-    return {"message": "用户删除成功"}
+    # 实现用户删除
+    from app.utils.business_logic import delete_user_from_db
+    try:
+        result = await delete_user_from_db(user_id)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# 综测配置管理
+# ============================================================================
+
+class ComprehensiveScoreConfigCreate(BaseModel):
+    """创建综测配置请求模型"""
+    name: str = Field(..., description="配置名称")
+    description: Optional[str] = Field(None, description="配置描述")
+    a_weight: float = Field(20.0, description="A类材料权重（%）", ge=0, le=100)
+    b_weight: float = Field(70.0, description="B类材料（学习成绩）权重（%）", ge=0, le=100)
+    c_weight: float = Field(10.0, description="C类材料权重（%）", ge=0, le=100)
+    academic_score_field: str = Field(
+        "weighted_average",
+        description="学业成绩使用的字段",
+        pattern="^(arithmetic_average|weighted_average|average_gpa|average_credit_gpa|credit_gpa_sum)$"
+    )
+    academic_score_scale: float = Field(1.0, description="学业成绩缩放系数", gt=0)
+    is_active: bool = Field(True, description="是否启用")
+    is_default: bool = Field(False, description="是否为默认配置")
+    applicable_grade: Optional[str] = Field(None, description="适用年级")
+    applicable_semester: Optional[str] = Field(None, description="适用学期")
+
+
+class ComprehensiveScoreConfigUpdate(BaseModel):
+    """更新综测配置请求模型"""
+    name: Optional[str] = Field(None, description="配置名称")
+    description: Optional[str] = Field(None, description="配置描述")
+    a_weight: Optional[float] = Field(None, description="A类材料权重（%）", ge=0, le=100)
+    b_weight: Optional[float] = Field(None, description="B类材料（学习成绩）权重（%）", ge=0, le=100)
+    c_weight: Optional[float] = Field(None, description="C类材料权重（%）", ge=0, le=100)
+    academic_score_field: Optional[str] = Field(
+        None,
+        description="学业成绩使用的字段",
+        pattern="^(arithmetic_average|weighted_average|average_gpa|average_credit_gpa|credit_gpa_sum)$"
+    )
+    academic_score_scale: Optional[float] = Field(None, description="学业成绩缩放系数", gt=0)
+    is_active: Optional[bool] = Field(None, description="是否启用")
+    is_default: Optional[bool] = Field(None, description="是否为默认配置")
+    applicable_grade: Optional[str] = Field(None, description="适用年级")
+    applicable_semester: Optional[str] = Field(None, description="适用学期")
+
+
+@router.get("/comprehensive-score-config/fields")
+async def get_available_academic_fields(
+    current_user: TokenData = Depends(get_admin_user)
+):
+    """获取可选的学业成绩字段列表
+    
+    返回所有可用于计算综测成绩的学业成绩字段，包括中文标签、描述、推荐缩放系数等信息。
+    """
+    return {
+        "fields": [
+            {
+                "value": "arithmetic_average",
+                "label": "算术平均分",
+                "english_name": "Arithmetic Average",
+                "description": "所有课程成绩的算术平均值，不考虑学分权重",
+                "scale": 1.0,
+                "range": "0-100",
+                "unit": "分"
+            },
+            {
+                "value": "weighted_average",
+                "label": "学分加权平均分",
+                "english_name": "Weighted Average",
+                "description": "按学分加权的平均分，反映课程学分对总成绩的影响",
+                "scale": 1.0,
+                "range": "0-100",
+                "unit": "分",
+                "recommended": True
+            },
+            {
+                "value": "average_gpa",
+                "label": "平均绩点",
+                "english_name": "Average GPA",
+                "description": "GPA平均值（4分制），需转换为百分制使用",
+                "scale": 25.0,
+                "range": "0-4",
+                "unit": "GPA"
+            },
+            {
+                "value": "average_credit_gpa",
+                "label": "平均学分绩点",
+                "english_name": "Average Credit GPA",
+                "description": "按学分加权的GPA（4分制），需转换为百分制使用",
+                "scale": 25.0,
+                "range": "0-4",
+                "unit": "GPA"
+            },
+            {
+                "value": "credit_gpa_sum",
+                "label": "学分绩点和",
+                "english_name": "Credit GPA Sum",
+                "description": "总学分绩点和，适用于特定计算场景",
+                "scale": 1.0,
+                "range": "varies",
+                "unit": "点"
+            }
+        ]
+    }
+
+
+@router.post("/comprehensive-score-config", status_code=201)
+async def create_comprehensive_score_config(
+    config_data: ComprehensiveScoreConfigCreate,
+    current_user: TokenData = Depends(get_admin_user),
+    db_service: DatabaseService = Depends(get_db_service)
+):
+    """创建综测配置
+    
+    配置包括：
+    - A/B/C类材料权重比例
+    - 学业成绩（B类）使用的字段
+    - 学业成绩缩放系数（GPA转百分制等）
+    """
+    try:
+        logger.info(f"管理员 {current_user.username} 创建综测配置: {config_data.name}")
+        
+        # 验证权重总和
+        total_weight = config_data.a_weight + config_data.b_weight + config_data.c_weight
+        if abs(total_weight - 100.0) > 0.01:
+            raise HTTPException(
+                status_code=400,
+                detail=f"权重总和必须为100%，当前为{total_weight}%"
+            )
+        
+        # 创建配置
+        config = await db_service.create_comprehensive_score_config(
+            name=config_data.name,
+            description=config_data.description,
+            a_weight=config_data.a_weight,
+            b_weight=config_data.b_weight,
+            c_weight=config_data.c_weight,
+            academic_score_field=config_data.academic_score_field,
+            academic_score_scale=config_data.academic_score_scale,
+            is_active=config_data.is_active,
+            is_default=config_data.is_default,
+            applicable_grade=config_data.applicable_grade,
+            applicable_semester=config_data.applicable_semester
+        )
+        
+        return {
+            "id": config.id,
+            "name": config.name,
+            "description": config.description,
+            "a_weight": config.a_weight,
+            "b_weight": config.b_weight,
+            "c_weight": config.c_weight,
+            "academic_score_field": config.academic_score_field,
+            "academic_score_scale": config.academic_score_scale,
+            "is_active": config.is_active,
+            "is_default": config.is_default,
+            "applicable_grade": config.applicable_grade,
+            "applicable_semester": config.applicable_semester,
+            "created_at": config.created_at.isoformat() if config.created_at else None
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"创建综测配置失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"创建综测配置失败: {str(e)}")
+
+
+@router.get("/comprehensive-score-config")
+async def list_comprehensive_score_configs(
+    is_active: Optional[bool] = None,
+    limit: int = 100,
+    offset: int = 0,
+    current_user: TokenData = Depends(get_admin_user),
+    db_service: DatabaseService = Depends(get_db_service)
+):
+    """获取综测配置列表"""
+    try:
+        configs = await db_service.get_comprehensive_score_configs(
+            is_active=is_active,
+            limit=limit,
+            offset=offset
+        )
+        
+        config_list = []
+        for config in configs:
+            config_list.append({
+                "id": config.id,
+                "name": config.name,
+                "description": config.description,
+                "a_weight": config.a_weight,
+                "b_weight": config.b_weight,
+                "c_weight": config.c_weight,
+                "academic_score_field": config.academic_score_field,
+                "academic_score_scale": config.academic_score_scale,
+                "is_active": config.is_active,
+                "is_default": config.is_default,
+                "applicable_grade": config.applicable_grade,
+                "applicable_semester": config.applicable_semester,
+                "created_at": config.created_at.isoformat() if config.created_at else None,
+                "updated_at": config.updated_at.isoformat() if config.updated_at else None
+            })
+        
+        return {
+            "total": len(config_list),
+            "configs": config_list
+        }
+    
+    except Exception as e:
+        logger.error(f"获取综测配置列表失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"获取综测配置列表失败: {str(e)}")
+
+
+@router.get("/comprehensive-score-config/{config_id}")
+async def get_comprehensive_score_config(
+    config_id: int,
+    current_user: TokenData = Depends(get_admin_user),
+    db_service: DatabaseService = Depends(get_db_service)
+):
+    """获取单个综测配置"""
+    try:
+        config = await db_service.get_comprehensive_score_config(config_id)
+        
+        if not config:
+            raise HTTPException(status_code=404, detail=f"配置不存在: {config_id}")
+        
+        return {
+            "id": config.id,
+            "name": config.name,
+            "description": config.description,
+            "a_weight": config.a_weight,
+            "b_weight": config.b_weight,
+            "c_weight": config.c_weight,
+            "academic_score_field": config.academic_score_field,
+            "academic_score_scale": config.academic_score_scale,
+            "is_active": config.is_active,
+            "is_default": config.is_default,
+            "applicable_grade": config.applicable_grade,
+            "applicable_semester": config.applicable_semester,
+            "created_at": config.created_at.isoformat() if config.created_at else None,
+            "updated_at": config.updated_at.isoformat() if config.updated_at else None
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"获取综测配置失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"获取综测配置失败: {str(e)}")
+
+
+@router.get("/comprehensive-score-config/default")
+async def get_default_comprehensive_score_config(
+    current_user: TokenData = Depends(get_admin_user),
+    db_service: DatabaseService = Depends(get_db_service)
+):
+    """获取默认综测配置"""
+    try:
+        config = await db_service.get_default_comprehensive_score_config()
+        
+        if not config:
+            return {"message": "未设置默认配置"}
+        
+        return {
+            "id": config.id,
+            "name": config.name,
+            "description": config.description,
+            "a_weight": config.a_weight,
+            "b_weight": config.b_weight,
+            "c_weight": config.c_weight,
+            "academic_score_field": config.academic_score_field,
+            "academic_score_scale": config.academic_score_scale,
+            "applicable_grade": config.applicable_grade,
+            "applicable_semester": config.applicable_semester
+        }
+    
+    except Exception as e:
+        logger.error(f"获取默认综测配置失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"获取默认综测配置失败: {str(e)}")
+
+
+@router.put("/comprehensive-score-config/{config_id}")
+async def update_comprehensive_score_config(
+    config_id: int,
+    config_data: ComprehensiveScoreConfigUpdate,
+    current_user: TokenData = Depends(get_admin_user),
+    db_service: DatabaseService = Depends(get_db_service)
+):
+    """更新综测配置"""
+    try:
+        logger.info(f"管理员 {current_user.username} 更新综测配置: {config_id}")
+        
+        # 构建更新数据
+        update_data = config_data.dict(exclude_unset=True)
+        
+        # 如果更新了权重，验证总和
+        if any(k in update_data for k in ['a_weight', 'b_weight', 'c_weight']):
+            # 获取当前配置
+            config = await db_service.get_comprehensive_score_config(config_id)
+            if not config:
+                raise HTTPException(status_code=404, detail=f"配置不存在: {config_id}")
+            
+            a_weight = update_data.get('a_weight', config.a_weight)
+            b_weight = update_data.get('b_weight', config.b_weight)
+            c_weight = update_data.get('c_weight', config.c_weight)
+            
+            total_weight = a_weight + b_weight + c_weight
+            if abs(total_weight - 100.0) > 0.01:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"权重总和必须为100%，当前为{total_weight}%"
+                )
+        
+        # 更新配置
+        success = await db_service.update_comprehensive_score_config(config_id, **update_data)
+        
+        if not success:
+            raise HTTPException(status_code=404, detail=f"配置不存在: {config_id}")
+        
+        # 返回更新后的配置
+        config = await db_service.get_comprehensive_score_config(config_id)
+        
+        return {
+            "message": "配置更新成功",
+            "config": {
+                "id": config.id,
+                "name": config.name,
+                "description": config.description,
+                "a_weight": config.a_weight,
+                "b_weight": config.b_weight,
+                "c_weight": config.c_weight,
+                "academic_score_field": config.academic_score_field,
+                "academic_score_scale": config.academic_score_scale,
+                "is_active": config.is_active,
+                "is_default": config.is_default,
+                "applicable_grade": config.applicable_grade,
+                "applicable_semester": config.applicable_semester,
+                "updated_at": config.updated_at.isoformat() if config.updated_at else None
+            }
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"更新综测配置失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"更新综测配置失败: {str(e)}")
+
+
+@router.delete("/comprehensive-score-config/{config_id}")
+async def delete_comprehensive_score_config(
+    config_id: int,
+    current_user: TokenData = Depends(get_admin_user),
+    db_service: DatabaseService = Depends(get_db_service)
+):
+    """删除综测配置"""
+    try:
+        logger.info(f"管理员 {current_user.username} 删除综测配置: {config_id}")
+        
+        success = await db_service.delete_comprehensive_score_config(config_id)
+        
+        if not success:
+            raise HTTPException(status_code=404, detail=f"配置不存在: {config_id}")
+        
+        return {"message": "配置删除成功"}
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"删除综测配置失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"删除综测配置失败: {str(e)}")
+
+
+@router.post("/comprehensive-score/calculate")
+async def calculate_comprehensive_scores(
+    config_id: int,
+    semester: str,
+    academic_year: str,
+    class_name: Optional[str] = None,
+    current_user: TokenData = Depends(get_admin_user),
+    db_service: DatabaseService = Depends(get_db_service)
+):
+    """批量计算并更新综测成绩
+    
+    根据指定的配置和学期，计算所有学生的综测成绩。
+    
+    请求参数：
+    - config_id: 综测配置ID
+    - semester: 学期
+    - academic_year: 学年
+    - class_name: 班级（可选，不指定则计算所有班级）
+    """
+    try:
+        logger.info(
+            f"管理员 {current_user.username} 批量计算综测成绩: "
+            f"config_id={config_id}, semester={semester}, academic_year={academic_year}"
+        )
+        
+        # 获取配置
+        config = await db_service.get_comprehensive_score_config(config_id)
+        if not config:
+            raise HTTPException(status_code=404, detail=f"配置不存在: {config_id}")
+        
+        if not config.is_active:
+            raise HTTPException(status_code=400, detail="配置未启用")
+        
+        # 获取学业成绩
+        academic_scores = await db_service.get_academic_scores(
+            semester=semester,
+            academic_year=academic_year,
+            class_name=class_name
+        )
+        
+        if not academic_scores:
+            return {
+                "message": "没有找到符合条件的学业成绩",
+                "processed": 0,
+                "updated": 0,
+                "failed": 0
+            }
+        
+        # 计算综测成绩
+        calc_service = get_comprehensive_score_calculation_service()
+        
+        processed = 0
+        updated = 0
+        failed = 0
+        errors = []
+        
+        for academic_score in academic_scores:
+            try:
+                # 获取现有的综测成绩记录
+                existing_comp_score = await db_service.get_comprehensive_scores(
+                    student_id=academic_score.student_id,
+                    semester=semester,
+                    academic_year=academic_year
+                )
+                
+                # 从证书汇总获取A类和C类成绩
+                cert_summary = await db_service.get_student_certificates_summary(
+                    student_id=academic_score.student_id,
+                    status="approved"
+                )
+                
+                a_score = cert_summary.get("a_total_score", 0.0)
+                c_score = cert_summary.get("c_total_score", 0.0)
+                
+                # 如果已有记录，优先使用记录中的值（保留手动修改的分数）
+                if existing_comp_score:
+                    existing_a = existing_comp_score[0].a_total_score or 0.0
+                    existing_c = existing_comp_score[0].c_total_score or 0.0
+                    # 如果证书分数更高，则使用证书分数
+                    if cert_summary.get("a_total_score", 0.0) > existing_a:
+                        a_score = cert_summary.get("a_total_score", 0.0)
+                    else:
+                        a_score = existing_a
+                    
+                    if cert_summary.get("c_total_score", 0.0) > existing_c:
+                        c_score = cert_summary.get("c_total_score", 0.0)
+                    else:
+                        c_score = existing_c
+                
+                # 计算综测成绩
+                result = calc_service.calculate_comprehensive_score(
+                    academic_score=academic_score,
+                    config=config,
+                    a_total_score=a_score,
+                    c_total_score=c_score
+                )
+                
+                # 更新或创建综测成绩记录
+                await db_service.upsert_comprehensive_score(
+                    student_id=academic_score.student_id,
+                    semester=semester,
+                    academic_year=academic_year,
+                    a_total_score=result["a_total_score"],
+                    b_total_score=result["b_total_score"],
+                    c_total_score=result["c_total_score"],
+                    total_score=result["total_score"],
+                    remarks=f"使用配置: {config.name}"
+                )
+                
+                processed += 1
+                updated += 1
+                
+            except Exception as e:
+                failed += 1
+                logger.error(f"计算学生 {academic_score.student_id} 综测成绩失败: {e}")
+                errors.append({
+                    "student_id": academic_score.student_id,
+                    "error": str(e)
+                })
+        
+        return {
+            "message": "综测成绩计算完成",
+            "config": {
+                "id": config.id,
+                "name": config.name
+            },
+            "processed": processed,
+            "updated": updated,
+            "failed": failed,
+            "errors": errors[:10] if errors else []  # 最多返回10个错误
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"批量计算综测成绩失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"批量计算综测成绩失败: {str(e)}")
+
+
+@router.post("/comprehensive-score/preview")
+async def preview_comprehensive_score_calculation(
+    config_id: int,
+    student_id: str,
+    semester: str,
+    academic_year: str,
+    current_user: TokenData = Depends(get_admin_user),
+    db_service: DatabaseService = Depends(get_db_service)
+):
+    """预览单个学生的综测成绩计算结果
+    
+    用于测试配置是否正确，不会保存到数据库。
+    """
+    try:
+        # 获取配置
+        config = await db_service.get_comprehensive_score_config(config_id)
+        if not config:
+            raise HTTPException(status_code=404, detail=f"配置不存在: {config_id}")
+        
+        # 获取学业成绩
+        academic_scores = await db_service.get_academic_scores(
+            student_id=student_id,
+            semester=semester,
+            academic_year=academic_year
+        )
+        
+        if not academic_scores:
+            raise HTTPException(
+                status_code=404,
+                detail=f"未找到学生 {student_id} 在 {semester}/{academic_year} 的学业成绩"
+            )
+        
+        academic_score = academic_scores[0]
+        
+        # 获取现有的综测成绩记录
+        existing_comp_score = await db_service.get_comprehensive_scores(
+            student_id=student_id,
+            semester=semester,
+            academic_year=academic_year
+        )
+        
+        a_score = 0.0
+        c_score = 0.0
+        if existing_comp_score:
+            a_score = existing_comp_score[0].a_total_score or 0.0
+            c_score = existing_comp_score[0].c_total_score or 0.0
+        
+        # 计算综测成绩
+        calc_service = get_comprehensive_score_calculation_service()
+        result = calc_service.calculate_comprehensive_score(
+            academic_score=academic_score,
+            config=config,
+            a_total_score=a_score,
+            c_total_score=c_score
+        )
+        
+        # 返回详细信息
+        return {
+            "student_id": student_id,
+            "student_name": academic_score.student_name,
+            "semester": semester,
+            "academic_year": academic_year,
+            "config": {
+                "id": config.id,
+                "name": config.name,
+                "a_weight": config.a_weight,
+                "b_weight": config.b_weight,
+                "c_weight": config.c_weight,
+                "academic_score_field": config.academic_score_field,
+                "academic_score_scale": config.academic_score_scale
+            },
+            "academic_score_raw": {
+                "arithmetic_average": academic_score.arithmetic_average,
+                "weighted_average": academic_score.weighted_average,
+                "average_gpa": academic_score.average_gpa,
+                "average_credit_gpa": academic_score.average_credit_gpa,
+                "credit_gpa_sum": academic_score.credit_gpa_sum
+            },
+            "calculation": {
+                "a_score": result["a_total_score"],
+                "a_weighted": result["a_weighted_score"],
+                "b_score": result["b_total_score"],
+                "b_weighted": result["b_weighted_score"],
+                "c_score": result["c_total_score"],
+                "c_weighted": result["c_weighted_score"],
+                "total_score": result["total_score"]
+            }
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"预览综测成绩计算失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"预览综测成绩计算失败: {str(e)}")
 

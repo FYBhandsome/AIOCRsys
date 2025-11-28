@@ -10,10 +10,11 @@
 from .tortoise_models import (
     User,
     Student as DBStudent,
-    Activity as DBActivity,
-    ScoreRecord as DBScoreRecord,
+    AcademicScore,
     ComprehensiveScore,
-    File
+    ComprehensiveScoreConfig,
+    File,
+    Certificate
 )
 
 # Pydantic 模型 - 学生相关
@@ -51,10 +52,11 @@ __all__ = [
     # Tortoise ORM 模型
     "User",
     "DBStudent",
-    "DBActivity",
-    "DBScoreRecord",
+    "AcademicScore",
     "ComprehensiveScore",
+    "ComprehensiveScoreConfig",
     "File",
+    "Certificate",
     
     # 学生Pydantic模型
     "StudentCreate",

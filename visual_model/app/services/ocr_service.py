@@ -272,21 +272,47 @@ class OCRService:
             text_content = " ".join(all_texts)
             avg_confidence = sum(r["score"] for r in ocr_results) / len(ocr_results) if ocr_results else 0
             
+            # 增强的信息提取模式
             cert_info = {
                 "success": True,
                 "raw_text": text_content,
                 "confidence": round(avg_confidence, 3),
-                "name": self._extract_field(text_content, [r'姓名[：:]\s*([^\s\n]+)']),
-                "student_id": self._extract_field(text_content, [r'学号[：:]\s*([0-9]+)']),
-                "award_name": self._extract_field(text_content, [r'(.*[奖证])', r'获得\s*([^\s\n]+奖)']),
-                "award_level": self._extract_field(text_content, [
-                    r'(国家级|省级|市级|校级)', r'(一等奖|二等奖|三等奖|特等奖|优秀奖)'
+                "name": self._extract_field(text_content, [
+                    r'姓名[：:：]\s*([^\s\n，,。.]+)',
+                    r'学生[：:：]\s*([^\s\n，,。.]+)',
+                    r'获奖者[：:：]\s*([^\s\n，,。.]+)'
                 ]),
-                "award_date": self._extract_field(text_content, [
-                    r'(\d{4}年\d{1,2}月\d{1,2}日)', 
-                    r'(\d{4}-\d{1,2}-\d{1,2})'
+                "student_id": self._extract_field(text_content, [
+                    r'学号[：:：]\s*([0-9]+)',
+                    r'学生证号[：:：]\s*([0-9]+)',
+                    r'编号[：:：]\s*([0-9]+)'
+                ]),
+                "title": self._extract_field(text_content, [
+                    r'(.*[奖证书])',
+                    r'获得\s*([^\s\n，,。.]+[奖证书])',
+                    r'荣获\s*([^\s\n，,。.]+[奖证书])'
+                ]),
+                "level": self._extract_field(text_content, [
+                    r'(国家级|省级|市级|校级|院级)',
+                    r'(一等奖|二等奖|三等奖|特等奖|优秀奖|优胜奖)'
+                ]),
+                "issuer": self._extract_field(text_content, [
+                    r'(.*大学|.*学院|.*委员会|.*协会)',
+                    r'主办[：:：]\s*([^\s\n，,。.]+)',
+                    r'颁发单位[：:：]\s*([^\s\n，,。.]+)'
+                ]),
+                "issue_date": self._extract_field(text_content, [
+                    r'(\d{4}年\d{1,2}月\d{1,2}日)',
+                    r'(\d{4}-\d{1,2}-\d{1,2})',
+                    r'(\d{4}\.\d{1,2}\.\d{1,2})',
+                    r'(\d{4}/\d{1,2}/\d{1,2})'
                 ]),
             }
+            
+            # 向后兼容
+            cert_info["award_name"] = cert_info["title"]
+            cert_info["award_level"] = cert_info["level"]
+            cert_info["award_date"] = cert_info["issue_date"]
             
             logger.info(f"证书信息: name={cert_info['name']}, student_id={cert_info['student_id']}, "
                        f"award={cert_info['award_name']}, level={cert_info['award_level']}, "
@@ -303,11 +329,25 @@ class OCRService:
             }
     
     def _extract_field(self, text: str, patterns: List[str]) -> str:
-        """从文本中提取字段"""
+        """使用正则表达式从文本中提取字段
+        
+        Args:
+            text: 要搜索的文本
+            patterns: 正则表达式模式列表
+            
+        Returns:
+            提取到的字段值，如果未找到则返回空字符串
+        """
         for pattern in patterns:
-            match = re.search(pattern, text, re.IGNORECASE)
-            if match:
-                return match.group(1).strip()
+            try:
+                match = re.search(pattern, text, re.IGNORECASE)
+                if match:
+                    result = match.group(1).strip()
+                    if result:
+                        return result
+            except Exception as e:
+                logger.warning(f"正则表达式匹配失败: {pattern}, 错误: {e}")
+                continue
         return ""
 
 

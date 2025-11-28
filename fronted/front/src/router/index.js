@@ -3,12 +3,10 @@ import { useUserStore } from '@/store'
 import { ElMessage } from 'element-plus'
 
 // 开发模式配置：禁用认证（与后端保持一致）
-const DISABLE_AUTH = import.meta.env.DEV && true  // 改为 true 以禁用认证
+const DISABLE_AUTH = import.meta.env.DEV && false  // 改为 true 以禁用认证
 
 // 路由懒加载
 const Login = () => import('../views/Login.vue')
-const Register = () => import('../components/Register.vue')
-const PasswordReset = () => import('../components/PasswordReset.vue')
 const Home = () => import('../views/Home.vue')
 const StudentDashboard = () => import('../views/StudentDashboard.vue')
 const TeacherDashboard = () => import('../views/TeacherDashboard.vue')
@@ -21,6 +19,12 @@ const ScoreUpload = () => import('../views/ScoreUpload.vue')
 const ScoreAnalysis = () => import('../views/ScoreAnalysis.vue')
 const ForgotPassword = () => import('../views/ForgotPassword.vue')
 const DatabaseManager = () => import('../components/DatabaseManager.vue')
+const ComprehensiveScoreConfig = () => import('../views/ComprehensiveScoreConfig.vue')
+const LicenseManagement = () => import('../views/LicenseManagement.vue')
+const SystemMonitor = () => import('../views/SystemMonitor.vue')
+const StudentList = () => import('../views/StudentList.vue')
+const ScoreVisualization = () => import('../views/ScoreVisualization.vue')
+const ClassRanking = () => import('../views/ClassRanking.vue')
 
 // 路由配置
 const routes = [
@@ -28,18 +32,6 @@ const routes = [
     path: '/login',
     name: 'Login',
     component: Login,
-    meta: { requiresAuth: false }
-  },
-  {
-    path: '/register',
-    name: 'Register',
-    component: Register,
-    meta: { requiresAuth: false }
-  },
-  {
-    path: '/reset-password',
-    name: 'PasswordReset',
-    component: PasswordReset,
     meta: { requiresAuth: false }
   },
   {
@@ -77,6 +69,24 @@ const routes = [
         name: 'TeacherDashboard',
         component: TeacherDashboard,
         meta: { title: '教师主页', roles: ['teacher'] }
+      },
+      {
+        path: 'students',
+        name: 'StudentList',
+        component: StudentList,
+        meta: { title: '学生列表', roles: ['teacher'] }
+      },
+      {
+        path: 'visualization',
+        name: 'ScoreVisualization',
+        component: ScoreVisualization,
+        meta: { title: '成绩可视化分析', roles: ['teacher'] }
+      },
+      {
+        path: 'ranking',
+        name: 'ClassRanking',
+        component: ClassRanking,
+        meta: { title: '班级排名', roles: ['teacher'] }
       }
     ]
   },
@@ -96,6 +106,24 @@ const routes = [
         name: 'DatabaseManager',
         component: DatabaseManager,
         meta: { title: '数据库管理', roles: ['admin'] }
+      },
+      {
+        path: 'comprehensive-score-config',
+        name: 'ComprehensiveScoreConfig',
+        component: ComprehensiveScoreConfig,
+        meta: { title: '综测配置管理', roles: ['admin'] }
+      },
+      {
+        path: 'license',
+        name: 'LicenseManagement',
+        component: LicenseManagement,
+        meta: { title: '授权码管理', roles: ['admin'] }
+      },
+      {
+        path: 'system-monitor',
+        name: 'SystemMonitor',
+        component: SystemMonitor,
+        meta: { title: '系统监控', roles: ['admin'] }
       }
     ]
   },

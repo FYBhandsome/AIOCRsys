@@ -88,8 +88,8 @@ class ImageService:
             logger.error(f"保存图像失败: {e}")
             raise
     
-    def resize_image(self, image: Image.Image, size: Tuple[int, int], resample: int = Image.LANCZOS) -> Image.Image:
-        """调整图像大小
+    def pil_to_cv2(self, image: Image.Image) -> np.ndarray:
+        """将PIL图像转换为OpenCV格式
         
         Args:
             image: PIL Image对象

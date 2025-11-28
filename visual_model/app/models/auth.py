@@ -48,6 +48,17 @@ class UserCreate(BaseModel):
     class_id: Optional[str] = None    # 班级ID（学生）
 
 
+class UserUpdate(BaseModel):
+    """更新用户请求"""
+    username: Optional[str] = Field(None, min_length=3, max_length=50)
+    email: Optional[EmailStr] = None
+    role: Optional[UserRole] = None
+    real_name: Optional[str] = None
+    student_id: Optional[str] = None
+    class_id: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
 class UserResponse(BaseModel):
     """用户信息响应"""
     id: str

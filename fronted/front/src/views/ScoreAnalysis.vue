@@ -101,44 +101,180 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import * as echarts from 'echarts'
 import { TrendCharts, Top, Bottom, Compass, Histogram } from '@element-plus/icons-vue'
+import { studentAPI, teacherAPI } from '@/services/api'
 
 const activeTab = ref('radar')
 const radarChart = ref(null)
 const rankingChart = ref(null)
 const trendChart = ref(null)
 
+// 数据状态
+const loading = ref(false)
+const error = ref(null)
+const scoreStats = ref({
+  average: 0,
+  highest: 0,
+  passRate: 0,
+  excellenceRate: 0
+})
+const radarData = ref([])
+const rankingData = ref([])
+const trendData = ref([])
+
 let radarChartInstance = null
 let rankingChartInstance = null
 let trendChartInstance = null
 
-onMounted(() => {
+// 获取成绩统计数据
+const fetchScoreStats = async () => {
+  try {
+    loading.value = true
+    // 使用教师API获取班级成绩统计
+    const response = await teacherAPI.getClassStats()
+    scoreStats.value = {
+      average: response.average || 0,
+      highest: response.highest || 0,
+      passRate: response.passRate || 0,
+      excellenceRate: response.excellenceRate || 0
+    }
+  } catch (err) {
+    console.error('获取成绩统计失败:', err)
+    error.value = '获取成绩统计失败'
+  } finally {
+    loading.value = false
+  }
+}
+
+// 获取雷达图数据
+const fetchRadarData = async () => {
+  try {
+    // 使用学生API获取个人综测分析
+    const response = await studentAPI.getComprehensiveAnalysis()
+    radarData.value = response.dimensions || []
+  } catch (err) {
+    console.error('获取雷达图数据失败:', err)
+    // 使用默认数据作为后备
+    radarData.value = [
+      { name: '学业成绩', value: 85, max: 100 },
+      { name: '科研创新', value: 75, max: 100 },
+      { name: '社会实践', value: 90, max: 100 },
+      { name: '志愿服务', value: 95, max: 100 },
+      { name: '文体活动', value: 80, max: 100 }
+    ]
+  }
+}
+
+// 获取班级排名数据
+const fetchRankingData = async () => {
+  try {
+    // 使用教师API获取班级排名
+    const response = await teacherAPI.getClassRanking()
+    rankingData.value = response.ranking || []
+  } catch (err) {
+    console.error('获取班级排名数据失败:', err)
+    // 使用默认数据作为后备
+    rankingData.value = [
+      { name: '张三', score: 95 },
+      { name: '李四', score: 92 },
+      { name: '王五', score: 90 },
+      { name: '赵六', score: 88 },
+      { name: '钱七', score: 85 },
+      { name: '孙八', score: 82 },
+      { name: '周九', score: 80 },
+      { name: '吴十', score: 78 }
+    ]
+  }
+}
+
+// 获取趋势数据
+const fetchTrendData = async () => {
+  try {
+    // 使用学生API获取历史趋势
+    const response = await studentAPI.getScoreTrend()
+    trendData.value = response.trend || []
+  } catch (err) {
+    console.error('获取趋势数据失败:', err)
+    // 使用默认数据作为后备
+    trendData.value = {
+      current: [75, 78, 82, 85, 88, 90, 92, 93, 94, 95],
+      previous: [70, 73, 76, 79, 82, 84, 86, 88, 90, 92]
+    }
+  }
+}
+
+// 初始化所有数据
+const initData = async () => {
+  await Promise.all([
+    fetchScoreStats(),
+    fetchRadarData(),
+    fetchRankingData(),
+    fetchTrendData()
+  ])
+}
+
+onMounted(async () => {
+  // 先获取数据
+  await initData()
+  
   // 初始化雷达图
   radarChartInstance = echarts.init(radarChart.value)
+  updateRadarChart()
+  
+  // 初始化排行榜图
+  rankingChartInstance = echarts.init(rankingChart.value)
+  updateRankingChart()
+  
+  // 初始化趋势图
+  trendChartInstance = echarts.init(trendChart.value)
+  updateTrendChart()
+  
+  // 监听窗口大小变化，自适应图表
+  const handleResize = () => {
+    radarChartInstance?.resize()
+    rankingChartInstance?.resize()
+    trendChartInstance?.resize()
+  }
+  
+  window.addEventListener('resize', handleResize)
+  
+  // 组件卸载时清理事件监听器
+  onUnmounted(() => {
+    window.removeEventListener('resize', handleResize)
+  })
+})
+
+// 更新雷达图
+const updateRadarChart = () => {
+  const indicators = radarData.value.map(item => ({
+    name: item.name,
+    max: item.max || 100
+  }))
+  
+  const values = radarData.value.map(item => item.value || 0)
+  
   radarChartInstance.setOption({
     title: {
       text: '个人成长雷达图',
       left: 'center'
     },
     radar: {
-      indicator: [
-        { name: '学业成绩', max: 100 },
-        { name: '科研创新', max: 100 },
-        { name: '社会实践', max: 100 },
-        { name: '志愿服务', max: 100 },
-        { name: '文体活动', max: 100 }
-      ]
+      indicator: indicators
     },
     series: [{
       type: 'radar',
       data: [{
-        value: [85, 75, 90, 95, 80],
+        value: values,
         name: '个人综测'
       }]
     }]
   })
+}
+
+// 更新排行榜图
+const updateRankingChart = () => {
+  const names = rankingData.value.map(item => item.name)
+  const scores = rankingData.value.map(item => item.score)
   
-  // 初始化排行榜图
-  rankingChartInstance = echarts.init(rankingChart.value)
   rankingChartInstance.setOption({
     title: {
       text: '班级综测排行榜',
@@ -146,13 +282,13 @@ onMounted(() => {
     },
     xAxis: {
       type: 'category',
-      data: ['张三', '李四', '王五', '赵六', '钱七', '孙八', '周九', '吴十']
+      data: names
     },
     yAxis: {
       type: 'value'
     },
     series: [{
-      data: [95, 92, 90, 88, 85, 82, 80, 78],
+      data: scores,
       type: 'bar',
       itemStyle: {
         color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
@@ -172,9 +308,13 @@ onMounted(() => {
       }
     }]
   })
+}
+
+// 更新趋势图
+const updateTrendChart = () => {
+  const currentData = Array.isArray(trendData.value) ? trendData.value : trendData.value.current || []
+  const previousData = Array.isArray(trendData.value) ? [] : trendData.value.previous || []
   
-  // 初始化趋势图
-  trendChartInstance = echarts.init(trendChart.value)
   trendChartInstance.setOption({
     title: {
       text: '历史趋势对比',
@@ -196,33 +336,19 @@ onMounted(() => {
     series: [
       {
         name: '当前学期',
-        data: [75, 78, 82, 85, 88, 90, 92, 93, 94, 95],
+        data: currentData,
         type: 'line',
         smooth: true
       },
       {
         name: '上一学期',
-        data: [70, 73, 76, 79, 82, 84, 86, 88, 90, 92],
+        data: previousData,
         type: 'line',
         smooth: true
       }
     ]
   })
-  
-  // 监听窗口大小变化，自适应图表
-  const handleResize = () => {
-    radarChartInstance?.resize()
-    rankingChartInstance?.resize()
-    trendChartInstance?.resize()
-  }
-  
-  window.addEventListener('resize', handleResize)
-  
-  // 组件卸载时清理事件监听器
-  onUnmounted(() => {
-    window.removeEventListener('resize', handleResize)
-  })
-})
+}
 </script>
 
 <style scoped>

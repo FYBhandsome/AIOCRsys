@@ -135,7 +135,7 @@
 import { ref, reactive, onUnmounted, computed } from 'vue'
 import { UploadFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { studentAPI } from '@/services/api'
+import { studentAPI, commonAPI } from '@/services/api'
 
 // 响应式数据
 const uploadRef = ref()
@@ -235,7 +235,7 @@ const startPolling = () => {
   
   pollingTimer = setInterval(async () => {
     try {
-      const response = await uploadAPI.getTaskStatus(taskId.value)
+      const response = await commonAPI.get(`/upload/task/${taskId.value}/status`)
       
       taskStatus.value = response.status
       // 后端 progress 为 0.0~1.0，前端展示用 0~1 范围
@@ -265,7 +265,7 @@ const startPolling = () => {
 // 获取识别结果
 const fetchResult = async () => {
   try {
-    const response = await uploadAPI.getTaskResult(taskId.value)
+    const response = await commonAPI.get(`/upload/task/${taskId.value}/result`)
     recognitionResult.value = response
     showResult.value = true
   } catch (error) {

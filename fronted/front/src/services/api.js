@@ -197,6 +197,22 @@ export const authAPI = {
   // 获取当前用户信息
   getUserInfo: () => {
     return api.get('/v1/auth/me')
+  },
+  
+  // 请求密码重置
+  requestPasswordReset: (email) => {
+    return api.post('/v1/auth/password/reset-request', {
+      email
+    })
+  },
+  
+  // 确认密码重置
+  confirmPasswordReset: (email, verificationCode, newPassword) => {
+    return api.post('/v1/auth/password/reset-confirm', {
+      email,
+      verification_code: verificationCode,
+      new_password: newPassword
+    })
   }
 }
 
@@ -233,6 +249,16 @@ export const studentAPI = {
   // 获取上传历史
   getUploadHistory: () => {
     return api.get('/v1/student/uploads')
+  },
+  
+  // 获取综合分析数据
+  getComprehensiveAnalysis: () => {
+    return api.get('/v1/student/comprehensive/analysis')
+  },
+  
+  // 获取成绩趋势数据
+  getScoreTrend: () => {
+    return api.get('/v1/student/scores/trend')
   }
 }
 
@@ -257,12 +283,7 @@ export const teacherAPI = {
     })
   },
   
-  // 成绩分析
-  getScoresAnalysis: (classId) => {
-    return api.get('/v1/teacher/scores/analysis', {
-      params: { class_id: classId }
-    })
-  },
+
   
   // 查看学生列表
   getStudents: (classId) => {
@@ -279,6 +300,132 @@ export const teacherAPI = {
   // 获取班级列表
   getClasses: () => {
     return api.get('/v1/teacher/classes')
+  },
+  
+  // 获取班级列表（别名）
+  getClassList: () => {
+    return api.get('/v1/teacher/classes')
+  },
+  
+  // ============ 学生管理 ============
+  
+  // 学生列表
+  getStudentList: (params) => {
+    return api.get('/v1/teacher/students', { params });
+  },
+  
+  // 获取学生详情
+  getStudentDetail: (studentId) => {
+    return api.get(`/v1/teacher/students/${studentId}`)
+  },
+  
+  // 创建学生
+  createStudent: (studentData) => {
+    return api.post('/v1/teacher/students', studentData)
+  },
+  
+  // 更新学生信息
+  updateStudent: (studentId, studentData) => {
+    return api.put(`/v1/teacher/students/${studentId}`, studentData)
+  },
+  
+  // 删除学生
+  deleteStudent: (studentId) => {
+    return api.delete(`/v1/teacher/students/${studentId}`)
+  },
+  
+  // 重置学生密码
+  resetStudentPassword: (studentId) => {
+    return api.post(`/v1/teacher/students/${studentId}/reset-password`)
+  },
+  
+  // 更新学生状态
+  updateStudentStatus: (studentId, status) => {
+    return api.patch(`/v1/teacher/students/${studentId}/status`, { status })
+  },
+  
+  // 批量导入学生
+  importStudents: (formData) => {
+    return api.post('/v1/teacher/students/import', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  },
+  
+  // 导出学生数据
+  exportStudents: (params) => {
+    return api.get('/v1/teacher/students/export', { 
+      params,
+      responseType: 'blob'
+    })
+  },
+  
+  // 获取班级统计信息
+  getClassStats: (classId) => {
+    return api.get('/v1/teacher/classes/stats', {
+      params: { class_id: classId }
+    })
+  },
+  
+  // 获取班级排名
+  getClassRanking: (classId) => {
+    return api.get('/v1/teacher/classes/ranking', {
+      params: { class_id: classId }
+    })
+  },
+  
+  // ============ 成绩可视化分析 ============
+  
+  // 获取成绩分布数据
+  getScoreDistribution: (params) => {
+    return api.get('/v1/teacher/analysis/distribution', { params })
+  },
+  
+  // 获取科目成绩对比数据
+  getSubjectComparison: (params) => {
+    return api.get('/v1/teacher/analysis/subject-comparison', { params })
+  },
+  
+  // 获取成绩趋势数据
+  getScoreTrend: (params) => {
+    return api.get('/v1/teacher/analysis/trend', { params })
+  },
+  
+  // 获取班级对比数据
+  getClassComparison: (params) => {
+    return api.get('/v1/teacher/analysis/class-comparison', { params })
+  },
+  
+  // 获取成绩相关性数据
+  getScoreCorrelation: (params) => {
+    return api.get('/v1/teacher/analysis/correlation', { params })
+  },
+  
+  // 获取学生成绩详情
+  getStudentScoreDetail: (studentId) => {
+    return api.get(`/v1/teacher/students/${studentId}/score-detail`)
+  },
+  
+  // 导出成绩分析数据
+  exportAnalysisData: (params) => {
+    return api.get('/v1/teacher/analysis/export', { 
+      params,
+      responseType: 'blob'
+    })
+  },
+  
+  // ============ 班级排名 ============
+  
+  // 获取班级学生排名
+  getClassStudentRanking: (classId) => {
+    return api.get(`/v1/teacher/classes/${classId}/student-ranking`)
+  },
+  
+  // 导出班级排名数据
+  exportClassRanking: (params) => {
+    return api.get('/v1/teacher/classes/ranking/export', { 
+      params,
+      responseType: 'blob'
+    })
   }
 }
 
@@ -430,51 +577,31 @@ export const adminAPI = {
   }
 }
 
-// ==================== 通用上传API ====================
-export const uploadAPI = {
-  // 上传文件
-  uploadFile: (file, onProgress) => {
-    const formData = new FormData()
-    formData.append('file', file)
-    
-    return api.post('/v1/upload/file', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-      onUploadProgress: progressEvent => {
-        if (onProgress) {
-          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total)
-          onProgress(percentCompleted)
-        }
-      },
-      timeout: 60000,
-      ...createRetryConfig({}, 2, 2000)
-    })
+// ==================== 通用API ====================
+export const commonAPI = {
+  // GET请求
+  get: (url, config) => {
+    return api.get(url, config)
   },
   
-  // 获取任务状态
-  getTaskStatus: (taskId) => {
-    return api.get(`/v1/upload/status/${taskId}`, {
-      showLoading: false,
-      ...createRetryConfig({}, 3, 1000)
-    })
+  // POST请求
+  post: (url, data, config) => {
+    return api.post(url, data, config)
   },
   
-  // 获取任务结果
-  getTaskResult: (taskId) => {
-    return api.get(`/v1/upload/result/${taskId}`, {
-      ...createRetryConfig({}, 3, 1000)
-    })
-  }
-}
-
-// ==================== AI助手API ====================
-export const aiAssistantAPI = {
-  sendMessage: (message, userId) => {
-    return api.post('/v1/ai/chat', {
-      message,
-      userId
-    }, {
-      ...createRetryConfig({}, 2, 1000)
-    })
+  // PUT请求
+  put: (url, data, config) => {
+    return api.put(url, data, config)
+  },
+  
+  // DELETE请求
+  delete: (url, config) => {
+    return api.delete(url, config)
+  },
+  
+  // PATCH请求
+  patch: (url, data, config) => {
+    return api.patch(url, data, config)
   }
 }
 

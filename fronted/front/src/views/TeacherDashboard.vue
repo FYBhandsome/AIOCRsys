@@ -62,6 +62,22 @@
             <el-button type="info" size="small">查看学生</el-button>
           </el-card>
         </el-col>
+        <el-col :xs="24" :sm="12" :md="8">
+          <el-card class="action-card" @click="navigateToVisualization">
+            <div class="action-icon">📊</div>
+            <h3 class="action-title">成绩可视化</h3>
+            <p class="action-desc">多维度分析班级成绩分布</p>
+            <el-button type="warning" size="small">查看分析</el-button>
+          </el-card>
+        </el-col>
+        <el-col :xs="24" :sm="12" :md="8">
+          <el-card class="action-card" @click="navigateToRanking">
+            <div class="action-icon">🏆</div>
+            <h3 class="action-title">班级排名</h3>
+            <p class="action-desc">查看班级成绩排名情况</p>
+            <el-button type="success" size="small">查看排名</el-button>
+          </el-card>
+        </el-col>
       </el-row>
     </div>
 
@@ -111,15 +127,17 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useUserStore } from '@/store'
+import { useRouter } from 'vue-router'
 import { Lightning, Upload, TrendCharts, User } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import ScoreUpload from '@/views/ScoreUpload.vue'
 import ScoreAnalysis from '@/views/ScoreAnalysis.vue'
-import StudentList from '@/components/StudentList.vue'
+import StudentList from '@/views/StudentList.vue'
 import AIAssistant from '@/components/AIAssistant.vue'
 import { teacherAPI } from '@/services/api'
 
 const userStore = useUserStore()
+const router = useRouter()
 
 // 统计数据
 const classCount = ref(0)
@@ -170,6 +188,16 @@ const loadTeacherData = async () => {
   } finally {
     loading.value = false
   }
+}
+
+// 导航到成绩可视化分析页面
+const navigateToVisualization = () => {
+  router.push('/teacher/visualization')
+}
+
+// 导航到班级排名页面
+const navigateToRanking = () => {
+  router.push('/teacher/ranking')
 }
 
 // 组件挂载时加载数据

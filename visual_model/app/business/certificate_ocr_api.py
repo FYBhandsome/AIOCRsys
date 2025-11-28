@@ -14,14 +14,13 @@ import asyncio
 
 from app.core.logger import logger
 from app.core.executor_manager import get_executor
-from app.business import CertificateOCRService
+from app.services.ocr_service import get_ocr_service
 from app.models.upload import OCRResult
 from app.services.upload_service import get_upload_service, UploadService
 from config import settings
 
 
 router = APIRouter()
-certificate_ocr_service = CertificateOCRService()
 
 
 async def _process_single_certificate(
@@ -45,11 +44,27 @@ async def _process_single_certificate(
     
     # 在线程池中同步处理OCR识别（避免阻塞事件循环）
     executor = get_executor()
-    result = await asyncio.get_event_loop().run_in_executor(
+    ocr_service = get_ocr_service()
+    
+    # OCR识别
+    ocr_results = await asyncio.get_event_loop().run_in_executor(
         executor,
-        certificate_ocr_service.process_certificate_image,
+        ocr_service.recognize_text,
         file_path
     )
+    
+    # 提取证书信息
+    certificate_info = ocr_service.extract_certificate_info(
+        image_path=file_path,
+        ocr_results=ocr_results
+    )
+    
+    result = {
+        "success": True,
+        "image_path": file_path,
+        "ocr_results": ocr_results,
+        "certificate_info": certificate_info
+    }
     
     return {
         "file_id": task_id,

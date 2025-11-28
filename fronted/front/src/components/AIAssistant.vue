@@ -39,6 +39,24 @@
             <div class="ai-assistant__time">{{ message.time }}</div>
           </div>
         </div>
+        
+        <!-- 加载中的消息 -->
+        <div v-if="isSending" class="ai-assistant__message ai-assistant__message--ai">
+          <div class="ai-assistant__avatar">
+            <el-icon><MagicStick /></el-icon>
+          </div>
+          <div class="ai-assistant__content">
+            <div class="ai-assistant__text ai-assistant__text--loading">
+              <span>正在思考中</span>
+              <div class="ai-assistant__dots">
+                <span class="ai-assistant__dot"></span>
+                <span class="ai-assistant__dot"></span>
+                <span class="ai-assistant__dot"></span>
+              </div>
+            </div>
+            <div class="ai-assistant__time">{{ getCurrentTime() }}</div>
+          </div>
+        </div>
       </div>
       
       <div class="ai-assistant__input">
@@ -47,12 +65,12 @@
           placeholder="询问综测相关问题..."
           @keyup.enter="sendMessage"
           class="ai-assistant__input-field"
+          :disabled="isSending"
         >
           <template #append>
             <el-button 
               type="primary" 
               @click="sendMessage"
-              :loading="isSending"
             >
               发送
             </el-button>
@@ -84,7 +102,7 @@ import {
   User
 } from '@element-plus/icons-vue'
 import { useUserStore } from '../store'
-import { aiAssistantAPI } from '../services/api'
+import { commonAPI } from '../services/api'
 
 const userStore = useUserStore()
 
@@ -137,7 +155,10 @@ const sendMessage = async () => {
   
   try {
     // 调用后端API获取AI回复（与后端模型对齐）
-    const resp = await aiAssistantAPI.sendMessage(userQuestion, userStore?.userInfo?.id || 'anonymous')
+    const resp = await commonAPI.post('/ai/assistant/message', {
+      question: userQuestion,
+      userId: userStore?.userInfo?.id || 'anonymous'
+    })
     
     const aiContent = resp?.response || resp?.data?.response || '抱歉，我没有理解您的问题，请重新表述。'
     const aiMessage = {
@@ -335,6 +356,42 @@ onMounted(() => {
   border-radius: 18px;
   font-size: 14px;
   line-height: 1.5;
+}
+
+.ai-assistant__text--loading {
+  display: flex;
+  align-items: center;
+}
+
+.ai-assistant__dots {
+  display: inline-flex;
+  margin-left: 5px;
+}
+
+.ai-assistant__dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background-color: #667eea;
+  margin: 0 2px;
+  animation: dotPulse 1.4s infinite ease-in-out both;
+}
+
+.ai-assistant__dot:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.ai-assistant__dot:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+@keyframes dotPulse {
+  0%, 80%, 100% {
+    transform: scale(0);
+  }
+  40% {
+    transform: scale(1);
+  }
 }
 
 .ai-assistant__message--ai .ai-assistant__text {

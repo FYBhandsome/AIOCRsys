@@ -1,14 +1,25 @@
+# FastAPI核心依赖
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
+
+# PaddleOCR相关
 paddlepaddle==3.2.0
 paddleocr==3.3.0
 opencv-python-headless==4.10.0.84
 numpy<2.0.0
+
+# 数据验证和配置
 pydantic==2.12.3
 pydantic-settings==2.7.1
+
+# 文件上传和处理
 python-multipart==0.0.9
-Pillow>=10
+Pillow>=10.0.0
+
+# 日志
 loguru==0.7.2
+
+# 数据库ORM
 aerich==0.7.2
 tortoise-orm==0.21.7
 
@@ -22,6 +33,16 @@ httpx==0.27.2
 # Email验证
 email-validator==2.3.0
 
+# Excel文件处理
+pandas>=2.0.0
+openpyxl>=3.1.0
+
 # 测试依赖
 pytest==8.3.3
+pytest-asyncio==0.23.0
 requests==2.32.3
+
+# 开发工具
+black==23.12.1
+isort==5.13.2
+flake8==7.0.0

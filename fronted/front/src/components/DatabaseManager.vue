@@ -1,7 +1,10 @@
-<template>
+﻿<template>
   <div class="database-manager">
-    <PageTemplate title="数据库管理" subtitle="查看和管理系统数据">
-      <div class="database-content">
+    <div class="page-header">
+      <h1>数据库管理</h1>
+      <p>查看和管理系统数据</p>
+    </div>
+    <div class="database-content">
         <!-- 统计信息 -->
         <el-row :gutter="20" class="stats-row">
           <el-col :span="6">
@@ -135,8 +138,7 @@
             <el-button type="primary" @click="refreshTableData">刷新数据</el-button>
           </template>
         </el-dialog>
-      </div>
-    </PageTemplate>
+    </div>
   </div>
 </template>
 
@@ -144,7 +146,6 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, View, Refresh, DataBoard, Document } from '@element-plus/icons-vue'
-import PageTemplate from './PageTemplate.vue'
 import api from '../services/api'
 
 const tables = ref([])
@@ -170,7 +171,7 @@ const refreshingTables = reactive({})
 // 加载数据表列表
 const loadTables = async () => {
   try {
-    const response = await api.get('/admin/database/tables')
+    const response = await api.get('/api/v1/admin/database/tables')
     tables.value = response.data
   } catch (error) {
     console.error('加载表列表失败:', error)
@@ -181,7 +182,7 @@ const loadTables = async () => {
 // 加载统计信息
 const loadStats = async () => {
   try {
-    const response = await api.get('/admin/database/stats')
+    const response = await api.get('/api/v1/admin/database/stats')
     stats.tables = response.data.tables
     stats.total_records = response.data.total_records
   } catch (error) {
@@ -201,7 +202,7 @@ const viewTableData = async (tableName) => {
 const loadTableData = async () => {
   try {
     const skip = (pagination.page - 1) * pagination.limit
-    const response = await api.get(`/admin/database/tables/${currentTable.value}/data`, {
+    const response = await api.get(`/api/v1/admin/database/tables/${currentTable.value}/data`, {
       params: {
         skip,
         limit: pagination.limit
@@ -252,7 +253,7 @@ const deleteRecord = async (recordId) => {
       }
     )
 
-    await api.delete(`/admin/database/tables/${currentTable.value}/records/${recordId}`)
+    await api.delete(`/api/v1/admin/database/tables/${currentTable.value}/records/${recordId}`)
     ElMessage.success('删除成功')
     await loadTableData()
     await loadTables()
@@ -281,7 +282,7 @@ const handleClearTable = async (tableName) => {
       }
     )
 
-    await api.delete(`/admin/database/tables/${tableName}/clear`, {
+    await api.delete(`/api/v1/admin/database/tables/${tableName}/clear`, {
       params: { confirm: tableName }
     })
 
@@ -319,7 +320,7 @@ const handleClearAll = async () => {
     )
 
     clearingAll.value = true
-    await api.delete('/admin/database/clear-all', {
+    await api.delete('/api/v1/admin/database/clear-all', {
       params: { confirm: 'DELETE_ALL_DATA' }
     })
 
@@ -328,9 +329,9 @@ const handleClearAll = async () => {
     await loadStats()
     dataDialogVisible.value = false
   } catch (error) {
-    if (error !== 'cancel') {
+    if (error !== 'cancel' && error !== 'close') {
       console.error('清空所有数据失败:', error)
-      const errorMsg = error.response?.data?.detail || '清空所有数据失败'
+      const errorMsg = error.response?.data?.detail || error.message || '清空所有数据失败'
       ElMessage.error(errorMsg)
     }
   } finally {
@@ -367,6 +368,28 @@ onMounted(() => {
 <style scoped>
 .database-manager {
   padding: 20px;
+}
+
+.page-header {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.page-header h1 {
+  font-size: 28px;
+  color: #2c3e50;
+  margin: 0 0 10px 0;
+  font-weight: 600;
+}
+
+.page-header p {
+  color: #606266;
+  margin: 0;
+  font-size: 16px;
 }
 
 .database-content {

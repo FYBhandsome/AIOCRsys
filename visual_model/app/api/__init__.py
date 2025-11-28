@@ -7,7 +7,7 @@ API路由模块
 """
 
 from fastapi import APIRouter
-from app.api import upload, class_, class_data, student_data
+from app.api import upload, class_
 from app.api import auth, student, teacher, admin, license, ai, database
 from app.business.certificate_ocr_api import router as certificate_ocr_router
 
@@ -34,6 +34,4 @@ api_router.include_router(ai.router)
 # 原有路由（保持兼容）
 api_router.include_router(upload.router)
 api_router.include_router(class_.router)
-api_router.include_router(class_data.router)
-api_router.include_router(student_data.router)
 api_router.include_router(certificate_ocr_router, prefix="/business", tags=["证书OCR"])

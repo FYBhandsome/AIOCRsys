@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-邮件发送服务
+邮件发送服务 - 仅支持验证码方式的密码重置
 """
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from typing import List, Optional
-from datetime import datetime, timedelta
-import secrets
+from typing import Optional
+from datetime import datetime
 
 from app.core.logger import logger
 from config import settings
@@ -87,233 +86,6 @@ class EmailService:
             logger.error(f"邮件发送失败: {to_email} - {e}")
             return False
     
-    async def send_verification_email(
-        self,
-        to_email: str,
-        username: str,
-        verification_link: str
-    ) -> bool:
-        """发送邮箱验证邮件
-        
-        Args:
-            to_email: 收件人邮箱
-            username: 用户名
-            verification_link: 验证链接
-            
-        Returns:
-            bool: 发送成功返回True，否则False
-        """
-        subject = "综测计算助手 - 邮箱验证"
-        
-        body = f"""
-        您好 {username}，
-        
-        感谢您注册综测计算助手！
-        
-        请点击以下链接验证您的邮箱：
-        {verification_link}
-        
-        如果您没有注册账号，请忽略此邮件。
-        
-        此链接将在24小时后失效。
-        
-        ---
-        综测计算助手团队
-        """
-        
-        html = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <style>
-                body {{
-                    font-family: Arial, sans-serif;
-                    line-height: 1.6;
-                    color: #333;
-                }}
-                .container {{
-                    max-width: 600px;
-                    margin: 0 auto;
-                    padding: 20px;
-                    background-color: #f9f9f9;
-                }}
-                .header {{
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    color: white;
-                    padding: 30px;
-                    text-align: center;
-                    border-radius: 10px 10px 0 0;
-                }}
-                .content {{
-                    background: white;
-                    padding: 30px;
-                    border-radius: 0 0 10px 10px;
-                }}
-                .button {{
-                    display: inline-block;
-                    padding: 12px 30px;
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    color: white;
-                    text-decoration: none;
-                    border-radius: 5px;
-                    margin: 20px 0;
-                }}
-                .footer {{
-                    text-align: center;
-                    margin-top: 20px;
-                    color: #666;
-                    font-size: 12px;
-                }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="header">
-                    <h1>📧 邮箱验证</h1>
-                </div>
-                <div class="content">
-                    <p>您好 <strong>{username}</strong>，</p>
-                    <p>感谢您注册<strong>综测计算助手</strong>！</p>
-                    <p>请点击下方按钮验证您的邮箱：</p>
-                    <div style="text-align: center;">
-                        <a href="{verification_link}" class="button">验证邮箱</a>
-                    </div>
-                    <p>如果按钮无法点击，请复制以下链接到浏览器：</p>
-                    <p style="word-break: break-all; color: #667eea;">{verification_link}</p>
-                    <p style="color: #999; font-size: 14px;">如果您没有注册账号，请忽略此邮件。</p>
-                    <p style="color: #999; font-size: 14px;">此链接将在24小时后失效。</p>
-                </div>
-                <div class="footer">
-                    <p>综测计算助手团队</p>
-                    <p>{datetime.now().strftime('%Y年%m月%d日')}</p>
-                </div>
-            </div>
-        </body>
-        </html>
-        """
-        
-        return await self.send_email(to_email, subject, body, html)
-    
-    async def send_password_reset_email(
-        self,
-        to_email: str,
-        username: str,
-        reset_link: str
-    ) -> bool:
-        """发送密码重置邮件
-        
-        Args:
-            to_email: 收件人邮箱
-            username: 用户名
-            reset_link: 重置链接
-            
-        Returns:
-            bool: 发送成功返回True，否则False
-        """
-        subject = "综测计算助手 - 密码重置"
-        
-        body = f"""
-        您好 {username}，
-        
-        我们收到了您的密码重置请求。
-        
-        请点击以下链接重置您的密码：
-        {reset_link}
-        
-        如果您没有请求重置密码，请忽略此邮件。
-        
-        此链接将在1小时后失效。
-        
-        ---
-        综测计算助手团队
-        """
-        
-        html = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <style>
-                body {{
-                    font-family: Arial, sans-serif;
-                    line-height: 1.6;
-                    color: #333;
-                }}
-                .container {{
-                    max-width: 600px;
-                    margin: 0 auto;
-                    padding: 20px;
-                    background-color: #f9f9f9;
-                }}
-                .header {{
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    color: white;
-                    padding: 30px;
-                    text-align: center;
-                    border-radius: 10px 10px 0 0;
-                }}
-                .content {{
-                    background: white;
-                    padding: 30px;
-                    border-radius: 0 0 10px 10px;
-                }}
-                .button {{
-                    display: inline-block;
-                    padding: 12px 30px;
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    color: white;
-                    text-decoration: none;
-                    border-radius: 5px;
-                    margin: 20px 0;
-                }}
-                .warning {{
-                    background-color: #fff3cd;
-                    border-left: 4px solid #ffc107;
-                    padding: 15px;
-                    margin: 20px 0;
-                }}
-                .footer {{
-                    text-align: center;
-                    margin-top: 20px;
-                    color: #666;
-                    font-size: 12px;
-                }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="header">
-                    <h1>🔒 密码重置</h1>
-                </div>
-                <div class="content">
-                    <p>您好 <strong>{username}</strong>，</p>
-                    <p>我们收到了您的密码重置请求。</p>
-                    <p>请点击下方按钮重置您的密码：</p>
-                    <div style="text-align: center;">
-                        <a href="{reset_link}" class="button">重置密码</a>
-                    </div>
-                    <p>如果按钮无法点击，请复制以下链接到浏览器：</p>
-                    <p style="word-break: break-all; color: #667eea;">{reset_link}</p>
-                    <div class="warning">
-                        <strong>⚠️ 安全提示：</strong>
-                        <ul>
-                            <li>如果您没有请求重置密码，请立即忽略此邮件</li>
-                            <li>此链接将在1小时后失效</li>
-                            <li>请勿将此链接分享给他人</li>
-                        </ul>
-                    </div>
-                </div>
-                <div class="footer">
-                    <p>综测计算助手团队</p>
-                    <p>{datetime.now().strftime('%Y年%m月%d日')}</p>
-                </div>
-            </div>
-        </body>
-        </html>
-        """
-        
-        return await self.send_email(to_email, subject, body, html)
     
     async def send_verification_code_email(
         self,
@@ -441,15 +213,6 @@ class EmailService:
         """
         
         return await self.send_email(to_email, subject, body, html)
-
-
-def generate_reset_token() -> str:
-    """生成密码重置令牌
-    
-    Returns:
-        str: 随机生成的令牌字符串
-    """
-    return secrets.token_urlsafe(32)
 
 
 def generate_verification_code() -> str:
