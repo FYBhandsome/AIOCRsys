@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "provider": "xunfei",
+  "api_key": "sk-Pv9SSZZx5yADN4FxB442A4Cc64074031A697E8C18aFb8874",
+  "access_key": "",
+  "api_base_url": "https://maas-api.cn-huabei-1.xf-yun.com/v1",
+  "model_id": "xop3qwen1b7",
+  "temperature": 0.15,
+  "max_tokens": 1536,
+  "updated_at": "2025-11-05T12:37:37.702960",
+  "version": "1.0"
+}

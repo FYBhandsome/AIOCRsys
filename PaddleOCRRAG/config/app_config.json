@@ -1,0 +1,30 @@
+{
+  "llm": {
+    "enabled": true,
+    "provider": "xunfei",
+    "api_key": "sk-Pv9SSZZx5yADN4FxB442A4Cc64074031A697E8C18aFb8874",
+    "api_secret": "",
+    "app_id": "",
+    "api_base_url": "https://spark-api.xf-yun.com/v3.1/chat",
+    "model_id": "xop3qwen1b7",
+    "temperature": 0.7,
+    "max_tokens": 2000
+  },
+  "vector_db": {
+    "embedding_model": "shibing624/text2vec-base-chinese",
+    "persist_directory": "./data/vector_db",
+    "chunk_size": 500,
+    "chunk_overlap": 50
+  },
+  "rag": {
+    "top_k": 5,
+    "similarity_threshold": 0.7,
+    "chain_type": "stuff"
+  },
+  "prompt": {
+    "system_prompt": "你是一个专业的证书审核助手，专门帮助用户分析各类证书的加分情况。",
+    "user_prompt": "请帮我分析以下证书的加分情况：",
+    "chat_system_prompt": "你是一个专业的证书审核助手，可以回答用户关于证书审核、加分标准等问题。",
+    "custom_prompts": {}
+  }
+}
