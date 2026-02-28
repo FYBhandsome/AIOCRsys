@@ -9,11 +9,14 @@ import os
 import sys
 import pytest
 import logging
-from typing import AsyncGenerator, Generator
+import tempfile
+import shutil
+from typing import AsyncGenerator, Generator, Dict, Any
 from datetime import datetime
 from httpx import AsyncClient, ASGITransport
 from unittest.mock import AsyncMock, patch, MagicMock
 from tortoise import Tortoise
+from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -84,6 +87,84 @@ TEST_CERTIFICATES = [
         "expected_score": 12.0
     }
 ]
+
+TEST_STUDENTS = [
+    {
+        "id": "202300502101",
+        "name": "张三",
+        "gender": "男",
+        "class_name": "计算机2301",
+        "major": "计算机科学与技术",
+        "grade": "2023"
+    },
+    {
+        "id": "202300502102",
+        "name": "李四",
+        "gender": "女",
+        "class_name": "计算机2301",
+        "major": "计算机科学与技术",
+        "grade": "2023"
+    },
+    {
+        "id": "202300502103",
+        "name": "王五",
+        "gender": "男",
+        "class_name": "计算机2302",
+        "major": "计算机科学与技术",
+        "grade": "2023"
+    }
+]
+
+TEST_ACADEMIC_SCORES = [
+    {
+        "student_id": "202300502101",
+        "academic_year": "2023-2024",
+        "semester": "1",
+        "course_name": "高等数学",
+        "credit": 4.0,
+        "score": 85.0,
+        "score_type": "期末成绩"
+    },
+    {
+        "student_id": "202300502101",
+        "academic_year": "2023-2024",
+        "semester": "1",
+        "course_name": "大学英语",
+        "credit": 3.0,
+        "score": 90.0,
+        "score_type": "期末成绩"
+    }
+]
+
+TEST_COMPREHENSIVE_SCORES = [
+    {
+        "student_id": "202300502101",
+        "academic_year": "2023-2024",
+        "semester": "1",
+        "a_total_score": 15.0,
+        "b_total_score": 70.0,
+        "c_total_score": 8.0,
+        "total_score": 93.0
+    }
+]
+
+TEST_FILES = {
+    "image": {
+        "filename": "test_certificate.jpg",
+        "content": b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00\xff\xdb\x00C\x00\x08\x06\x06\x07\x06\x05\x08\x07\x07\x07\t\t\x08\n\x0c\x14\r\x0c\x0b\x0b\x0c\x19\x12\x13\x0f\x14\x1d\x1a\x1f\x1e\x1d\x1a\x1c\x1c $.\' \",#\x1c\x1c(7),01444\x1f\'9=82<.342\xff\xc0\x00\x0b\x08\x00\x01\x00\x01\x01\x01\x11\x00\xff\xc4\x00\x1f\x00\x00\x01\x05\x01\x01\x01\x01\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\xff\xc4\x00\xb5\x10\x00\x02\x01\x03\x03\x02\x04\x03\x05\x05\x04\x04\x00\x00\x01}\x01\x02\x03\x00\x04\x11\x05\x12!1A\x06\x13Qa\x07\"q\x142\x81\x91\xa1\x08#B\xb1\xc1\x15R\xd1F0b\x16$3br\x82\t\n\x17\x18\x19\x1a%&\'()*456789:CDEFGHIJSTUVWXYZcdefghijstuvwxyz\x83\x84\x85\x86\x87\x88\x89\x8a\x92\x93\x94\x95\x96\x97\x98\x99\x9a\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xff\xda\x00\x08\x01\x01\x00\x00?\x00\xfa\xfe)\xa8\xfd\xfe?\xff\xd9",
+        "content_type": "image/jpeg"
+    },
+    "pdf": {
+        "filename": "test_document.pdf",
+        "content": b"%PDF-1.4\n1 0 obj\n<<\n/Type /Catalog\n/Pages 2 0 R\n>>\nendobj\n2 0 obj\n<<\n/Type /Pages\n/Kids [3 0 R]\n/Count 1\n>>\nendobj\n3 0 obj\n<<\n/Type /Page\n/Parent 2 0 R\n/MediaBox [0 0 612 792]\n>>\nendobj\nxref\n0 4\n0000000000 65535 f\n0000000009 00000 n\n0000000058 00000 n\n0000000115 00000 n\ntrailer\n<<\n/Size 4\n/Root 1 0 R\n>>\nstartxref\n190\n%%EOF",
+        "content_type": "application/pdf"
+    },
+    "excel": {
+        "filename": "test_scores.xlsx",
+        "content": b"PK\x03\x04\x14\x00\x00\x00\x08\x00",
+        "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    }
+}
 
 
 @pytest.fixture(scope="session")
@@ -204,6 +285,82 @@ def mock_rag_client():
     return mock_client
 
 
+@pytest.fixture
+def temp_upload_dir():
+    """临时上传目录"""
+    temp_dir = tempfile.mkdtemp()
+    yield temp_dir
+    shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+@pytest.fixture
+def temp_file(temp_upload_dir):
+    """创建临时测试文件"""
+    def _create_file(filename: str, content: bytes, content_type: str = None):
+        file_path = Path(temp_upload_dir) / filename
+        with open(file_path, "wb") as f:
+            f.write(content)
+        return file_path
+    return _create_file
+
+
+@pytest.fixture
+async def test_student_data():
+    """测试学生数据"""
+    return TEST_STUDENTS.copy()
+
+
+@pytest.fixture
+async def test_class_data():
+    """测试班级数据"""
+    return TEST_CLASSES.copy()
+
+
+@pytest.fixture
+async def test_certificate_data():
+    """测试证书数据"""
+    return TEST_CERTIFICATES.copy()
+
+
+@pytest.fixture
+async def test_file_data():
+    """测试文件数据"""
+    return TEST_FILES.copy()
+
+
+@pytest.fixture
+def auth_headers():
+    """认证请求头工厂"""
+    def _get_headers(token: str) -> Dict[str, str]:
+        return {"Authorization": f"Bearer {token}"}
+    return _get_headers
+
+
+@pytest.fixture
+def assert_response():
+    """响应断言助手"""
+    def _assert(response, expected_status: int, check_data: bool = True):
+        assert response.status_code == expected_status, \
+            f"期望状态码 {expected_status}，实际 {response.status_code}，响应: {response.text[:500]}"
+        
+        if check_data and response.status_code < 400:
+            data = response.json()
+            assert data is not None, "响应数据不应为空"
+            return data
+        return response.json() if response.text else None
+    return _assert
+
+
+@pytest.fixture
+def pagination_params():
+    """分页参数工厂"""
+    def _get_params(page: int = 1, page_size: int = 20, **kwargs):
+        params = {"page": page, "page_size": page_size}
+        params.update(kwargs)
+        return params
+    return _get_params
+
+
 def pytest_configure(config):
     """pytest配置钩子"""
     config.addinivalue_line(
@@ -224,6 +381,72 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "integration: 集成测试"
     )
+    config.addinivalue_line(
+        "markers", "comprehensive: 综测相关测试"
+    )
+    config.addinivalue_line(
+        "markers", "certificate: 证书相关测试"
+    )
+    config.addinivalue_line(
+        "markers", "file: 文件管理相关测试"
+    )
+    config.addinivalue_line(
+        "markers", "middleware: 中间件相关测试"
+    )
+    config.addinivalue_line(
+        "markers", "api: API响应规范测试"
+    )
+
+
+class TestResult:
+    """测试结果记录器"""
+    
+    def __init__(self):
+        self.results: List[Dict[str, Any]] = []
+        self.passed = 0
+        self.failed = 0
+        self.errors = 0
+        self.start_time = None
+        self.end_time = None
+    
+    def start(self):
+        self.start_time = datetime.now()
+    
+    def end(self):
+        self.end_time = datetime.now()
+    
+    def add_result(self, test_name: str, success: bool, message: str = "", duration: float = 0):
+        self.results.append({
+            "test_name": test_name,
+            "success": success,
+            "message": message,
+            "duration_ms": duration,
+            "timestamp": datetime.now().isoformat()
+        })
+        if success:
+            self.passed += 1
+        else:
+            self.failed += 1
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "summary": {
+                "total": len(self.results),
+                "passed": self.passed,
+                "failed": self.failed,
+                "errors": self.errors,
+                "start_time": self.start_time.isoformat() if self.start_time else None,
+                "end_time": self.end_time.isoformat() if self.end_time else None,
+                "duration_seconds": (self.end_time - self.start_time).total_seconds() if self.start_time and self.end_time else 0
+            },
+            "results": self.results
+        }
+
+
+@pytest.fixture
+def test_result():
+    """测试结果记录器"""
+    return TestResult()
 
 
 def pytest_collection_modifyitems(config, items):

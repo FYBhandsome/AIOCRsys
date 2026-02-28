@@ -163,6 +163,10 @@ class AcademicScore(Model):
     semester = fields.CharField(max_length=20, null=True, description="学期，如：2024-1")
     academic_year = fields.CharField(max_length=20, null=True, description="学年，如：2024-2025")
     
+    # 来源追踪
+    source_file = fields.CharField(max_length=255, null=True, description="来源文件名")
+    source_type = fields.CharField(max_length=20, default="score_sheet", description="来源类型")
+    
     # 备注和详细信息
     remarks = fields.TextField(null=True, description="备注")
     details = fields.JSONField(null=True, description="详细课程成绩信息")
@@ -241,45 +245,62 @@ class ComprehensiveScore(Model):
     """综测类别总成绩模型"""
     id = fields.IntField(pk=True)
     
-    # A类材料成绩
+    student_id = fields.CharField(max_length=50, description="学号")
+    student_name = fields.CharField(max_length=100, null=True, description="姓名")
+    class_name = fields.CharField(max_length=50, null=True, description="班级")
+    major = fields.CharField(max_length=100, null=True, description="专业")
+    
+    # A类材料成绩（思想道德素质）
     a_total_score = fields.FloatField(default=0.0, description="A类材料总成绩")
     a1_score = fields.FloatField(default=0.0, description="A1类成绩")
     a2_score = fields.FloatField(default=0.0, description="A2类成绩")
     a3_score = fields.FloatField(default=0.0, description="A3类成绩")
+    a_weighted_score = fields.FloatField(default=0.0, description="A类加权成绩(20%)")
     
-    # B类材料成绩
-    b_total_score = fields.FloatField(default=0.0, description="B类材料总成绩（学习成绩）")
+    # B类材料成绩（学习成绩）
+    b_raw_score = fields.FloatField(default=0.0, description="B类原始成绩")
+    b_weighted_score = fields.FloatField(default=0.0, description="B类加权成绩(70%)")
     
-    # C类材料成绩
+    # C类材料成绩（素质拓展）
     c_total_score = fields.FloatField(default=0.0, description="C类材料总成绩")
-    c1_score = fields.FloatField(default=0.0, description="C1类成绩")
-    c2_score = fields.FloatField(default=0.0, description="C2类成绩")
-    c3_score = fields.FloatField(default=0.0, description="C3类成绩")
-    c4_score = fields.FloatField(default=0.0, description="C4类成绩")
+    c1_score = fields.FloatField(default=0.0, description="C1类成绩-科技竞赛")
+    c2_score = fields.FloatField(default=0.0, description="C2类成绩-体育竞技")
+    c3_score = fields.FloatField(default=0.0, description="C3类成绩-文化竞赛")
+    c4_score = fields.FloatField(default=0.0, description="C4类成绩-创新创业")
+    c_weighted_score = fields.FloatField(default=0.0, description="C类加权成绩(10%)")
     
     # 综测总成绩
     total_score = fields.FloatField(default=0.0, description="综测总成绩")
+    ranking = fields.IntField(null=True, description="班级排名")
     
     # 学期信息
-    semester = fields.CharField(max_length=20, description="学期，如：2024-1")
+    semester = fields.CharField(max_length=20, description="学期，如：1")
     academic_year = fields.CharField(max_length=20, description="学年，如：2024-2025")
+    
+    # 配置关联
+    config_id = fields.IntField(null=True, description="使用的配置ID")
+    
+    # 来源追踪
+    source_file = fields.CharField(max_length=255, null=True, description="来源文件名")
+    source_type = fields.CharField(max_length=20, default="comprehensive_table", description="来源类型")
     
     # 备注和详细信息
     remarks = fields.TextField(null=True, description="备注")
     details = fields.JSONField(null=True, description="详细分数信息")
+    status = fields.CharField(max_length=20, default="active", description="状态")
     
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
-    
-    # 关联关系
-    student: fields.ForeignKeyRelation[Student] = fields.ForeignKeyField(
-        "models.Student", related_name="comprehensive_scores"
-    )
     
     class Meta:
         table = "comprehensive_scores"
         table_description = "综测类别总成绩表"
         unique_together = (("student_id", "semester", "academic_year"),)
+        indexes = [
+            ("student_id",),
+            ("ranking",),
+            ("semester", "academic_year"),
+        ]
     
     def __str__(self):
         return f"ComprehensiveScore({self.student_id}, {self.semester}, {self.total_score})"
@@ -333,48 +354,149 @@ class ScoreDetail(Model):
 
 
 class Certificate(Model):
-    """证书模型"""
+    """证书模型 - 存储证书基本信息"""
     id = fields.IntField(pk=True)
     
-    student_id = fields.CharField(max_length=50, description="学生ID")
-    file_id = fields.CharField(max_length=50, null=True, description="关联文件ID")
-    filename = fields.CharField(max_length=255, description="文件名")
-    file_path = fields.CharField(max_length=500, null=True, description="文件路径")
+    student_id = fields.CharField(max_length=50, description="学生ID（学号）")
     
-    certificate_type = fields.CharField(max_length=20, null=True, description="证书类型：四级、六级、竞赛、活动等")
-    title = fields.CharField(max_length=255, null=True, description="证书标题")
-    level = fields.CharField(max_length=100, null=True, description="证书级别：国家级、省级、校级、院级")
+    certificate_no = fields.CharField(max_length=100, null=True, description="证书编号")
+    certificate_type = fields.CharField(max_length=50, null=True, description="证书类型：四级、六级、竞赛、活动、荣誉等")
+    title = fields.CharField(max_length=255, null=True, description="证书标题/名称")
+    level = fields.CharField(max_length=50, null=True, description="证书级别：国家级、省级、市级、校级、院级")
     issuer = fields.CharField(max_length=255, null=True, description="颁发机构")
     issue_date = fields.CharField(max_length=50, null=True, description="颁发日期")
-    raw_text = fields.TextField(null=True, description="OCR原始文本")
+    expiry_date = fields.CharField(max_length=50, null=True, description="有效期至")
     
-    category = fields.CharField(max_length=10, default="C", description="证书类别: A或C")
+    category = fields.CharField(max_length=10, default="C", description="证书类别: A-思想道德, C-素质拓展")
     sub_category = fields.CharField(max_length=10, null=True, description="子类别: C1-科技类, C2-体育类, C3-文化类, C4-创新创业")
-    score = fields.FloatField(default=0.0, description="证书分数")
-    classification_reason = fields.TextField(null=True, description="分类原因")
+    score = fields.FloatField(default=0.0, description="证书加分分数")
+    classification_reason = fields.TextField(null=True, description="分类原因/评分依据")
+    
+    raw_text = fields.TextField(null=True, description="OCR识别原始文本")
+    ocr_result = fields.JSONField(null=True, description="OCR识别详细结果")
+    certificate_info = fields.JSONField(null=True, description="证书结构化信息")
     
     status = fields.CharField(
         max_length=20, 
         default="pending", 
-        description="状态: pending(待审核), approved(已通过), rejected(已拒绝)"
+        description="状态: pending(待审核), approved(已通过), rejected(已拒绝), cancelled(已取消)"
     )
     reviewed_by = fields.CharField(max_length=50, null=True, description="审核人")
     reviewed_at = fields.DatetimeField(null=True, description="审核时间")
     review_comment = fields.TextField(null=True, description="审核意见")
     
-    ocr_result = fields.JSONField(null=True, description="OCR识别结果")
-    certificate_info = fields.JSONField(null=True, description="证书详细信息")
+    image_count = fields.IntField(default=0, description="关联图片数量")
+    primary_image_id = fields.IntField(null=True, description="主图片ID")
+    
+    source = fields.CharField(max_length=20, default="upload", description="来源: upload(上传), import(导入), manual(手动录入)")
+    upload_batch_id = fields.CharField(max_length=50, null=True, description="上传批次ID")
+    
+    is_valid = fields.BooleanField(default=True, description="是否有效")
+    invalid_reason = fields.TextField(null=True, description="无效原因")
     
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
     
     class Meta:
         table = "certificates"
-        table_description = "证书表"
-        indexes = [("student_id",), ("category",), ("status",), ("sub_category",)]
+        table_description = "证书基本信息表"
+        indexes = [
+            ("student_id",),
+            ("category",),
+            ("sub_category",),
+            ("status",),
+            ("certificate_type",),
+            ("level",),
+            ("issue_date",),
+            ("student_id", "status"),
+        ]
     
     def __str__(self):
         return f"Certificate({self.student_id}, {self.title}, {self.category})"
+
+
+class CertificateImage(Model):
+    """证书图片模型 - 存储证书的多张图片"""
+    id = fields.IntField(pk=True)
+    
+    certificate_id = fields.IntField(description="关联证书ID")
+    student_id = fields.CharField(max_length=50, description="学生ID（冗余字段，便于查询）")
+    
+    file_id = fields.CharField(max_length=50, null=True, description="文件管理ID")
+    filename = fields.CharField(max_length=255, description="原始文件名")
+    file_path = fields.CharField(max_length=500, description="文件存储路径")
+    file_size = fields.IntField(default=0, description="文件大小(字节)")
+    file_hash = fields.CharField(max_length=64, null=True, description="文件MD5哈希值")
+    
+    image_width = fields.IntField(null=True, description="图片宽度")
+    image_height = fields.IntField(null=True, description="图片高度")
+    image_format = fields.CharField(max_length=10, null=True, description="图片格式: jpg, png, pdf等")
+    
+    is_primary = fields.BooleanField(default=False, description="是否为主图片")
+    image_order = fields.IntField(default=0, description="图片排序顺序")
+    page_number = fields.IntField(null=True, description="页码（多页证书）")
+    
+    ocr_processed = fields.BooleanField(default=False, description="是否已进行OCR处理")
+    ocr_text = fields.TextField(null=True, description="该图片OCR识别文本")
+    ocr_result = fields.JSONField(null=True, description="该图片OCR详细结果")
+    
+    thumbnail_path = fields.CharField(max_length=500, null=True, description="缩略图路径")
+    
+    upload_ip = fields.CharField(max_length=50, null=True, description="上传IP地址")
+    upload_device = fields.CharField(max_length=100, null=True, description="上传设备信息")
+    
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+    
+    class Meta:
+        table = "certificate_images"
+        table_description = "证书图片表"
+        indexes = [
+            ("certificate_id",),
+            ("student_id",),
+            ("file_hash",),
+            ("is_primary",),
+            ("certificate_id", "image_order"),
+        ]
+    
+    def __str__(self):
+        return f"CertificateImage({self.certificate_id}, {self.filename})"
+
+
+class CertificateBatch(Model):
+    """证书上传批次模型 - 追踪批量上传"""
+    id = fields.IntField(pk=True)
+    
+    batch_id = fields.CharField(max_length=50, unique=True, description="批次唯一标识")
+    student_id = fields.CharField(max_length=50, description="学生ID")
+    
+    total_count = fields.IntField(default=0, description="总上传数量")
+    success_count = fields.IntField(default=0, description="成功处理数量")
+    failed_count = fields.IntField(default=0, description="失败数量")
+    
+    status = fields.CharField(max_length=20, default="pending", description="状态: pending, processing, completed, failed")
+    error_message = fields.TextField(null=True, description="错误信息")
+    processing_log = fields.JSONField(null=True, description="处理日志")
+    
+    upload_ip = fields.CharField(max_length=50, null=True, description="上传IP")
+    upload_device = fields.CharField(max_length=100, null=True, description="上传设备")
+    
+    started_at = fields.DatetimeField(null=True, description="开始处理时间")
+    completed_at = fields.DatetimeField(null=True, description="完成时间")
+    created_at = fields.DatetimeField(auto_now_add=True)
+    
+    class Meta:
+        table = "certificate_batches"
+        table_description = "证书上传批次表"
+        indexes = [
+            ("batch_id",),
+            ("student_id",),
+            ("status",),
+            ("created_at",),
+        ]
+    
+    def __str__(self):
+        return f"CertificateBatch({self.batch_id}, {self.student_id})"
 
 
 class AcademicScoreHistory(Model):
@@ -496,3 +618,170 @@ class UploadRecord(Model):
     
     def __str__(self):
         return f"UploadRecord({self.file_name}, {self.status})"
+
+
+class FileMetadata(Model):
+    """文件元数据模型 - 统一管理所有文件"""
+    id = fields.IntField(pk=True)
+    
+    file_id = fields.CharField(max_length=100, unique=True, description="文件唯一标识")
+    original_filename = fields.CharField(max_length=255, description="原始文件名")
+    stored_filename = fields.CharField(max_length=255, description="存储文件名")
+    
+    file_type = fields.CharField(max_length=50, description="文件类型: transcript, photo, certificate, template, result")
+    file_category = fields.CharField(max_length=50, description="文件分类: score_sheet, id_photo, certificate_photo, comprehensive_result")
+    mime_type = fields.CharField(max_length=100, null=True, description="MIME类型")
+    file_extension = fields.CharField(max_length=20, null=True, description="文件扩展名")
+    
+    file_size = fields.IntField(default=0, description="文件大小(字节)")
+    file_hash = fields.CharField(max_length=64, null=True, description="文件MD5哈希")
+    
+    storage_path = fields.CharField(max_length=500, description="存储路径")
+    storage_directory = fields.CharField(max_length=255, description="存储目录")
+    
+    owner_id = fields.CharField(max_length=50, description="所有者ID(学号/工号)")
+    owner_type = fields.CharField(max_length=20, default="student", description="所有者类型: student, teacher, admin")
+    
+    upload_batch_id = fields.CharField(max_length=50, null=True, description="上传批次ID")
+    chunk_upload = fields.BooleanField(default=False, description="是否分片上传")
+    chunk_count = fields.IntField(default=0, description="分片总数")
+    chunk_uploaded = fields.IntField(default=0, description="已上传分片数")
+    
+    status = fields.CharField(max_length=20, default="active", description="状态: active, archived, deleted, corrupted")
+    is_encrypted = fields.BooleanField(default=False, description="是否加密")
+    is_public = fields.BooleanField(default=False, description="是否公开")
+    
+    access_count = fields.IntField(default=0, description="访问次数")
+    download_count = fields.IntField(default=0, description="下载次数")
+    
+    last_accessed_at = fields.DatetimeField(null=True, description="最后访问时间")
+    archived_at = fields.DatetimeField(null=True, description="归档时间")
+    
+    metadata = fields.JSONField(null=True, description="扩展元数据")
+    
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+    
+    class Meta:
+        table = "file_metadata"
+        table_description = "文件元数据表"
+        indexes = [
+            ("file_id",),
+            ("owner_id",),
+            ("file_type",),
+            ("file_category",),
+            ("status",),
+            ("owner_id", "file_type"),
+            ("created_at",),
+        ]
+    
+    def __str__(self):
+        return f"FileMetadata({self.file_id}, {self.original_filename})"
+
+
+class FileChunk(Model):
+    """文件分片模型 - 支持大文件分片上传"""
+    id = fields.IntField(pk=True)
+    
+    file_id = fields.CharField(max_length=100, description="关联文件ID")
+    chunk_index = fields.IntField(description="分片序号")
+    chunk_hash = fields.CharField(max_length=64, null=True, description="分片MD5哈希")
+    
+    chunk_size = fields.IntField(default=0, description="分片大小(字节)")
+    chunk_path = fields.CharField(max_length=500, null=True, description="分片存储路径")
+    
+    status = fields.CharField(max_length=20, default="pending", description="状态: pending, uploaded, merged, failed")
+    upload_ip = fields.CharField(max_length=50, null=True, description="上传IP")
+    
+    created_at = fields.DatetimeField(auto_now_add=True)
+    uploaded_at = fields.DatetimeField(null=True, description="上传完成时间")
+    
+    class Meta:
+        table = "file_chunks"
+        table_description = "文件分片表"
+        indexes = [("file_id",), ("file_id", "chunk_index")]
+        unique_together = (("file_id", "chunk_index"),)
+    
+    def __str__(self):
+        return f"FileChunk({self.file_id}, chunk_{self.chunk_index})"
+
+
+class DownloadLog(Model):
+    """下载日志模型 - 记录文件下载历史"""
+    id = fields.IntField(pk=True)
+    
+    file_id = fields.CharField(max_length=100, description="文件ID")
+    file_name = fields.CharField(max_length=255, description="文件名")
+    
+    downloader_id = fields.CharField(max_length=50, description="下载者ID")
+    downloader_type = fields.CharField(max_length=20, description="下载者类型")
+    downloader_ip = fields.CharField(max_length=50, null=True, description="下载IP")
+    
+    download_status = fields.CharField(max_length=20, default="success", description="下载状态: success, failed, denied")
+    download_size = fields.IntField(default=0, description="下载大小(字节)")
+    error_message = fields.TextField(null=True, description="错误信息")
+    
+    user_agent = fields.CharField(max_length=500, null=True, description="用户代理")
+    
+    created_at = fields.DatetimeField(auto_now_add=True)
+    
+    class Meta:
+        table = "download_logs"
+        table_description = "下载日志表"
+        indexes = [("file_id",), ("downloader_id",), ("created_at",)]
+    
+    def __str__(self):
+        return f"DownloadLog({self.file_id}, {self.downloader_id})"
+
+
+class FileAccessPermission(Model):
+    """文件访问权限模型"""
+    id = fields.IntField(pk=True)
+    
+    file_id = fields.CharField(max_length=100, description="文件ID")
+    
+    user_id = fields.CharField(max_length=50, null=True, description="用户ID")
+    role_type = fields.CharField(max_length=20, null=True, description="角色类型: student, teacher, admin")
+    
+    permission_type = fields.CharField(max_length=20, description="权限类型: read, write, delete, download")
+    
+    granted_by = fields.CharField(max_length=50, null=True, description="授权人")
+    granted_at = fields.DatetimeField(auto_now_add=True, description="授权时间")
+    expires_at = fields.DatetimeField(null=True, description="过期时间")
+    
+    is_active = fields.BooleanField(default=True, description="是否有效")
+    
+    class Meta:
+        table = "file_access_permissions"
+        table_description = "文件访问权限表"
+        indexes = [("file_id",), ("user_id",), ("role_type",)]
+        unique_together = (("file_id", "user_id", "permission_type"),)
+    
+    def __str__(self):
+        return f"FileAccessPermission({self.file_id}, {self.user_id}, {self.permission_type})"
+
+
+class FileBackup(Model):
+    """文件备份模型"""
+    id = fields.IntField(pk=True)
+    
+    original_file_id = fields.CharField(max_length=100, description="原文件ID")
+    backup_file_id = fields.CharField(max_length=100, description="备份文件ID")
+    
+    backup_path = fields.CharField(max_length=500, description="备份存储路径")
+    backup_size = fields.IntField(default=0, description="备份大小(字节)")
+    
+    backup_type = fields.CharField(max_length=20, default="full", description="备份类型: full, incremental")
+    backup_reason = fields.CharField(max_length=100, null=True, description="备份原因")
+    
+    status = fields.CharField(max_length=20, default="active", description="状态: active, archived, deleted")
+    
+    created_at = fields.DatetimeField(auto_now_add=True)
+    
+    class Meta:
+        table = "file_backups"
+        table_description = "文件备份表"
+        indexes = [("original_file_id",), ("backup_file_id",), ("created_at",)]
+    
+    def __str__(self):
+        return f"FileBackup({self.original_file_id} -> {self.backup_file_id})"

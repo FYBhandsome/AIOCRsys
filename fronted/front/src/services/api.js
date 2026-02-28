@@ -594,8 +594,177 @@ export const scoreUploadAPI = {
   }
 }
 
+export const certificateAPI = {
+  upload: (files, options) => {
+    const formData = new FormData()
+    files.forEach(file => formData.append('files', file))
+    formData.append('student_id', options.student_id)
+    if (options.title) formData.append('title', options.title)
+    if (options.certificate_type) formData.append('certificate_type', options.certificate_type)
+    if (options.level) formData.append('level', options.level)
+    if (options.issuer) formData.append('issuer', options.issuer)
+    if (options.issue_date) formData.append('issue_date', options.issue_date)
+    if (options.category) formData.append('category', options.category)
+    if (options.sub_category) formData.append('sub_category', options.sub_category)
+    if (options.score) formData.append('score', options.score)
+    
+    return api.post('/v1/certificate/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000
+    })
+  },
+  
+  getStudentCertificates: (studentId, options = {}) => 
+    api.get(`/v1/certificate/student/${studentId}`, {
+      params: { 
+        status: options.status,
+        category: options.category
+      }
+    }),
+  
+  getDetail: (certificateId) => 
+    api.get(`/v1/certificate/${certificateId}`),
+  
+  delete: (certificateId, deletedBy = null) => 
+    api.delete(`/v1/certificate/${certificateId}`, {
+      params: { deleted_by: deletedBy }
+    }),
+  
+  update: (certificateId, data) => {
+    const formData = new FormData()
+    Object.keys(data).forEach(key => {
+      if (data[key] !== undefined && data[key] !== null) {
+        formData.append(key, data[key])
+      }
+    })
+    return api.put(`/v1/certificate/${certificateId}`, formData)
+  },
+  
+  getStatistics: (studentId) => 
+    api.get(`/v1/certificate/statistics/${studentId}`),
+  
+  batchUpdateStatus: (certificateIds, status, options = {}) => 
+    api.post('/v1/certificate/batch-status', {
+      certificate_ids: certificateIds,
+      status: status,
+      reviewed_by: options.reviewed_by,
+      review_comment: options.review_comment
+    })
+}
+
+export const fileManagementAPI = {
+  upload: (file, options) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('file_type', options.file_type)
+    formData.append('owner_id', options.owner_id)
+    if (options.owner_type) formData.append('owner_type', options.owner_type)
+    if (options.is_public) formData.append('is_public', options.is_public)
+    if (options.metadata) formData.append('metadata', JSON.stringify(options.metadata))
+    
+    return api.post('/v1/file/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000
+    })
+  },
+  
+  uploadMultiple: (files, options) => {
+    const formData = new FormData()
+    files.forEach(file => formData.append('files', file))
+    formData.append('file_type', options.file_type)
+    formData.append('owner_id', options.owner_id)
+    if (options.owner_type) formData.append('owner_type', options.owner_type)
+    
+    return api.post('/v1/file/upload-multiple', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 180000
+    })
+  },
+  
+  initChunkUpload: (filename, fileSize, fileType, ownerId, chunkSize = null) => 
+    api.post('/v1/file/chunk/init', null, {
+      params: {
+        filename,
+        file_size: fileSize,
+        file_type: fileType,
+        owner_id: ownerId,
+        chunk_size: chunkSize
+      }
+    }),
+  
+  uploadChunk: (fileId, chunkIndex, chunk, options = {}) => {
+    const formData = new FormData()
+    formData.append('chunk', chunk)
+    if (options.upload_ip) formData.append('upload_ip', options.upload_ip)
+    
+    return api.post(`/v1/file/chunk/${fileId}/${chunkIndex}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 60000
+    })
+  },
+  
+  completeChunkUpload: (fileId) => 
+    api.post(`/v1/file/chunk/${fileId}/complete`),
+  
+  getUploadProgress: (fileId) => 
+    api.get(`/v1/file/chunk/${fileId}/progress`),
+  
+  download: (fileId, options = {}) => 
+    api.get(`/v1/file/download/${fileId}`, {
+      params: {
+        user_id: options.user_id,
+        user_type: options.user_type || 'student'
+      },
+      responseType: 'blob'
+    }),
+  
+  downloadResult: (fileId, options = {}) => 
+    api.get(`/v1/file/download-result/${fileId}`, {
+      params: {
+        user_id: options.user_id,
+        user_type: options.user_type || 'student'
+      },
+      responseType: 'blob'
+    }),
+  
+  getInfo: (fileId) => 
+    api.get(`/v1/file/info/${fileId}`),
+  
+  list: (options = {}) => 
+    api.get('/v1/file/list', {
+      params: {
+        owner_id: options.owner_id,
+        file_type: options.file_type,
+        status: options.status,
+        limit: options.limit || 20,
+        offset: options.offset || 0
+      }
+    }),
+  
+  delete: (fileId, options = {}) => 
+    api.delete(`/v1/file/${fileId}`, {
+      params: {
+        user_id: options.user_id,
+        user_type: options.user_type || 'student',
+        backup: options.backup !== false
+      }
+    }),
+  
+  getDownloadHistory: (options = {}) => 
+    api.get('/v1/file/download-history', {
+      params: {
+        file_id: options.file_id,
+        downloader_id: options.downloader_id,
+        limit: options.limit || 50
+      }
+    }),
+  
+  getCategories: () => 
+    api.get('/v1/file/categories')
+}
+
 export const showGlobalLoading = showLoading
-export const hideGlobalLoading = hideLoading
+export const hideGlobalLoading = hideGlobalLoading
 export { createRetryConfig }
 
 export default api

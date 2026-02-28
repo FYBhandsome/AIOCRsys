@@ -5,14 +5,20 @@
 import json
 import re
 import logging
+import time
+import traceback
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 import httpx
 
 from app.core.logger import get_logger
+from app.core.enhanced_logging import (
+    sanitize_for_logging, APILogMiddleware, log_function_call, create_context_logger
+)
 from app.core.comprehensive_prompts import comprehensive_score_prompts
 
 logger = get_logger(__name__)
+api_logger = APILogMiddleware("RAGService")
 
 
 class RAGComprehensiveService:
@@ -26,11 +32,12 @@ class RAGComprehensiveService:
         """
         self.rag_base_url = rag_base_url
         self.client = httpx.AsyncClient(timeout=120.0)
-        logger.info(f"RAG综测服务初始化完成, URL: {rag_base_url}")
+        logger.info(f"[服务初始化] RAG综测服务初始化完成, URL: {rag_base_url}")
     
     async def close(self):
         """关闭连接"""
         await self.client.aclose()
+        logger.info("[服务关闭] RAG客户端连接已关闭")
     
     def _log_data_trace(self, step: str, data: Any, level: str = "info"):
         """数据追踪日志
@@ -41,25 +48,24 @@ class RAGComprehensiveService:
             level: 日志级别
         """
         log_msg = f"[数据追踪] {step}"
-        
-        if isinstance(data, (dict, list)):
-            try:
-                data_str = json.dumps(data, ensure_ascii=False, indent=2)
-                if len(data_str) > 500:
-                    data_str = data_str[:500] + "..."
-            except Exception:
-                data_str = str(data)[:500]
-        else:
-            data_str = str(data)[:500]
+        data_str = sanitize_for_logging(data, max_length=500)
         
         if level == "debug":
-            logger.debug(f"{log_msg}\n数据: {data_str}")
+            logger.debug(f"{log_msg} | 数据: {data_str}")
         elif level == "warning":
-            logger.warning(f"{log_msg}\n数据: {data_str}")
+            logger.warning(f"{log_msg} | 数据: {data_str}")
         elif level == "error":
-            logger.error(f"{log_msg}\n数据: {data_str}")
+            logger.error(f"{log_msg} | 数据: {data_str}")
         else:
-            logger.info(f"{log_msg}\n数据: {data_str}")
+            logger.info(f"{log_msg} | 数据: {data_str}")
+    
+    def _log_branch_decision(self, branch_name: str, condition: bool, context: str = ""):
+        """记录分支判断"""
+        logger.info(f"[分支判断] {context} | 分支: {branch_name} | 结果: {condition}")
+    
+    def _log_variable(self, var_name: str, var_value: Any, context: str = ""):
+        """记录变量值"""
+        logger.debug(f"[变量记录] {context} | 变量: {var_name} | 值: {sanitize_for_logging(var_value)}")
     
     def _parse_json_response(self, response_text: str) -> Dict[str, Any]:
         """解析AI返回的JSON响应
@@ -77,22 +83,26 @@ class RAGComprehensiveService:
             if json_match:
                 json_str = json_match.group()
                 result = json.loads(json_str)
+                self._log_branch_decision("正则匹配解析", True, "JSON解析")
                 self._log_data_trace("JSON解析-成功", result)
                 return result
         except json.JSONDecodeError as e:
-            logger.warning(f"JSON解析失败: {e}")
+            self._log_branch_decision("正则匹配解析", False, "JSON解析")
+            logger.warning(f"[JSON解析] 正则匹配失败: {e}")
         
         try:
             code_block_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', response_text)
             if code_block_match:
                 json_str = code_block_match.group(1)
                 result = json.loads(json_str)
+                self._log_branch_decision("代码块提取解析", True, "JSON解析")
                 self._log_data_trace("JSON解析-代码块提取成功", result)
                 return result
         except json.JSONDecodeError as e:
-            logger.warning(f"代码块JSON解析失败: {e}")
+            self._log_branch_decision("代码块提取解析", False, "JSON解析")
+            logger.warning(f"[JSON解析] 代码块提取失败: {e}")
         
-        logger.error("无法解析JSON响应")
+        logger.error("[JSON解析] 无法解析JSON响应")
         return {
             "success": False,
             "error": "无法解析JSON响应",
@@ -108,10 +118,20 @@ class RAGComprehensiveService:
         Returns:
             检索结果
         """
+        func_name = "retrieve_rules"
+        logger.info(f"[函数进入] {func_name} | 参数: query={sanitize_for_logging(query)}")
+        start_time = time.time()
+        
         self._log_data_trace("规则检索-开始", {"query": query})
         
         try:
             prompt = comprehensive_score_prompts.get_rule_retrieval_prompt(query)
+            self._log_variable("prompt", prompt[:200], func_name)
+            
+            api_logger.log_business_operation(
+                "RAG规则检索",
+                {"query": query, "endpoint": f"{self.rag_base_url}/api/v1/chat"}
+            )
             
             response = await self.client.post(
                 f"{self.rag_base_url}/api/v1/chat",
@@ -122,15 +142,23 @@ class RAGComprehensiveService:
                 }
             )
             
+            self._log_variable("response_status", response.status_code, func_name)
+            
             if response.status_code != 200:
-                logger.error(f"RAG请求失败: {response.status_code}")
-                return {"success": False, "error": f"RAG请求失败: {response.status_code}"}
+                error_msg = f"RAG请求失败: {response.status_code}"
+                logger.error(f"[{func_name}] {error_msg}")
+                api_logger.log_error("POST", f"{self.rag_base_url}/api/v1/chat", 
+                                    Exception(error_msg), {"query": query})
+                return {"success": False, "error": error_msg}
             
             result = response.json()
             self._log_data_trace("规则检索-RAG响应", result)
             
             answer = result.get("answer", result.get("response", ""))
             parsed = self._parse_json_response(answer)
+            
+            elapsed = (time.time() - start_time) * 1000
+            logger.info(f"[函数退出] {func_name} | 耗时: {elapsed:.2f}ms | 结果: success={parsed.get('success', False)}")
             
             return {
                 "success": True,
@@ -140,7 +168,9 @@ class RAGComprehensiveService:
             }
             
         except Exception as e:
-            logger.error(f"规则检索失败: {e}", exc_info=True)
+            elapsed = (time.time() - start_time) * 1000
+            logger.error(f"[函数异常] {func_name} | 耗时: {elapsed:.2f}ms | 异常: {type(e).__name__}: {str(e)}\n{traceback.format_exc()}")
+            api_logger.log_error("POST", f"{self.rag_base_url}/api/v1/chat", e, {"query": query})
             return {"success": False, "error": str(e)}
     
     async def analyze_certificate(
