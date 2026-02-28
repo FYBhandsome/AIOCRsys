@@ -116,6 +116,7 @@ async def rebuild_vector_db():
 async def get_system_config():
     """获取系统配置"""
     try:
+        system_service = container.get_system_service()
         result = system_service.get_system_config()
         
         return ApiResponse(
@@ -132,6 +133,7 @@ async def get_system_config():
 async def update_system_config(config_data: Dict[str, Any]):
     """更新系统配置"""
     try:
+        system_service = container.get_system_service()
         result = system_service.update_system_config(config_data)
         
         return ApiResponse(
@@ -148,6 +150,7 @@ async def update_system_config(config_data: Dict[str, Any]):
 async def get_llm_config():
     """获取LLM配置"""
     try:
+        system_service = container.get_system_service()
         result = system_service.config_manager.get_llm_config()
         
         return ApiResponse(
@@ -158,6 +161,28 @@ async def get_llm_config():
     except Exception as e:
         logger.error(f"获取LLM配置失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"获取LLM配置失败: {str(e)}")
+
+
+@router.get("/model-info")
+async def get_model_info():
+    """获取当前使用的模型信息"""
+    try:
+        from app.core.config_manager import settings
+        
+        return {
+            "model_name": settings.XUNFEI_MODEL_ID or "xop3qwen1b7",
+            "provider": "xunfei",
+            "api_base_url": settings.XUNFEI_API_URL or "",
+            "temperature": settings.XUNFEI_TEMPERATURE or 0.1,
+            "max_tokens": settings.XUNFEI_MAX_TOKENS or 1024
+        }
+    except Exception as e:
+        logger.error(f"获取模型信息失败: {str(e)}")
+        return {
+            "model_name": "未知",
+            "provider": "未知",
+            "error": str(e)
+        }
 
 
 @router.put("/llm/config")

@@ -7,11 +7,12 @@ import os
 import uuid
 from datetime import datetime
 from pathlib import Path
-import logging
 
-# 导入向量数据库相关模块
 from app.rag.vector_db import get_vector_db
 from app.core.config_manager import settings
+from app.core.logger import get_logger, LogContext, track_performance
+
+logger = get_logger(__name__)
 
 
 class DocumentManager:
@@ -24,16 +25,17 @@ class DocumentManager:
             collection_name: 向量数据库集合名称
         """
         self.collection_name = collection_name
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         
-        # 初始化向量数据库
-        try:
-            self.vector_db = get_vector_db(collection_name)
-            self.logger.info(f"向量数据库初始化成功，集合名称: {collection_name}")
-        except Exception as e:
-            self.logger.error(f"向量数据库初始化失败: {e}")
-            raise
+        with LogContext(self.logger, "初始化文档管理器", {"collection_name": collection_name}):
+            try:
+                self.vector_db = get_vector_db(collection_name)
+                self.logger.info(f"向量数据库初始化成功，集合名称: {collection_name}")
+            except Exception as e:
+                self.logger.error(f"向量数据库初始化失败: {e}", exc_info=True)
+                raise
     
+    @track_performance("add_document")
     def add_document(self, file_path: str, name: str = None, description: str = None, 
                    category: str = None, enabled: bool = True) -> Dict[str, Any]:
         """添加文档到向量数据库
@@ -48,43 +50,42 @@ class DocumentManager:
         Returns:
             文档信息字典
         """
-        doc_id = str(uuid.uuid4())
-        if not name:
-            name = os.path.basename(file_path)
-        
-        # 读取文档内容
-        try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-        except Exception as e:
-            self.logger.error(f"读取文档失败: {e}")
-            raise
-        
-        # 准备文档元数据
-        metadata = {
-            "id": doc_id,
-            "name": name,
-            "file_path": file_path,
-            "description": description,
-            "category": category,
-            "enabled": enabled,
-            "created_at": datetime.now().isoformat(),
-            "chunk_count": 1  # 初始为1，实际应该根据分块情况更新
-        }
-        
-        # 添加到向量数据库
-        try:
-            document = {
-                "text": content,
-                "metadata": metadata
+        with LogContext(self.logger, "添加文档", {"file_path": file_path, "name": name}):
+            doc_id = str(uuid.uuid4())
+            if not name:
+                name = os.path.basename(file_path)
+            
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                self.logger.debug(f"文档内容读取成功: {len(content)} 字符")
+            except Exception as e:
+                self.logger.error(f"读取文档失败: {e}", exc_info=True)
+                raise
+            
+            metadata = {
+                "id": doc_id,
+                "name": name,
+                "file_path": file_path,
+                "description": description,
+                "category": category,
+                "enabled": enabled,
+                "created_at": datetime.now().isoformat(),
+                "chunk_count": 1
             }
-            self.vector_db.add_documents([document])
-            self.logger.info(f"文档已添加到向量数据库: {name}")
-        except Exception as e:
-            self.logger.error(f"添加文档到向量数据库失败: {e}")
-            raise
-        
-        return metadata
+            
+            try:
+                document = {
+                    "text": content,
+                    "metadata": metadata
+                }
+                self.vector_db.add_documents([document])
+                self.logger.info(f"文档已添加到向量数据库: {name}", extra={'params': {'doc_id': doc_id}})
+            except Exception as e:
+                self.logger.error(f"添加文档到向量数据库失败: {e}", exc_info=True)
+                raise
+            
+            return metadata
     
     def get_document(self, doc_id: str) -> Optional[Dict[str, Any]]:
         """获取文档信息
@@ -95,8 +96,8 @@ class DocumentManager:
         Returns:
             文档信息字典，如果不存在则返回None
         """
+        self.logger.debug(f"获取文档: doc_id={doc_id}")
         try:
-            # 从向量数据库查询文档
             results = self.vector_db.collection.get(
                 ids=[doc_id],
                 include=["metadatas"]
@@ -105,9 +106,10 @@ class DocumentManager:
             if results and results["metadatas"] and len(results["metadatas"]) > 0:
                 return results["metadatas"][0]
             else:
+                self.logger.warning(f"文档不存在: {doc_id}")
                 return None
         except Exception as e:
-            self.logger.error(f"获取文档信息失败: {e}")
+            self.logger.error(f"获取文档信息失败: {e}", exc_info=True)
             return None
     
     def list_documents(self, enabled_only: bool = False) -> List[Dict[str, Any]]:
@@ -119,20 +121,20 @@ class DocumentManager:
         Returns:
             文档信息列表
         """
+        self.logger.debug(f"列出文档: enabled_only={enabled_only}")
         try:
-            # 从向量数据库获取所有文档
             results = self.vector_db.collection.get(include=["metadatas"])
             
             documents = []
             if results and results["metadatas"]:
                 for metadata in results["metadatas"]:
-                    # 如果只需要启用的文档，进行过滤
                     if not enabled_only or metadata.get("enabled", False):
                         documents.append(metadata)
             
+            self.logger.info(f"列出文档完成: {len(documents)}条记录")
             return documents
         except Exception as e:
-            self.logger.error(f"列出文档失败: {e}")
+            self.logger.error(f"列出文档失败: {e}", exc_info=True)
             return []
     
     def update_document_status(self, doc_id: str, enabled: bool) -> bool:
@@ -145,8 +147,8 @@ class DocumentManager:
         Returns:
             是否更新成功
         """
+        self.logger.info(f"更新文档状态: doc_id={doc_id}, enabled={enabled}")
         try:
-            # 从向量数据库获取文档
             results = self.vector_db.collection.get(
                 ids=[doc_id],
                 include=["metadatas"]
@@ -156,21 +158,16 @@ class DocumentManager:
                 self.logger.warning(f"文档不存在: {doc_id}")
                 return False
             
-            # 更新文档状态
             metadata = results["metadatas"][0]
             metadata["enabled"] = enabled
             
-            # 更新向量数据库中的文档元数据
             self.vector_db.update_document_metadata(doc_id, metadata)
             
-            if enabled:
-                self.logger.info(f"文档已启用: {doc_id}")
-            else:
-                self.logger.info(f"文档已禁用: {doc_id}")
-                
+            status = "启用" if enabled else "禁用"
+            self.logger.info(f"文档已{status}: {doc_id}", extra={'params': {'enabled': enabled}})
             return True
         except Exception as e:
-            self.logger.error(f"更新文档状态失败: {e}")
+            self.logger.error(f"更新文档状态失败: {e}", exc_info=True)
             return False
     
     def update_document_chunks(self, doc_id: str, chunk_count: int) -> bool:
@@ -183,8 +180,8 @@ class DocumentManager:
         Returns:
             是否更新成功
         """
+        self.logger.debug(f"更新文档分块数量: doc_id={doc_id}, chunk_count={chunk_count}")
         try:
-            # 从向量数据库获取文档
             results = self.vector_db.collection.get(
                 ids=[doc_id],
                 include=["metadatas"]
@@ -194,19 +191,18 @@ class DocumentManager:
                 self.logger.warning(f"文档不存在: {doc_id}")
                 return False
             
-            # 更新文档分块数量
             metadata = results["metadatas"][0]
             metadata["chunk_count"] = chunk_count
             
-            # 更新向量数据库中的文档元数据
             self.vector_db.update_document_metadata(doc_id, metadata)
             
             self.logger.info(f"文档分块数量已更新: {doc_id} -> {chunk_count}")
             return True
         except Exception as e:
-            self.logger.error(f"更新文档分块数量失败: {e}")
+            self.logger.error(f"更新文档分块数量失败: {e}", exc_info=True)
             return False
     
+    @track_performance("delete_document")
     def delete_document(self, doc_id: str, delete_file: bool = False) -> bool:
         """删除文档
         
@@ -217,8 +213,8 @@ class DocumentManager:
         Returns:
             是否删除成功
         """
+        self.logger.info(f"删除文档: doc_id={doc_id}, delete_file={delete_file}")
         try:
-            # 从向量数据库获取文档信息
             results = self.vector_db.collection.get(
                 ids=[doc_id],
                 include=["metadatas"]
@@ -231,21 +227,19 @@ class DocumentManager:
             metadata = results["metadatas"][0]
             file_path = metadata.get("file_path")
             
-            # 从向量数据库删除文档
             self.vector_db.delete_documents_by_filter({"id": doc_id})
             
-            # 如果需要，删除文件
             if delete_file and file_path and os.path.exists(file_path):
                 try:
                     os.remove(file_path)
                     self.logger.info(f"文件已删除: {file_path}")
                 except Exception as e:
-                    self.logger.error(f"删除文件失败: {e}")
+                    self.logger.error(f"删除文件失败: {e}", exc_info=True)
             
-            self.logger.info(f"文档已删除: {doc_id}")
+            self.logger.info(f"文档已删除: {doc_id}", extra={'params': {'delete_file': delete_file}})
             return True
         except Exception as e:
-            self.logger.error(f"删除文档失败: {e}")
+            self.logger.error(f"删除文档失败: {e}", exc_info=True)
             return False
     
     def get_enabled_documents(self) -> List[Dict[str, Any]]:
@@ -254,20 +248,20 @@ class DocumentManager:
         Returns:
             启用的文档列表
         """
+        self.logger.debug("获取所有启用的文档")
         try:
-            # 从向量数据库获取所有文档
             results = self.vector_db.collection.get(include=["metadatas"])
             
             enabled_documents = []
             if results and results["metadatas"]:
                 for metadata in results["metadatas"]:
-                    # 只返回启用的文档
                     if metadata.get("enabled", False):
                         enabled_documents.append(metadata)
             
+            self.logger.debug(f"找到 {len(enabled_documents)} 个启用的文档")
             return enabled_documents
         except Exception as e:
-            self.logger.error(f"获取启用文档失败: {e}")
+            self.logger.error(f"获取启用文档失败: {e}", exc_info=True)
             return []
     
     def get_statistics(self) -> Dict[str, Any]:
@@ -276,8 +270,8 @@ class DocumentManager:
         Returns:
             统计信息字典
         """
+        self.logger.debug("获取文档统计信息")
         try:
-            # 从向量数据库获取所有文档
             results = self.vector_db.collection.get(include=["metadatas"])
             
             total_documents = 0

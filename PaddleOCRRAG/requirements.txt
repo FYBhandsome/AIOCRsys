@@ -1,17 +1,47 @@
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-python-multipart==0.0.6
+# ===========================================
+# RAG System Dependencies
+# 综测计算助手RAG系统依赖
+# ===========================================
+
+# FastAPI核心依赖
+fastapi==0.115.6
+uvicorn[standard]==0.40.0
+python-multipart==0.0.21
+
+# LangChain框架
 langchain==1.0.3
 langchain-community==0.4.1
-langchain-core==1.0.2
+langchain-core==1.2.7
 langchain-text-splitters==1.0.0
-chromadb==1.3.0
-pydantic==2.12.3
-python-dotenv==1.0.0
-requests==2.32.5
-pdfplumber==0.10.3
-docx2txt==0.8
-sentence-transformers>=2.7.0
 
-# 讯飞星火大模型支持
-openai>=1.0.0
+# 向量数据库
+# 注意: chromadb需要C++编译工具(Visual C++ Build Tools)
+# Windows用户请先安装: https://visualstudio.microsoft.com/visual-cpp-build-tools/
+# 或使用conda安装: conda install -c conda-forge chromadb
+chromadb>=0.4.22,<0.5.0
+
+# 数据验证
+pydantic==2.11.10
+python-dotenv==1.1.1
+
+# HTTP请求
+requests==2.32.5
+httpx==0.27.2
+
+# 文档处理
+pdfplumber==0.11.9
+docx2txt==0.8
+openpyxl==3.1.5
+
+# 嵌入模型
+sentence-transformers==2.7.0
+
+# LLM支持
+openai==2.16.0
+
+# 日志
+loguru==0.7.2
+
+# 测试依赖
+pytest==8.3.3
+pytest-asyncio==1.2.0

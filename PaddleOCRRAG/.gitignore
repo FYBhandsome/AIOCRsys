@@ -38,17 +38,84 @@ venv.bak/
 *~
 .DS_Store
 
-# Project specific
+# Project specific - Vector Database
 data/chroma_db/
-*.log
 *.sqlite3
 
-# Testing (已删除的测试文件)
-test_*.py
-example_*.py
+# Logs
+*.log
+logs/
+
+# Testing
+test_results.json
+test_report.json
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
 
 # Temporary files
 *.tmp
 *.bak
 *.cache
+*.temp
 
+# Sensitive files - API keys and secrets
+*.pem
+*.key
+secrets/
+.secrets/
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+
+# Upload files (temporary)
+uploads/
+temp/
+
+# Model cache
+.models/
+.cache/
+.paddlex/
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Build outputs
+dist/
+build/
+*.local
+
+# Node.js (if any frontend)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Package files
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar

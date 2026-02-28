@@ -115,15 +115,23 @@ class ConfigManager:
     
     def _create_default_config(self) -> AppConfig:
         """创建默认配置"""
+        api_key = os.getenv("XUNFEI_API_KEY", "")
+        api_secret = ""
+        if ":" in api_key:
+            api_key, api_secret = api_key.split(":", 1)
+        
+        model_id = os.getenv("XUNFEI_MODEL_ID", "")
+        app_id = os.getenv("XUNFEI_APP_ID", model_id)
+        
         return AppConfig(
             llm=LLMConfig(
                 enabled=os.getenv("USE_XUNFEI_LLM", "false").lower() == "true",
                 provider="xunfei",
-                api_key=os.getenv("XUNFEI_API_KEY", ""),
-                api_secret=os.getenv("XUNFEI_API_SECRET", ""),
-                app_id=os.getenv("XUNFEI_MODEL_ID", ""),  # 使用MODEL_ID作为APP_ID
-                api_base_url=os.getenv("XUNFEI_BASE_URL", "http://maas-api.cn-huabei-1.xf-yun.com/v1"),
-                model_id=os.getenv("XUNFEI_MODEL_ID", ""),
+                api_key=api_key,
+                api_secret=api_secret or os.getenv("XUNFEI_API_SECRET", ""),
+                app_id=app_id,
+                api_base_url=os.getenv("XUNFEI_BASE_URL", "https://maas-api.cn-huabei-1.xf-yun.com/v2"),
+                model_id=model_id,
                 temperature=float(os.getenv("XUNFEI_TEMPERATURE", "0.1")),
                 max_tokens=int(os.getenv("XUNFEI_MAX_TOKENS", "1024"))
             ),
@@ -255,7 +263,10 @@ class ConfigManager:
     def test_llm_connection(self) -> Dict[str, Any]:
         """测试LLM连接"""
         try:
-            from app.core.llm_manager import llm_manager
+            # 使用延迟导入避免循环依赖
+            import importlib
+            llm_manager_module = importlib.import_module('app.core.llm_manager')
+            llm_manager = llm_manager_module.llm_manager
             
             # 获取提供商状态
             status = llm_manager.get_provider_status()

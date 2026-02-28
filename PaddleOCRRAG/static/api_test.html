@@ -140,6 +140,11 @@
                             <i class="bi bi-cpu-fill"></i> LLM配置
                         </button>
                     </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="cache-tab" data-bs-toggle="tab" data-bs-target="#cache" type="button" role="tab" aria-controls="cache" aria-selected="false">
+                            <i class="bi bi-hdd-stack"></i> 缓存管理
+                        </button>
+                    </li>
                 </ul>
             </div>
         </div>
@@ -323,6 +328,42 @@
                         <pre id="listResult">等待获取文档列表...</pre>
                     </div>
                 </div>
+                
+                <div class="api-section">
+                    <h3><i class="bi bi-gear"></i> 文档操作</h3>
+                    <p>对文档进行详情查看、启用/停用、删除等操作</p>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <input type="text" class="form-control" id="documentIdInput" placeholder="输入文档ID">
+                        </div>
+                        <div class="col-md-6">
+                            <div class="btn-group" role="group">
+                                <button class="btn btn-info" id="getDocumentBtn">
+                                    <i class="bi bi-eye"></i> 查看详情
+                                </button>
+                                <button class="btn btn-success" id="enableDocumentBtn">
+                                    <i class="bi bi-check-circle"></i> 启用
+                                </button>
+                                <button class="btn btn-warning" id="disableDocumentBtn">
+                                    <i class="bi bi-x-circle"></i> 停用
+                                </button>
+                                <button class="btn btn-danger" id="deleteDocumentBtn">
+                                    <i class="bi bi-trash"></i> 删除
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="loading" id="documentActionLoading">
+                        <div class="loading-spinner"></div> 正在处理...
+                    </div>
+                    
+                    <div class="response-container" id="documentActionResponse">
+                        <h5>操作结果</h5>
+                        <pre id="documentActionResult">等待操作...</pre>
+                    </div>
+                </div>
             </div>
 
             <!-- 系统信息 -->
@@ -364,6 +405,12 @@
                         <button class="btn btn-warning" id="rebuildVectorBtn">
                             <i class="bi bi-arrow-clockwise"></i> 重建向量数据库
                         </button>
+                        <button class="btn btn-info" id="getVectorHealthBtn">
+                            <i class="bi bi-heart-pulse"></i> 健康检查
+                        </button>
+                        <button class="btn btn-secondary" id="getCollectionsBtn">
+                            <i class="bi bi-collection"></i> 获取集合
+                        </button>
                     </div>
                     
                     <div class="loading" id="vectorLoading">
@@ -373,6 +420,84 @@
                     <div class="response-container" id="vectorResponse">
                         <h5>向量数据库信息</h5>
                         <pre id="vectorResult">等待获取向量数据库信息...</pre>
+                    </div>
+                </div>
+                
+                <div class="api-section">
+                    <h3><i class="bi bi-tools"></i> 高级操作</h3>
+                    <p>清空、重置、重索引向量数据库</p>
+                    
+                    <div class="d-grid gap-2 d-md-flex">
+                        <button class="btn btn-danger" id="clearVectorDbBtn">
+                            <i class="bi bi-trash"></i> 清空数据库
+                        </button>
+                        <button class="btn btn-danger" id="resetVectorDbBtn">
+                            <i class="bi bi-arrow-counterclockwise"></i> 重置数据库
+                        </button>
+                        <button class="btn btn-success" id="reindexDocumentsBtn">
+                            <i class="bi bi-arrow-repeat"></i> 重索引文档
+                        </button>
+                    </div>
+                    
+                    <div class="loading" id="vectorAdvancedLoading">
+                        <div class="loading-spinner"></div> 正在处理...
+                    </div>
+                    
+                    <div class="response-container" id="vectorAdvancedResponse">
+                        <h5>操作结果</h5>
+                        <pre id="vectorAdvancedResult">等待操作...</pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 缓存管理 -->
+            <div class="tab-pane fade" id="cache" role="tabpanel" aria-labelledby="cache-tab">
+                <div class="api-section">
+                    <h3><i class="bi bi-database"></i> 缓存管理</h3>
+                    <p>管理系统缓存</p>
+                    
+                    <div class="d-grid gap-2 d-md-flex">
+                        <button class="btn btn-primary" id="getCacheStatsBtn">
+                            <i class="bi bi-bar-chart"></i> 获取缓存统计
+                        </button>
+                        <button class="btn btn-warning" id="clearAllCacheBtn">
+                            <i class="bi bi-trash"></i> 清空所有缓存
+                        </button>
+                        <button class="btn btn-info" id="getCacheHealthBtn">
+                            <i class="bi bi-heart-pulse"></i> 缓存健康检查
+                        </button>
+                    </div>
+                    
+                    <div class="loading" id="cacheLoading">
+                        <div class="loading-spinner"></div> 正在处理...
+                    </div>
+                    
+                    <div class="response-container" id="cacheResponse">
+                        <h5>缓存信息</h5>
+                        <pre id="cacheResult">等待获取缓存信息...</pre>
+                    </div>
+                </div>
+                
+                <div class="api-section">
+                    <h3><i class="bi bi-chat-dots"></i> 聊天缓存</h3>
+                    <p>管理聊天相关缓存</p>
+                    
+                    <div class="d-grid gap-2 d-md-flex">
+                        <button class="btn btn-primary" id="getChatCacheStatsBtn">
+                            <i class="bi bi-bar-chart"></i> 聊天缓存统计
+                        </button>
+                        <button class="btn btn-danger" id="clearChatCacheBtn">
+                            <i class="bi bi-trash"></i> 清空聊天缓存
+                        </button>
+                    </div>
+                    
+                    <div class="loading" id="chatCacheLoading">
+                        <div class="loading-spinner"></div> 正在处理...
+                    </div>
+                    
+                    <div class="response-container" id="chatCacheResponse">
+                        <h5>聊天缓存信息</h5>
+                        <pre id="chatCacheResult">等待获取聊天缓存信息...</pre>
                     </div>
                 </div>
             </div>
@@ -434,7 +559,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // API基础URL
-        const API_BASE_URL = '/v1';
+        const API_BASE_URL = '/api/v1';
         
         // 证书级别映射
         const certificateLevels = {
@@ -475,12 +600,19 @@
         document.getElementById('certificateForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
+            const certificateType = document.getElementById('certificateType').value;
+            const certificateLevel = document.getElementById('certificateLevel').value;
+            const certificateName = document.getElementById('certificateName').value;
+            const issueDate = document.getElementById('issueDate').value;
+            const studentId = document.getElementById('studentId').value;
+            
+            const certificateText = `证书类型: ${certificateType}\n证书级别: ${certificateLevel}\n证书名称: ${certificateName}\n颁发日期: ${issueDate}`;
+            
             const formData = {
-                student_id: document.getElementById('studentId').value,
-                certificate_type: document.getElementById('certificateType').value,
-                certificate_level: document.getElementById('certificateLevel').value,
-                certificate_name: document.getElementById('certificateName').value,
-                issue_date: document.getElementById('issueDate').value
+                certificate_text: certificateText,
+                student_info: {
+                    student_id: studentId
+                }
             };
             
             toggleLoading('certificateLoading', true);
@@ -567,10 +699,9 @@
             } else {
                 // 普通请求
                 const formData = {
-                    question: question,
-                    history: [],
-                    use_cache: useCache,
-                    use_optimized: useOptimized
+                    message: question,
+                    chat_history: [],
+                    use_rag: useCache
                 };
                 
                 fetch(`${API_BASE_URL}/chat`, {
@@ -582,8 +713,10 @@
                 })
                 .then(response => response.json())
                 .then(data => {
-                    if (data.success) {
-                        addChatMessage(data.data.answer, false);
+                    if (data.success && data.data) {
+                        addChatMessage(data.data.reply || data.data.answer || JSON.stringify(data.data), false);
+                    } else {
+                        addChatMessage(JSON.stringify(data), false);
                     }
                     showResponse('chatResult', data, data.success ? 'success' : 'error');
                 })
@@ -670,6 +803,59 @@
             });
         });
         
+        // 文档操作函数
+        function handleDocumentAction(action) {
+            const documentId = document.getElementById('documentIdInput').value.trim();
+            if (!documentId) {
+                showResponse('documentActionResult', { error: '请输入文档ID' }, 'error');
+                return;
+            }
+            
+            toggleLoading('documentActionLoading', true);
+            
+            let url = `${API_BASE_URL}/documents/${documentId}`;
+            let options = { method: 'GET' };
+            
+            switch(action) {
+                case 'get':
+                    options.method = 'GET';
+                    break;
+                case 'enable':
+                    url += '/enable';
+                    options.method = 'POST';
+                    break;
+                case 'disable':
+                    url += '/disable';
+                    options.method = 'POST';
+                    break;
+                case 'delete':
+                    if (!confirm('确定要删除这个文档吗？此操作不可恢复。')) {
+                        toggleLoading('documentActionLoading', false);
+                        return;
+                    }
+                    options.method = 'DELETE';
+                    break;
+            }
+            
+            fetch(url, options)
+            .then(response => response.json())
+            .then(data => {
+                showResponse('documentActionResult', data, data.success ? 'success' : 'error');
+            })
+            .catch(error => {
+                showResponse('documentActionResult', { error: error.message }, 'error');
+            })
+            .finally(() => {
+                toggleLoading('documentActionLoading', false);
+            });
+        }
+        
+        // 文档操作按钮事件
+        document.getElementById('getDocumentBtn').addEventListener('click', () => handleDocumentAction('get'));
+        document.getElementById('enableDocumentBtn').addEventListener('click', () => handleDocumentAction('enable'));
+        document.getElementById('disableDocumentBtn').addEventListener('click', () => handleDocumentAction('disable'));
+        document.getElementById('deleteDocumentBtn').addEventListener('click', () => handleDocumentAction('delete'));
+        
         // 获取系统信息
         document.getElementById('getSystemInfoBtn').addEventListener('click', function() {
             toggleLoading('systemLoading', true);
@@ -708,7 +894,7 @@
         document.getElementById('getVectorStatsBtn').addEventListener('click', function() {
             toggleLoading('vectorLoading', true);
             
-            fetch(`${API_BASE_URL}/vector_db/stats`)
+            fetch(`${API_BASE_URL}/vector-db/stats`)
             .then(response => response.json())
             .then(data => {
                 showResponse('vectorResult', data, data.success ? 'success' : 'error');
@@ -726,7 +912,7 @@
             if (confirm('确定要重建向量数据库吗？这可能需要一些时间。')) {
                 toggleLoading('vectorLoading', true);
                 
-                fetch(`${API_BASE_URL}/vector_db/rebuild`, {
+                fetch(`${API_BASE_URL}/vector-db/rebuild`, {
                     method: 'POST'
                 })
                 .then(response => response.json())
@@ -746,16 +932,16 @@
         document.getElementById('getLLMConfigBtn').addEventListener('click', function() {
             toggleLoading('llmLoading', true);
             
-            fetch(`${API_BASE_URL}/llm/config`)
+            fetch(`${API_BASE_URL}/system/llm/config`)
             .then(response => response.json())
             .then(data => {
-                if (data.success) {
-                    // 填充表单
-                    document.getElementById('modelName').value = data.data.model_name || '';
-                    document.getElementById('temperature').value = data.data.temperature || 0.7;
-                    document.getElementById('maxTokens').value = data.data.max_tokens || 2048;
-                    document.getElementById('topP').value = data.data.top_p || 0.9;
-                    document.getElementById('topK').value = data.data.top_k || 40;
+                if (data.success && data.data) {
+                    const config = data.data;
+                    document.getElementById('modelName').value = config.model_id || config.model_name || '';
+                    document.getElementById('temperature').value = config.temperature || 0.7;
+                    document.getElementById('maxTokens').value = config.max_tokens || 2048;
+                    document.getElementById('topP').value = 0.9;
+                    document.getElementById('topK').value = 40;
                 }
                 showResponse('llmResult', data, data.success ? 'success' : 'error');
             })
@@ -770,16 +956,14 @@
         // 更新LLM配置
         document.getElementById('updateLLMConfigBtn').addEventListener('click', function() {
             const config = {
-                model_name: document.getElementById('modelName').value,
+                model_id: document.getElementById('modelName').value,
                 temperature: parseFloat(document.getElementById('temperature').value),
-                max_tokens: parseInt(document.getElementById('maxTokens').value),
-                top_p: parseFloat(document.getElementById('topP').value),
-                top_k: parseInt(document.getElementById('topK').value)
+                max_tokens: parseInt(document.getElementById('maxTokens').value)
             };
             
             toggleLoading('llmLoading', true);
             
-            fetch(`${API_BASE_URL}/llm/config`, {
+            fetch(`${API_BASE_URL}/system/llm/config`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json'
@@ -796,6 +980,196 @@
             .finally(() => {
                 toggleLoading('llmLoading', false);
             });
+        });
+        
+        // 向量数据库健康检查
+        document.getElementById('getVectorHealthBtn').addEventListener('click', function() {
+            toggleLoading('vectorLoading', true);
+            
+            fetch(`${API_BASE_URL}/vector-db/health`)
+            .then(response => response.json())
+            .then(data => {
+                showResponse('vectorResult', data, data.healthy ? 'success' : 'error');
+            })
+            .catch(error => {
+                showResponse('vectorResult', { error: error.message }, 'error');
+            })
+            .finally(() => {
+                toggleLoading('vectorLoading', false);
+            });
+        });
+        
+        // 获取向量数据库集合
+        document.getElementById('getCollectionsBtn').addEventListener('click', function() {
+            toggleLoading('vectorLoading', true);
+            
+            fetch(`${API_BASE_URL}/vector-db/collections`)
+            .then(response => response.json())
+            .then(data => {
+                showResponse('vectorResult', data, 'success');
+            })
+            .catch(error => {
+                showResponse('vectorResult', { error: error.message }, 'error');
+            })
+            .finally(() => {
+                toggleLoading('vectorLoading', false);
+            });
+        });
+        
+        // 清空向量数据库
+        document.getElementById('clearVectorDbBtn').addEventListener('click', function() {
+            if (confirm('确定要清空向量数据库吗？此操作将删除所有向量数据！')) {
+                toggleLoading('vectorAdvancedLoading', true);
+                
+                fetch(`${API_BASE_URL}/vector-db/clear`, {
+                    method: 'POST'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    showResponse('vectorAdvancedResult', data, data.success ? 'success' : 'error');
+                })
+                .catch(error => {
+                    showResponse('vectorAdvancedResult', { error: error.message }, 'error');
+                })
+                .finally(() => {
+                    toggleLoading('vectorAdvancedLoading', false);
+                });
+            }
+        });
+        
+        // 重置向量数据库
+        document.getElementById('resetVectorDbBtn').addEventListener('click', function() {
+            if (confirm('确定要重置向量数据库吗？此操作将完全删除并重建数据库！')) {
+                toggleLoading('vectorAdvancedLoading', true);
+                
+                fetch(`${API_BASE_URL}/vector-db/reset?backup=true`, {
+                    method: 'POST'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    showResponse('vectorAdvancedResult', data, data.success ? 'success' : 'error');
+                })
+                .catch(error => {
+                    showResponse('vectorAdvancedResult', { error: error.message }, 'error');
+                })
+                .finally(() => {
+                    toggleLoading('vectorAdvancedLoading', false);
+                });
+            }
+        });
+        
+        // 重索引文档
+        document.getElementById('reindexDocumentsBtn').addEventListener('click', function() {
+            if (confirm('确定要重新索引所有文档吗？这可能需要一些时间。')) {
+                toggleLoading('vectorAdvancedLoading', true);
+                
+                fetch(`${API_BASE_URL}/vector-db/reindex`, {
+                    method: 'POST'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    showResponse('vectorAdvancedResult', data, data.success ? 'success' : 'error');
+                })
+                .catch(error => {
+                    showResponse('vectorAdvancedResult', { error: error.message }, 'error');
+                })
+                .finally(() => {
+                    toggleLoading('vectorAdvancedLoading', false);
+                });
+            }
+        });
+        
+        // 获取缓存统计
+        document.getElementById('getCacheStatsBtn').addEventListener('click', function() {
+            toggleLoading('cacheLoading', true);
+            
+            fetch(`${API_BASE_URL}/cache/stats`)
+            .then(response => response.json())
+            .then(data => {
+                showResponse('cacheResult', data, data.success ? 'success' : 'error');
+            })
+            .catch(error => {
+                showResponse('cacheResult', { error: error.message }, 'error');
+            })
+            .finally(() => {
+                toggleLoading('cacheLoading', false);
+            });
+        });
+        
+        // 清空所有缓存
+        document.getElementById('clearAllCacheBtn').addEventListener('click', function() {
+            if (confirm('确定要清空所有缓存吗？')) {
+                toggleLoading('cacheLoading', true);
+                
+                fetch(`${API_BASE_URL}/cache/clear`, {
+                    method: 'DELETE'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    showResponse('cacheResult', data, data.success ? 'success' : 'error');
+                })
+                .catch(error => {
+                    showResponse('cacheResult', { error: error.message }, 'error');
+                })
+                .finally(() => {
+                    toggleLoading('cacheLoading', false);
+                });
+            }
+        });
+        
+        // 缓存健康检查
+        document.getElementById('getCacheHealthBtn').addEventListener('click', function() {
+            toggleLoading('cacheLoading', true);
+            
+            fetch(`${API_BASE_URL}/cache/health`)
+            .then(response => response.json())
+            .then(data => {
+                showResponse('cacheResult', data, 'success');
+            })
+            .catch(error => {
+                showResponse('cacheResult', { error: error.message }, 'error');
+            })
+            .finally(() => {
+                toggleLoading('cacheLoading', false);
+            });
+        });
+        
+        // 聊天缓存统计
+        document.getElementById('getChatCacheStatsBtn').addEventListener('click', function() {
+            toggleLoading('chatCacheLoading', true);
+            
+            fetch(`${API_BASE_URL}/chat/cache/stats`)
+            .then(response => response.json())
+            .then(data => {
+                showResponse('chatCacheResult', data, data.success ? 'success' : 'error');
+            })
+            .catch(error => {
+                showResponse('chatCacheResult', { error: error.message }, 'error');
+            })
+            .finally(() => {
+                toggleLoading('chatCacheLoading', false);
+            });
+        });
+        
+        // 清空聊天缓存
+        document.getElementById('clearChatCacheBtn').addEventListener('click', function() {
+            if (confirm('确定要清空聊天缓存吗？')) {
+                toggleLoading('chatCacheLoading', true);
+                
+                fetch(`${API_BASE_URL}/chat/cache`, {
+                    method: 'DELETE'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    showResponse('chatCacheResult', data, data.success ? 'success' : 'error');
+                })
+                .catch(error => {
+                    showResponse('chatCacheResult', { error: error.message }, 'error');
+                })
+                .finally(() => {
+                    toggleLoading('chatCacheLoading', false);
+                });
+            }
         });
     </script>
 </body>

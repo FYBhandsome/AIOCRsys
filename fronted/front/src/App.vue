@@ -10,64 +10,105 @@ const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
 
-// 判断是否为登录相关页面
 const isLoginPage = computed(() => {
   const publicPages = ['/login', '/register', '/reset-password', '/forgot-password']
   return publicPages.includes(route.path)
 })
 
-// 页面加载时检查登录状态
 onMounted(() => {
-  // 初始化时检查认证状态（只检查，不自动跳转，让路由守卫处理）
   userStore.checkAuth()
 })
 
-// 退出登录
 const handleLogout = () => {
   userStore.logout()
   ElMessage.success('已退出登录')
   router.push('/login')
 }
+
+const getRoleBadgeClass = (role) => {
+  const classes = {
+    admin: 'badge-error',
+    teacher: 'badge-warning',
+    student: 'badge-success'
+  }
+  return classes[role] || 'badge-primary'
+}
+
+const getRoleText = (role) => {
+  const texts = {
+    admin: '管理员',
+    teacher: '教师',
+    student: '学生'
+  }
+  return texts[role] || '用户'
+}
 </script>
 
 <template>
-  <!-- 根据当前路由决定显示布局 -->
-  <!-- 登录相关页面：显示登录布局 -->
   <div v-if="isLoginPage" class="login-layout">
     <router-view />
   </div>
   
-  <!-- 已登录状态：显示主应用布局 -->
   <div v-else-if="userStore.isAuthenticated" class="app-root">
     <el-container class="layout-container">
-      <el-header class="header">
-        <div class="logo">
-          <h2>🎓 综测计算助手</h2>
+      <el-header class="app-header">
+        <div class="header-content">
+          <div class="logo-section">
+            <div class="logo-icon">
+              <span class="logo-emoji">🎓</span>
+            </div>
+            <div class="logo-text">
+              <h1 class="logo-title">综测计算助手</h1>
+              <span class="logo-subtitle">智能综测评分系统</span>
+            </div>
+          </div>
+          
+          <div class="header-actions">
+            <RoleSwitcher />
+            
+            <div class="user-profile">
+              <div class="user-avatar">
+                {{ (userStore.userInfo.name || '用户').charAt(0) }}
+              </div>
+              <div class="user-details">
+                <span class="user-name">{{ userStore.userInfo.name || '用户' }}</span>
+                <span :class="['user-role', getRoleBadgeClass(userStore.userInfo.role)]">
+                  {{ getRoleText(userStore.userInfo.role) }}
+                </span>
+              </div>
+            </div>
+            
+            <el-button 
+              class="logout-btn" 
+              @click="handleLogout"
+            >
+              <el-icon><SwitchButton /></el-icon>
+              退出
+            </el-button>
+          </div>
         </div>
         
-        <div class="user-info">
-          <!-- 身份切换器（仅开发模式） -->
-          <RoleSwitcher />
-          
-          <span class="welcome-text">欢迎，{{ userStore.userInfo.name || '用户' }}</span>
-          <el-button type="text" @click="handleLogout" class="logout-btn">
-            退出登录
-          </el-button>
+        <div class="header-decoration">
+          <div class="decoration-circle circle-1"></div>
+          <div class="decoration-circle circle-2"></div>
+          <div class="decoration-circle circle-3"></div>
         </div>
       </el-header>
       
       <el-container class="content-container">
         <el-main class="main-content">
-          <router-view />
+          <router-view v-slot="{ Component }">
+            <transition name="fade-slide" mode="out-in">
+              <component :is="Component" />
+            </transition>
+          </router-view>
         </el-main>
       </el-container>
     </el-container>
 
-    <!-- AI助手悬浮窗 -->
     <AIAssistant />
   </div>
   
-  <!-- 未登录且不在登录页面：显示空白（路由守卫会处理跳转） -->
   <div v-else class="login-layout">
     <router-view />
   </div>
@@ -76,6 +117,7 @@ const handleLogout = () => {
 <style scoped>
 .app-root {
   min-height: 100vh;
+  background: var(--bg-canvas);
 }
 
 .layout-container {
@@ -86,91 +128,204 @@ const handleLogout = () => {
   flex: 1;
 }
 
-/* 头部样式 */
-.header {
+.app-header {
+  background: var(--gradient-primary);
+  color: white;
+  padding: 0;
+  box-shadow: var(--shadow-lg);
+  z-index: var(--z-sticky);
+  height: 72px;
+  position: relative;
+  overflow: hidden;
+}
+
+.header-content {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 0 30px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 1000;
-  height: 65px;
+  height: 100%;
+  padding: 0 var(--spacing-8);
   position: relative;
+  z-index: 2;
 }
 
-.header::before {
-  content: '';
+.header-decoration {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.1) 0%,
-    rgba(255, 255, 255, 0) 100%
-  );
   pointer-events: none;
+  overflow: hidden;
 }
 
-.logo {
-  position: relative;
-  z-index: 1;
+.decoration-circle {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
 }
 
-.logo h2 {
-  margin: 0;
-  font-weight: 700;
-  font-size: 22px;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-  letter-spacing: 0.5px;
+.circle-1 {
+  width: 200px;
+  height: 200px;
+  top: -100px;
+  right: 10%;
+  animation: float 6s ease-in-out infinite;
 }
 
-.user-info {
+.circle-2 {
+  width: 150px;
+  height: 150px;
+  top: -50px;
+  right: 30%;
+  animation: float 8s ease-in-out infinite reverse;
+}
+
+.circle-3 {
+  width: 100px;
+  height: 100px;
+  bottom: -50px;
+  left: 20%;
+  animation: float 7s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-20px) rotate(180deg); }
+}
+
+.logo-section {
   display: flex;
   align-items: center;
-  gap: 20px;
-  position: relative;
-  z-index: 1;
+  gap: var(--spacing-4);
 }
 
-.welcome-text {
-  font-size: 15px;
-  font-weight: 500;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+.logo-icon {
+  width: 48px;
+  height: 48px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-xl);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(10px);
+}
+
+.logo-emoji {
+  font-size: 28px;
+}
+
+.logo-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.logo-title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  margin: 0;
+  letter-spacing: var(--letter-spacing-tight);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.logo-subtitle {
+  font-size: var(--font-size-xs);
+  opacity: 0.8;
+  letter-spacing: var(--letter-spacing-wide);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-6);
+}
+
+.user-profile {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  padding: var(--spacing-2) var(--spacing-4);
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-2xl);
+  backdrop-filter: blur(10px);
+}
+
+.user-avatar {
+  width: 36px;
+  height: 36px;
+  background: var(--gradient-accent);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-base);
+  color: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.user-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.user-name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.user-role {
+  font-size: var(--font-size-xs);
+  padding: 1px 8px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.2);
+  width: fit-content;
+}
+
+.user-role.badge-success {
+  background: rgba(34, 197, 94, 0.3);
+}
+
+.user-role.badge-warning {
+  background: rgba(245, 158, 11, 0.3);
+}
+
+.user-role.badge-error {
+  background: rgba(239, 68, 68, 0.3);
 }
 
 .logout-btn {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   color: white;
-  padding: 8px 16px;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.3s ease;
-  border-radius: 8px;
+  padding: var(--spacing-2) var(--spacing-4);
+  border-radius: var(--radius-lg);
+  font-weight: var(--font-weight-medium);
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
 }
 
 .logout-btn:hover {
-  background-color: rgba(255, 255, 255, 0.2);
-  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-2px);
 }
 
-/* 登录页布局 */
 .login-layout {
   width: 100%;
-  height: 100vh;
+  min-height: 100vh;
 }
 
-/* 内容容器 */
 .content-container {
   display: flex;
   flex: 1;
-  min-height: calc(100vh - 65px);
+  min-height: calc(100vh - 72px);
 }
 
 .main-content {
-  background: linear-gradient(135deg, #f5f7fa 0%, #e8f0fe 100%);
+  background: var(--bg-canvas);
   padding: 0;
   flex: 1;
   width: 100%;
@@ -178,48 +333,82 @@ const handleLogout = () => {
   overflow-x: hidden;
 }
 
-/* 响应式设计 */
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: all var(--transition-normal);
+}
+
+.fade-slide-enter-from {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
 @media (max-width: 1024px) {
-  .header {
-    padding: 0 20px;
+  .header-content {
+    padding: 0 var(--spacing-6);
   }
   
-  .logo h2 {
-    font-size: 18px;
+  .logo-subtitle {
+    display: none;
   }
 }
 
 @media (max-width: 768px) {
-  .header {
-    padding: 0 15px;
-    height: 60px;
+  .app-header {
+    height: 64px;
   }
   
-  .logo h2 {
-    font-size: 16px;
+  .header-content {
+    padding: 0 var(--spacing-4);
   }
   
-  .welcome-text {
+  .logo-icon {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .logo-emoji {
+    font-size: 22px;
+  }
+  
+  .logo-title {
+    font-size: var(--font-size-lg);
+  }
+  
+  .user-details {
     display: none;
   }
   
+  .user-profile {
+    padding: var(--spacing-1);
+    background: transparent;
+  }
+  
+  .logout-btn {
+    padding: var(--spacing-2);
+  }
+  
   .content-container {
-    min-height: calc(100vh - 60px);
+    min-height: calc(100vh - 64px);
   }
 }
 
 @media (max-width: 480px) {
-  .header {
-    padding: 0 10px;
+  .header-content {
+    padding: 0 var(--spacing-3);
   }
   
-  .logo h2 {
-    font-size: 14px;
+  .logo-text {
+    display: none;
   }
   
-  .logout-btn {
-    padding: 6px 12px;
-    font-size: 13px;
+  .header-actions {
+    gap: var(--spacing-3);
   }
 }
 </style>

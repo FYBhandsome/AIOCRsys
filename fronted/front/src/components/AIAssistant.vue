@@ -139,28 +139,37 @@ const toggleAssistant = () => {
 const sendMessage = async () => {
   if (!inputMessage.value.trim() || isSending.value) return
   
-  // 添加用户消息
+  const userQuestion = inputMessage.value
+  
   const userMessage = {
     id: Date.now(),
     type: 'user',
-    content: inputMessage.value,
+    content: userQuestion,
     time: getCurrentTime()
   }
   
   messages.value.push(userMessage)
-  const userQuestion = inputMessage.value
   inputMessage.value = ''
   isSending.value = true
   scrollToBottom()
   
   try {
-    // 调用后端API获取AI回复（与后端模型对齐）
-    const resp = await commonAPI.post('/ai/assistant/message', {
-      question: userQuestion,
-      userId: userStore?.userInfo?.id || 'anonymous'
+    const chatHistory = messages.value
+      .filter(m => m.type === 'user' || m.type === 'ai')
+      .slice(-10)
+      .map(m => ({
+        role: m.type === 'user' ? 'user' : 'assistant',
+        content: m.content
+      }))
+    
+    const resp = await commonAPI.post('/ai/chat', {
+      message: userQuestion,
+      userId: userStore?.userInfo?.id || 'anonymous',
+      chat_history: chatHistory,
+      use_rag: true
     })
     
-    const aiContent = resp?.response || resp?.data?.response || '抱歉，我没有理解您的问题，请重新表述。'
+    const aiContent = resp?.reply || resp?.response || '抱歉，我没有理解您的问题，请重新表述。'
     const aiMessage = {
       id: Date.now() + 1,
       type: 'ai',

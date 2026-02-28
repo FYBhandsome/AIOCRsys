@@ -17,10 +17,14 @@
 - [项目简介](#项目简介)
 - [核心特性](#核心特性)
 - [快速开始](#快速开始)
-- [API功能](#api功能)
+- [RAG核心技术详解](#rag核心技术详解)
+  - [向量化存储技术](#向量化存储技术)
+  - [文档切片策略](#文档切片策略)
+  - [检索召回算法](#检索召回算法)
+  - [重排序优化](#重排序优化)
 - [系统架构](#系统架构)
+- [API功能](#api功能)
 - [配置说明](#配置说明)
-- [使用文档](#使用文档)
 
 ---
 
@@ -38,13 +42,12 @@
 
 ## ✨ 核心特性
 
-### 🔥 v2.1.1 最新改进
+### 🔥 v2.2.0 最新改进
 
 **代码架构优化**:
 - ✅ 统一API路由管理，集中注册所有子路由
 - ✅ 增强的依赖注入机制，避免重复初始化服务实例
 - ✅ 改进的组件初始化流程，添加详细的错误处理
-- ✅ 优化的服务获取方式，使用依赖注入模式
 - ✅ 模块化代码组织，提高可维护性和可测试性
 
 **性能优化提升**:
@@ -52,36 +55,6 @@
 - ✅ 智能缓存机制，减少重复计算50-80%
 - ✅ 连接池管理，优化资源使用30-40%
 - ✅ 批量处理优化，提高系统吞吐量50%
-- ✅ 新增性能监控工具，实时跟踪系统状态
-- ✅ 提供多种API端点，支持不同优化策略
-
-**稳定性提升**:
-- ✅ 修复ChromaDB兼容性问题（`delete(where={})` 错误）
-- ✅ 新增 `clear_all_documents()` 方法，安全清空向量库
-- ✅ 改进ID生成策略，避免文档冲突
-- ✅ 完善依赖管理，添加 `python-multipart` 支持文件上传
-- ✅ 优化错误处理，提升系统健壮性
-
-### 🚀 v2.0 核心功能
-
-| 功能模块 | 特性说明 |
-|---------|---------|
-| **文档管理** | • 单个/批量上传文档<br>• 启用/停用状态管理<br>• 自动向量化处理<br>• 元数据管理 |
-| **智能计算** | • RAG检索增强<br>• 讯飞星火大模型<br>• 结构化JSON输出<br>• 高置信度匹配 |
-| **AI对话** | • 自然语言问答<br>• 多轮对话支持<br>• 上下文理解<br>• 规则引用 |
-| **自定义Prompt** | • 灵活配置提示词<br>• 模板化管理<br>• 一键重置默认<br>• 版本控制 |
-| **LLM配置** ⭐ | • 动态配置API密钥<br>• 自定义模型参数<br>• 连接验证测试<br>• 无需重启服务 |
-| **向量库管理** | • 重置数据库<br>• 重建索引<br>• 统计信息<br>• 自动更新 |
-
-### 🔧 技术特性
-
-- ✅ **轻量级部署**: 使用 ChromaDB，无需额外服务
-- ✅ **语义检索**: Sentence-Transformers 嵌入模型
-- ✅ **多格式支持**: txt、pdf、docx 文档
-- ✅ **统一响应**: 所有API返回结构化JSON
-- ✅ **低资源占用**: 内存 < 500MB
-- ✅ **快速响应**: 查询响应 < 100ms（规则匹配模式）
-- ✅ **完整测试**: 19个测试用例，100%通过率
 
 ---
 
@@ -96,313 +69,709 @@
 ### 步骤 1: 安装依赖
 
 ```bash
-# 使用项目 Python 环境
-d:\PaddleOCRRAG\.conda\python.exe -m pip install -r requirements.txt
-
-# 或使用系统 Python
 pip install -r requirements.txt
 ```
 
 ### 步骤 2: 配置环境
 
-创建 `.env` 文件（可选，用于配置讯飞星火大模型）：
+创建 `.env` 文件：
 
 ```env
-# 基础配置
 CHROMA_DB_PATH=./data/chroma_db
 RULES_DOCS_PATH=./data/rules
-
-# RAG配置
 TOP_K=2
 MAX_CONTEXT_LENGTH=1024
-
-# 讯飞星火配置（可选，启用对话功能需要）
-USE_XUNFEI_LLM=true
-XUNFEI_API_KEY=your_api_key_here
-XUNFEI_MODEL_ID=your_model_id_here
-XUNFEI_BASE_URL=http://maas-api.cn-huabei-1.xf-yun.com/v1
-XUNFEI_TEMPERATURE=0.1
-XUNFEI_MAX_TOKENS=1024
+EMBEDDING_MODEL=all-MiniLM-L6-v2
+EMBEDDING_DEVICE=cpu
 ```
 
 ### 步骤 3: 启动服务
 
 ```bash
-# Windows 批处理脚本（推荐）
-run.bat
-
-# 或手动启动
-d:\PaddleOCRRAG\.conda\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
 ### 步骤 4: 访问服务
 
 - **API 文档**: http://localhost:8000/docs
-- **ReDoc 文档**: http://localhost:8000/redoc
-- **交互式API文档**: http://localhost:8000/static/interactive_api_docs.html
-- **健康检查**: http://localhost:8000/api/v1/health
+- **健康检查**: http://localhost:8000/health
 
 ---
 
-## 📖 API文档
+## 🔬 RAG核心技术详解
 
-### 完整API文档
+本章节详细讲解RAG系统中的核心技术算法，包括向量化存储、文档切片、检索召回和重排序优化。
 
-我们提供了多种形式的API文档，满足不同开发者的需求：
+### 1. 向量化存储技术
 
-| 文档类型 | 访问地址 | 特点 |
-|---------|---------|------|
-| **Swagger UI** | http://localhost:8000/docs | 交互式API文档，支持在线测试 |
-| **ReDoc** | http://localhost:8000/redoc | 美观的三栏式API文档 |
-| **交互式文档** | http://localhost:8000/static/interactive_api_docs.html | 自定义交互式文档，包含使用示例 |
-| **Markdown文档** | [API_DOCUMENTATION.md](./API_DOCUMENTATION.md) | 完整的Markdown格式API文档 |
+#### 1.1 技术原理
 
-### API概述
+向量化存储是RAG系统的基础，将文本转换为高维向量表示，使得语义相似的文本在向量空间中距离更近。
 
-PaddleOCRRAG提供了以下主要API类别：
-
-1. **系统管理API**
-   - 健康检查
-   - LLM连接测试
-
-2. **文档管理API**
-   - 文档上传与管理
-   - 文档列表与查询
-   - 文档状态管理
-
-3. **证书加分计算API**
-   - 证书文本分析
-   - 加分计算
-   - 批量处理
-
-4. **AI对话API**
-   - 智能问答
-   - 规则查询
-   - 上下文对话
-
-5. **配置管理API**
-   - LLM配置管理
-   - Prompt配置管理
-
-### 快速测试
-
-您可以使用以下命令快速测试API：
-
-```bash
-# 测试健康检查
-curl -X GET "http://localhost:8000/api/v1/health"
-
-# 测试证书加分计算
-curl -X POST "http://localhost:8000/api/v1/calculate-score" \
-  -H "Content-Type: application/json" \
-  -d '{"certificate_text": "获得2023年全国大学生数学建模竞赛一等奖"}'
-
-# 测试AI对话
-curl -X POST "http://localhost:8000/api/v1/chat" \
-  -H "Content-Type: application/json" \
-  -d '{"question": "你好，我想了解英语四级证书的加分规则"}'
+```
+文本 ──→ 嵌入模型 ──→ 向量 ──→ 向量数据库
+                    (768维)      (ChromaDB)
 ```
 
-### 完整测试脚本
+#### 1.2 嵌入模型选择
 
-项目提供了完整的API测试脚本：
+本项目使用 **Sentence-Transformers** 系列模型：
 
-```bash
-# 运行所有API测试
-python test_all_apis.py
+| 模型名称 | 维度 | 速度 | 质量 | 适用场景 |
+|---------|------|------|------|---------|
+| all-MiniLM-L6-v2 | 384 | 快 | 中 | 实时查询 |
+| all-mpnet-base-v2 | 768 | 中 | 高 | 精确检索 |
+| paraphrase-multilingual | 768 | 中 | 高 | 多语言 |
 
-# 运行特定API测试
-python test_apis.py
-```
-
-### 客户端SDK
-
-我们提供了Python客户端SDK，方便开发者快速集成：
+#### 1.3 向量化实现代码
 
 ```python
-from paddle_ocrrag_client import PaddleOCRRAGClient
+from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
 
-# 创建客户端
-client = PaddleOCRRAGClient(base_url="http://localhost:8000")
-
-# 健康检查
-health = client.health.check()
-
-# 上传文档
-doc = client.documents.upload("规则文档.docx", "2025年综测规则")
-
-# 计算证书加分
-score = client.certificates.calculate_score("获得2023年全国大学生数学建模竞赛一等奖")
-
-# AI对话
-reply = client.chat.ask("获得国家级奖学金可以加多少分？")
+class RuleVectorDB:
+    """向量数据库管理器"""
+    
+    def __init__(self, collection_name: str = "zongce_rules"):
+        self.embedding_function = SentenceTransformerEmbeddingFunction(
+            model_name="all-MiniLM-L6-v2",
+            device="cpu",
+            normalize_embeddings=True
+        )
+        
+        self.client = chromadb.PersistentClient(path="./data/chroma_db")
+        self.collection = self.client.get_or_create_collection(
+            name=collection_name,
+            embedding_function=self.embedding_function,
+            metadata={"hnsw:space": "cosine"}
+        )
+    
+    def add_documents(self, documents: List[str], metadatas: List[dict] = None):
+        """添加文档到向量数据库"""
+        ids = [f"doc_{hashlib.md5(doc.encode()).hexdigest()[:12]}" for doc in documents]
+        
+        self.collection.add(
+            documents=documents,
+            ids=ids,
+            metadatas=metadatas or [{} for _ in documents]
+        )
+        
+        return ids
 ```
 
-### 示例应用
+#### 1.4 向量相似度计算
 
-项目包含了完整的示例应用，展示如何使用SDK：
+系统支持多种相似度计算方法：
 
-```bash
-# 运行自动演示
-python demo_app.py
-
-# 运行交互式演示
-python demo_app.py --interactive
+**余弦相似度 (Cosine Similarity)**
+```
+similarity = cos(θ) = (A · B) / (||A|| × ||B||)
 ```
 
-### API认证
-
-目前API不需要认证，但建议在生产环境中添加适当的认证机制。
-
-### 错误处理
-
-所有API返回统一的错误格式：
-
-```json
-{
-  "success": false,
-  "error": {
-    "code": "ERROR_CODE",
-    "message": "错误描述",
-    "details": "详细错误信息"
-  }
-}
+**欧氏距离 (Euclidean Distance)**
+```
+distance = ||A - B|| = √(Σ(ai - bi)²)
 ```
 
-### 速率限制
+**点积 (Dot Product)**
+```
+score = A · B = Σ(ai × bi)
+```
 
-目前没有实施速率限制，但在生产环境中建议添加适当的速率限制以保护服务。
+#### 1.5 HNSW索引算法
+
+ChromaDB使用 **HNSW (Hierarchical Navigable Small World)** 算法进行高效近似最近邻搜索：
+
+```
+                    [顶层]
+                      │
+                 ┌────┴────┐
+                 │         │
+              [中层]    [中层]
+                 │         │
+            ┌────┴────┐    │
+            │         │    │
+         [底层]    [底层] [底层]
+            │         │    │
+         数据点    数据点  数据点
+```
+
+**HNSW参数配置**:
+- `M`: 每个节点的最大连接数（默认16）
+- `ef_construction`: 构建时的搜索范围（默认100）
+- `ef_search`: 查询时的搜索范围（默认10）
 
 ---
 
-## 📡 API功能
+### 2. 文档切片策略
 
-### 1. 文档管理
+#### 2.1 切片的重要性
 
-| API端点 | 方法 | 功能 |
-|---------|------|------|
-| `/api/v1/documents/upload` | POST | 上传单个文档 |
-| `/api/v1/documents/batch-upload` | POST | 批量上传文档 |
-| `/api/v1/documents` | GET | 获取文档列表 |
-| `/api/v1/documents/{doc_id}` | GET | 获取文档信息 |
-| `/api/v1/documents/{doc_id}/status` | PATCH | 更新文档状态 |
-| `/api/v1/documents/{doc_id}` | DELETE | 删除文档 |
+文档切片是RAG系统的关键步骤，影响检索质量和上下文完整性：
 
-**使用示例**:
+- **切片过大**: 包含过多无关信息，降低检索精度
+- **切片过小**: 丢失上下文，导致语义不完整
 
-```python
-import requests
+#### 2.2 切片策略分类
 
-# 上传文档
-url = "http://localhost:8000/api/v1/documents/upload"
-files = {'file': open('规则文档.docx', 'rb')}
-data = {'description': '2025年综测规则'}
-response = requests.post(url, files=files, data=data)
-print(response.json())
+```
+┌─────────────────────────────────────────────────────────┐
+│                   文档切片策略                           │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │
+│  │ 固定长度切片 │  │ 语义切片    │  │ 递归切片    │     │
+│  │ (Fixed)     │  │ (Semantic)  │  │ (Recursive) │     │
+│  └─────────────┘  └─────────────┘  └─────────────┘     │
+│                                                         │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │
+│  │ 段落切片    │  │ 句子切片    │  │ 混合切片    │     │
+│  │ (Paragraph) │  │ (Sentence)  │  │ (Hybrid)    │     │
+│  └─────────────┘  └─────────────┘  └─────────────┘     │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
 ```
 
-### 2. 加分计算
+#### 2.3 本项目采用的切片策略
 
-| API端点 | 方法 | 功能 |
-|---------|------|------|
-| `/api/v1/calculate-score` | POST | 计算综测加分 |
-| `/api/v1/calculate-score/cached` | POST | 带缓存的计算加分 |
-| `/api/v1/calculate-score/background` | POST | 后台任务计算加分 |
-
-**使用示例**:
+**增强型文档加载器 (EnhancedDocumentLoader)**
 
 ```python
-import requests
+class EnhancedDocumentLoader:
+    """增强型文档加载器，支持多种切片策略"""
+    
+    def __init__(
+        self,
+        chunk_size: int = 500,      # 切片大小
+        chunk_overlap: int = 50,    # 重叠大小
+        separators: List[str] = None
+    ):
+        self.chunk_size = chunk_size
+        self.chunk_overlap = chunk_overlap
+        self.separators = separators or ["\n\n", "\n", "。", "；", "，", " "]
+    
+    def load_and_split(self, file_path: str) -> List[Document]:
+        """加载文档并切片"""
+        
+        # 1. 加载文档
+        documents = self._load_file(file_path)
+        
+        # 2. 递归切片
+        chunks = self._recursive_split(documents)
+        
+        # 3. 添加元数据
+        for i, chunk in enumerate(chunks):
+            chunk.metadata["chunk_index"] = i
+            chunk.metadata["source"] = file_path
+            chunk.metadata["chunk_size"] = len(chunk.page_content)
+        
+        return chunks
+    
+    def _recursive_split(self, documents: List[Document]) -> List[Document]:
+        """递归切片算法"""
+        from langchain.text_splitter import RecursiveCharacterTextSplitter
+        
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=self.chunk_size,
+            chunk_overlap=self.chunk_overlap,
+            separators=self.separators,
+            length_function=len,
+            is_separator_regex=False
+        )
+        
+        return splitter.split_documents(documents)
+```
 
-url = "http://localhost:8000/api/v1/calculate-score"
-data = {
-    "certificate_text": "张三获得2023年度国家奖学金",
-    "student_info": {"年级": "大三", "专业": "计算机科学"}
+#### 2.4 切片参数优化
+
+| 参数 | 默认值 | 说明 | 优化建议 |
+|------|--------|------|---------|
+| `chunk_size` | 500 | 每个切片的字符数 | 规则文档: 300-500 |
+| `chunk_overlap` | 50 | 切片间重叠字符数 | chunk_size的10-20% |
+| `separators` | ["\n\n", "\n", "。"] | 分隔符优先级 | 中文优先使用句号 |
+
+#### 2.5 切片质量评估
+
+```python
+def evaluate_chunk_quality(chunks: List[Document]) -> dict:
+    """评估切片质量"""
+    
+    sizes = [len(chunk.page_content) for chunk in chunks]
+    
+    return {
+        "total_chunks": len(chunks),
+        "avg_size": np.mean(sizes),
+        "std_size": np.std(sizes),
+        "min_size": min(sizes),
+        "max_size": max(sizes),
+        "size_distribution": np.histogram(sizes, bins=10)[0].tolist()
     }
-response = requests.post(url, json=data)
-result = response.json()
-print(f"类别: {result['category']}, 加分: {result['score']}分")
 ```
 
-### 3. AI对话
+---
 
-| API端点 | 方法 | 功能 |
-|---------|------|------|
-| `/api/v1/chat` | POST | AI对话交流 |
-| `/api/v1/chat/cached` | POST | 带缓存的AI对话 |
-| `/api/v1/chat/background` | POST | 后台任务AI对话 |
+### 3. 检索召回算法
 
-**使用示例**:
+#### 3.1 检索流程概述
+
+```
+用户查询
+    │
+    ▼
+┌─────────────┐
+│ 查询预处理   │ ← 意图识别、查询增强
+└─────────────┘
+    │
+    ▼
+┌─────────────┐
+│ 向量检索     │ ← ChromaDB相似度搜索
+└─────────────┘
+    │
+    ▼
+┌─────────────┐
+│ 竞赛检索     │ ← 竞赛名称精确匹配
+└─────────────┘
+    │
+    ▼
+┌─────────────┐
+│ 结果合并     │ ← 去重、排序
+└─────────────┘
+    │
+    ▼
+┌─────────────┐
+│ 重排序       │ ← 类别相关性重排
+└─────────────┘
+    │
+    ▼
+Top-K 结果
+```
+
+#### 3.2 查询预处理
+
+**意图识别器 (IntentRecognizer)**
 
 ```python
-import requests
-
-url = "http://localhost:8000/api/v1/chat"
-data = {
-    "message": "获得国家级奖学金可以加多少分？",
-    "use_rag": True
-}
-response = requests.post(url, json=data)
-result = response.json()
-print(f"回复: {result['reply']}")
+class IntentRecognizer:
+    """意图识别器 - 识别用户查询意图"""
+    
+    def __init__(self):
+        self.category_keywords = {
+            "C1": ["竞赛", "科技", "论文", "专利", "A类", "B类"],
+            "C2": ["体育", "运动会", "体测", "金牌"],
+            "C3": ["英语", "四级", "六级", "证书", "文化"],
+            "C4": ["创业", "互联网+", "挑战杯", "营业执照"]
+        }
+    
+    def recognize(self, query: str) -> dict:
+        """识别查询意图"""
+        
+        # 1. 关键词匹配
+        matched_categories = []
+        for category, keywords in self.category_keywords.items():
+            for keyword in keywords:
+                if keyword in query:
+                    matched_categories.append(category)
+                    break
+        
+        # 2. 竞赛级别识别
+        level = self._recognize_level(query)
+        
+        # 3. 奖项等级识别
+        award = self._recognize_award(query)
+        
+        return {
+            "categories": list(set(matched_categories)),
+            "level": level,
+            "award": award,
+            "original_query": query
+        }
 ```
 
-### 4. Prompt管理
-
-| API端点 | 方法 | 功能 |
-|---------|------|------|
-| `/api/v1/prompts` | GET | 获取Prompt配置 |
-| `/api/v1/prompts` | PUT | 更新Prompt配置 |
-| `/api/v1/prompts/reset` | POST | 重置为默认 |
-
-### 5. LLM配置管理 ⭐新增
-
-| API端点 | 方法 | 功能 |
-|---------|------|------|
-| `/api/v1/llm-config` | GET | 获取LLM配置 |
-| `/api/v1/llm-config` | PUT | 更新LLM配置 |
-| `/api/v1/llm-config/reset` | POST | 重置为默认 |
-| `/api/v1/llm-config/validate` | GET | 验证配置 |
-| `/api/v1/llm-config/test` | POST | 测试连接 |
-
-**使用示例**:
+**查询增强器 (QueryEnhancer)**
 
 ```python
-import requests
-
-# 更新LLM配置
-url = "http://localhost:8000/api/v1/llm-config"
-data = {
-    "enabled": True,
-    "api_key": "your-api-key-here",
-    "api_base_url": "http://maas-api.cn-huabei-1.xf-yun.com/v1",
-    "model_id": "qwen3-1.7b",
-    "temperature": 0.2,
-    "max_tokens": 2048
-}
-response = requests.put(url, json=data)
-print(response.json())
-
-# 测试连接
-test_url = "http://localhost:8000/api/v1/llm-config/test"
-test_response = requests.post(test_url)
-print(f"连接测试: {test_response.json()['data']['success']}")
+class QueryEnhancer:
+    """查询增强器 - 扩展查询词"""
+    
+    def __init__(self):
+        self.synonyms = {
+            "一等奖": ["金奖", "第一名", "冠军"],
+            "二等奖": ["银奖", "第二名", "亚军"],
+            "三等奖": ["铜奖", "第三名", "季军"],
+            "国家级": ["国赛", "全国", "国级"],
+            "省级": ["省赛", "省部级", "地区级"]
+        }
+    
+    def enhance(self, query: str) -> List[str]:
+        """增强查询"""
+        enhanced_queries = [query]
+        
+        for term, synonyms in self.synonyms.items():
+            if term in query:
+                for syn in synonyms:
+                    enhanced_queries.append(query.replace(term, syn))
+        
+        return enhanced_queries
 ```
 
-### 6. 向量数据库
+#### 3.3 向量检索实现
 
-| API端点 | 方法 | 功能 |
-|---------|------|------|
-| `/api/v1/vector-db/stats` | GET | 获取统计信息 |
-| `/api/v1/vector-db/reset` | POST | 重置数据库 |
-| `/api/v1/vector-db/rebuild` | POST | 重建索引 |
+```python
+class RuleVectorDB:
+    """向量数据库检索"""
+    
+    def search(
+        self,
+        query: str,
+        n_results: int = 5,
+        where: dict = None,
+        where_document: dict = None
+    ) -> dict:
+        """向量相似度检索"""
+        
+        results = self.collection.query(
+            query_texts=[query],
+            n_results=n_results,
+            where=where,
+            where_document=where_document,
+            include=["documents", "metadatas", "distances"]
+        )
+        
+        return {
+            "documents": results["documents"][0],
+            "metadatas": results["metadatas"][0],
+            "distances": results["distances"][0],
+            "ids": results["ids"][0]
+        }
+    
+    def search_by_embedding(
+        self,
+        embedding: List[float],
+        n_results: int = 5
+    ) -> dict:
+        """通过向量直接检索"""
+        
+        results = self.collection.query(
+            query_embeddings=[embedding],
+            n_results=n_results
+        )
+        
+        return results
+```
 
-### 7. 任务管理
+#### 3.4 混合检索策略
 
-| API端点 | 方法 | 功能 |
-|---------|------|------|
-| `/api/v1/task/{task_id}` | GET | 获取任务状态和结果 |
-| `/api/v1/task/{task_id}` | DELETE | 取消任务 |
+```python
+class HybridRetriever:
+    """混合检索器 - 结合多种检索方式"""
+    
+    def __init__(self, vector_db: RuleVectorDB, competition_retriever):
+        self.vector_db = vector_db
+        self.competition_retriever = competition_retriever
+    
+    def retrieve(self, query: str, top_k: int = 5) -> List[dict]:
+        """混合检索"""
+        
+        # 1. 向量检索
+        vector_results = self.vector_db.search(query, n_results=top_k * 2)
+        
+        # 2. 竞赛检索
+        competition_results = self.competition_retriever.search(query)
+        
+        # 3. 结果合并
+        merged = self._merge_results(vector_results, competition_results)
+        
+        # 4. 去重
+        deduplicated = self._deduplicate(merged)
+        
+        return deduplicated[:top_k]
+    
+    def _merge_results(self, vector_results, competition_results) -> List[dict]:
+        """合并检索结果"""
+        all_results = []
+        
+        # 向量检索结果
+        for i, doc in enumerate(vector_results["documents"]):
+            all_results.append({
+                "content": doc,
+                "metadata": vector_results["metadatas"][i],
+                "score": 1 - vector_results["distances"][i],
+                "source": "vector"
+            })
+        
+        # 竞赛检索结果
+        for comp in competition_results:
+            all_results.append({
+                "content": comp["content"],
+                "metadata": comp,
+                "score": comp.get("score", 0.8),
+                "source": "competition"
+            })
+        
+        return all_results
+```
+
+#### 3.5 检索性能指标
+
+| 指标 | 公式 | 说明 |
+|------|------|------|
+| **召回率 (Recall)** | Recall = TP / (TP + FN) | 检索到的相关文档 / 所有相关文档 |
+| **精确率 (Precision)** | Precision = TP / (TP + FP) | 检索到的相关文档 / 检索到的文档 |
+| **F1分数** | F1 = 2 × P × R / (P + R) | 精确率和召回率的调和平均 |
+| **MRR** | MRR = 1/│Q│ Σ 1/rank_i | 第一个相关结果的排名倒数 |
+| **NDCG** | NDCG = DCG / IDCG | 考虑位置的相关性评分 |
+
+---
+
+### 4. 重排序优化
+
+#### 4.1 重排序的必要性
+
+初始检索结果可能存在以下问题：
+- 语义相似但类别不相关
+- 排名靠后但实际更相关
+- 缺乏领域知识的权重调整
+
+#### 4.2 类别相关性重排器
+
+```python
+class CategoryReranker:
+    """类别相关性重排器"""
+    
+    def __init__(self):
+        self.category_weights = {
+            "C1": 1.0,  # 科技类
+            "C2": 0.8,  # 体育类
+            "C3": 0.8,  # 文化类
+            "C4": 0.9   # 创新创业类
+        }
+        
+        self.level_weights = {
+            "国家级": 1.2,
+            "省部级": 1.0,
+            "校级": 0.8
+        }
+    
+    def rerank(
+        self,
+        query: str,
+        results: List[dict],
+        intent: dict
+    ) -> List[dict]:
+        """重排序检索结果"""
+        
+        scored_results = []
+        
+        for result in results:
+            # 1. 基础分数（向量相似度）
+            base_score = result.get("score", 0.5)
+            
+            # 2. 类别匹配加分
+            category_bonus = self._calculate_category_bonus(result, intent)
+            
+            # 3. 级别匹配加分
+            level_bonus = self._calculate_level_bonus(result, intent)
+            
+            # 4. 关键词匹配加分
+            keyword_bonus = self._calculate_keyword_bonus(result, query)
+            
+            # 5. 最终分数
+            final_score = (
+                base_score * 0.4 +
+                category_bonus * 0.3 +
+                level_bonus * 0.2 +
+                keyword_bonus * 0.1
+            )
+            
+            result["final_score"] = final_score
+            result["score_breakdown"] = {
+                "base": base_score,
+                "category": category_bonus,
+                "level": level_bonus,
+                "keyword": keyword_bonus
+            }
+            
+            scored_results.append(result)
+        
+        # 按最终分数排序
+        scored_results.sort(key=lambda x: x["final_score"], reverse=True)
+        
+        return scored_results
+    
+    def _calculate_category_bonus(self, result: dict, intent: dict) -> float:
+        """计算类别匹配加分"""
+        result_category = result.get("metadata", {}).get("category")
+        query_categories = intent.get("categories", [])
+        
+        if result_category in query_categories:
+            return self.category_weights.get(result_category, 1.0)
+        
+        return 0.0
+    
+    def _calculate_level_bonus(self, result: dict, intent: dict) -> float:
+        """计算级别匹配加分"""
+        result_level = result.get("metadata", {}).get("level")
+        query_level = intent.get("level")
+        
+        if result_level and query_level and result_level == query_level:
+            return self.level_weights.get(result_level, 1.0)
+        
+        return 0.0
+    
+    def _calculate_keyword_bonus(self, result: dict, query: str) -> float:
+        """计算关键词匹配加分"""
+        content = result.get("content", "").lower()
+        query_terms = set(query.lower().split())
+        
+        matches = sum(1 for term in query_terms if term in content)
+        return min(matches / len(query_terms), 1.0) if query_terms else 0.0
+```
+
+#### 4.3 竞赛名称映射器
+
+```python
+class CompetitionMapper:
+    """竞赛名称映射器 - 标准化竞赛名称"""
+    
+    def __init__(self):
+        self.competition_aliases = {
+            "蓝桥杯": ["蓝桥杯全国软件和信息技术专业人才大赛", "蓝桥杯大赛"],
+            "互联网+": ["中国国际互联网+大学生创新创业大赛", "互联网+大赛"],
+            "挑战杯": ["挑战杯大学生科技作品竞赛", "挑战杯竞赛"],
+            "数学建模": ["全国大学生数学建模竞赛", "高教社杯数学建模"],
+            "电子设计": ["全国大学生电子设计竞赛", "电子设计大赛"]
+        }
+    
+    def normalize(self, competition_name: str) -> str:
+        """标准化竞赛名称"""
+        for standard_name, aliases in self.competition_aliases.items():
+            if competition_name in aliases or competition_name == standard_name:
+                return standard_name
+        
+        return competition_name
+    
+    def get_competition_info(self, name: str) -> dict:
+        """获取竞赛详细信息"""
+        normalized_name = self.normalize(name)
+        
+        return {
+            "original_name": name,
+            "normalized_name": normalized_name,
+            "category": self._get_category(normalized_name),
+            "level": self._get_level(normalized_name)
+        }
+```
+
+#### 4.4 重排序效果评估
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    重排序效果对比                        │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  查询: "蓝桥杯省赛一等奖加多少分"                        │
+│                                                         │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │ 重排序前:                                        │   │
+│  │ 1. 蓝桥杯国赛获奖规则 (score: 0.85)             │   │
+│  │ 2. 省级竞赛加分标准 (score: 0.78)               │   │
+│  │ 3. 一等奖加分细则 (score: 0.72)                 │   │
+│  └─────────────────────────────────────────────────┘   │
+│                                                         │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │ 重排序后:                                        │   │
+│  │ 1. 蓝桥杯省赛一等奖加分规则 (score: 0.92)       │   │
+│  │ 2. 省级竞赛一等奖标准 (score: 0.88)             │   │
+│  │ 3. 蓝桥杯竞赛级别说明 (score: 0.85)             │   │
+│  └─────────────────────────────────────────────────┘   │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+#### 4.5 重排序参数调优
+
+| 参数 | 默认值 | 范围 | 说明 |
+|------|--------|------|------|
+| `base_weight` | 0.4 | 0.2-0.6 | 向量相似度权重 |
+| `category_weight` | 0.3 | 0.1-0.4 | 类别匹配权重 |
+| `level_weight` | 0.2 | 0.1-0.3 | 级别匹配权重 |
+| `keyword_weight` | 0.1 | 0.05-0.2 | 关键词匹配权重 |
+
+---
+
+### 5. 完整RAG流程
+
+#### 5.1 端到端流程图
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         RAG 完整流程                                 │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐     │
+│  │ 用户查询  │ →  │ 意图识别  │ →  │ 查询增强  │ →  │ 向量检索  │     │
+│  └──────────┘    └──────────┘    └──────────┘    └──────────┘     │
+│                                                       │             │
+│                                                       ▼             │
+│  ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐     │
+│  │ LLM生成   │ ←  │ Prompt构建 │ ←  │ 上下文组装 │ ←  │ 重排序    │     │
+│  └──────────┘    └──────────┘    └──────────┘    └──────────┘     │
+│       │                                                             │
+│       ▼                                                             │
+│  ┌──────────┐                                                      │
+│  │ 结构化输出│                                                      │
+│  └──────────┘                                                      │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+#### 5.2 核心代码实现
+
+```python
+class RAGChain:
+    """RAG链 - 完整的检索增强生成流程"""
+    
+    def __init__(self):
+        self.intent_recognizer = IntentRecognizer()
+        self.query_enhancer = QueryEnhancer()
+        self.vector_db = RuleVectorDB()
+        self.reranker = CategoryReranker()
+        self.llm_manager = LLMManager()
+    
+    def process(self, query: str, top_k: int = 3) -> dict:
+        """处理查询"""
+        
+        # 1. 意图识别
+        intent = self.intent_recognizer.recognize(query)
+        logger.info(f"识别意图: {intent}")
+        
+        # 2. 查询增强
+        enhanced_queries = self.query_enhancer.enhance(query)
+        logger.info(f"增强查询: {enhanced_queries}")
+        
+        # 3. 向量检索
+        all_results = []
+        for eq in enhanced_queries:
+            results = self.vector_db.search(eq, n_results=top_k * 2)
+            all_results.extend(self._format_results(results))
+        
+        # 4. 重排序
+        reranked = self.reranker.rerank(query, all_results, intent)
+        top_results = reranked[:top_k]
+        
+        # 5. 构建上下文
+        context = self._build_context(top_results)
+        
+        # 6. LLM生成
+        response = self.llm_manager.generate(query, context)
+        
+        return {
+            "query": query,
+            "intent": intent,
+            "retrieved_docs": top_results,
+            "context": context,
+            "response": response
+        }
+```
 
 ---
 
@@ -421,99 +790,52 @@ print(f"连接测试: {test_response.json()['data']['success']}")
     │      ↓
     │   语义检索Top-K规则
     │      ↓
-    ├─→ [缓存管理器] ────→ 查询结果缓存
+    ├─→ [意图识别器] ────→ 类别预测
     │      ↓
-    ├─→ [任务队列] ────→ 异步任务处理
+    ├─→ [查询增强器] ────→ 同义词扩展
     │      ↓
-    ├─→ [竞赛检索器] ────→ 竞赛分数查询
+    ├─→ [重排序器] ────→ 类别相关性重排
     │      ↓
-    ├─→ [Prompt管理器] ────→ 提示词配置
-    │      ↓
-    │   构建Prompt模板
-    │      ↓
-    ├─→ [LLM引擎]
-    │      ├─→ 规则匹配引擎（快速）
-    │      └─→ 讯飞星火LLM（智能）
-    │         ↓
-    └─→ [竞赛处理器] ────→ 竞赛数据管理
-              ↓
-          结构化JSON响应
+    └─→ [LLM引擎]
+           ├─→ 规则匹配引擎（快速）
+           └─→ 讯飞星火LLM（智能）
+                  ↓
+           结构化JSON响应
 ```
 
-### 核心组件
+---
 
-| 组件 | 技术栈 | 功能 |
-|------|--------|------|
-| **Web框架** | FastAPI | REST API服务 |
-| **文档加载** | LangChain | 多格式文档解析 |
-| **向量数据库** | ChromaDB | 向量存储与检索 |
-| **嵌入模型** | Sentence-Transformers | 文本向量化 |
-| **LLM引擎** | 讯飞星火 Qwen3-1.7B | 智能生成 |
-| **文档管理** | DocumentManager | 元数据管理 |
-| **Prompt管理** | PromptManager | 提示词配置 |
-| **竞赛检索** | CompetitionRetriever | 竞赛分数查询 |
-| **缓存管理** | CacheManager | 查询结果缓存 |
-| **任务队列** | TaskQueue | 异步任务处理 |
-| **竞赛处理** | CompetitionProcessor | 竞赛数据管理 |
+## 📡 API功能
 
-### 核心业务逻辑
+### 1. 文档管理
 
-#### 1. 证书加分计算流程
+| API端点 | 方法 | 功能 |
+|---------|------|------|
+| `/api/v1/documents/upload` | POST | 上传单个文档 |
+| `/api/v1/documents/batch-upload` | POST | 批量上传文档 |
+| `/api/v1/documents` | GET | 获取文档列表 |
 
-```
-证书文本 → 查询增强 → 缓存检查 → 规则检索 → LLM分析 → 结构化输出
-    ↓
-1. 接收证书文本和学生信息
-2. 查询增强：同义词扩展、关键词替换
-3. 缓存检查：检查是否有相同查询的缓存结果
-4. 双重检索：
-   - 向量数据库检索相关规则
-   - 竞赛检索器查询竞赛分数
-5. LLM分析：匹配规则、计算分值
-6. 缓存结果：将结果存入缓存
-7. 返回结构化结果：类别、分值、规则、置信度
-```
+### 2. 加分计算
 
-#### 2. AI对话流程
+| API端点 | 方法 | 功能 |
+|---------|------|------|
+| `/api/v1/chat` | POST | AI对话交流 |
+| `/api/v1/calculate-score` | POST | 计算综测加分 |
 
-```
-用户消息 → 检索增强 → 缓存检查 → 上下文构建 → LLM生成 → 流式输出
-    ↓
-1. 接收用户消息和对话历史
-2. 检索增强：同义词扩展
-3. 缓存检查：检查是否有相同查询的缓存结果
-4. 上下文构建：
-   - 检索相关规则（可选）
-   - 构建对话上下文
-5. LLM生成：基于Prompt模板生成回复
-6. 缓存结果：将结果存入缓存
-7. 流式输出：实时返回生成内容
-```
+### 使用示例
 
-#### 3. 文档管理流程
+```python
+import requests
 
-```
-文档上传 → 文件解析 → 文档分块 → 向量化 → 元数据管理
-    ↓
-1. 接收文档文件（txt/pdf/docx）
-2. 文件解析：提取文本内容
-3. 文档分块：按规则切分文档
-4. 向量化：使用Sentence-Transformers生成向量
-5. 元数据管理：存储文档信息、状态管理
-6. 缓存更新：清除相关查询缓存
-```
-
-#### 4. 异步任务处理流程
-
-```
-任务创建 → 任务队列 → 后台执行 → 结果缓存 → 状态通知
-    ↓
-1. 接收长时间运行的任务请求
-2. 创建任务并加入队列
-3. 后台异步执行任务
-4. 缓存任务结果
-5. 更新任务状态
-6. 客户端轮询或接收通知获取结果
+# AI对话
+url = "http://localhost:8000/api/v1/chat"
+data = {
+    "message": "蓝桥杯省赛一等奖加多少分",
+    "chat_history": []
+}
+response = requests.post(url, json=data)
+result = response.json()
+print(f"回复: {result['data']['response']}")
 ```
 
 ---
@@ -521,8 +843,6 @@ print(f"连接测试: {test_response.json()['data']['success']}")
 ## ⚙️ 配置说明
 
 ### 环境变量配置
-
-创建 `.env` 文件，配置以下参数：
 
 ```env
 # 向量数据库配置
@@ -547,15 +867,6 @@ XUNFEI_TEMPERATURE=0.1
 XUNFEI_MAX_TOKENS=1024
 ```
 
-### 配置参数说明
-
-| 参数 | 默认值 | 说明 | 建议值 |
-|------|--------|------|--------|
-| `TOP_K` | 2 | 检索文档数量 | 2-5 |
-| `MAX_CONTEXT_LENGTH` | 1024 | 上下文长度 | 1024-2048 |
-| `XUNFEI_TEMPERATURE` | 0.1 | 生成随机性 | 0.0-0.2（精确）<br>0.5-0.9（创造） |
-| `XUNFEI_MAX_TOKENS` | 1024 | 最大生成长度 | 512-2048 |
-
 ---
 
 ## 📊 性能指标
@@ -564,158 +875,11 @@ XUNFEI_MAX_TOKENS=1024
 |------|------|------|
 | 启动时间 | < 5s | 服务启动到可接受请求 |
 | 文件上传（单个） | 1-3s | 包含解析和向量化 |
-| 批量上传（10文件） | 10-20s | 取决于文件大小 |
 | 查询响应（规则匹配） | < 100ms | 快速匹配模式 |
 | 查询响应（讯飞星火） | 500-1500ms | LLM调用 |
-| AI对话 | 2-5s | 包含RAG检索 |
 | 内存占用 | < 500MB | 稳定运行时 |
 | 准确率（规则匹配） | 60-70% | 基于正则表达式 |
 | 准确率（讯飞星火） | 85-95% | 基于大模型 |
-
-### 🚀 性能优化版本特性
-
-v2.1.0+ 引入了多项性能优化措施，显著提升系统并发处理能力和响应速度：
-
-#### 优化措施
-
-1. **异步处理架构**
-   - 全面采用异步IO操作，提升并发处理能力
-   - 异步RAG链实现，支持高并发查询
-   - 异步文件操作，减少IO阻塞
-
-2. **连接池管理**
-   - HTTP连接池复用，减少连接建立开销
-   - 数据库连接池，优化数据库访问
-   - 向量数据库连接优化
-
-3. **缓存机制**
-   - 查询结果缓存，减少重复计算
-   - 文档内容缓存，加速文档访问
-   - 向量嵌入缓存，避免重复计算
-
-4. **批处理优化**
-   - 批量文档处理，提升吞吐量
-   - 批量向量计算，减少模型调用次数
-   - 并行任务处理，充分利用系统资源
-
-#### 性能提升
-
-| 场景 | 优化前 | 优化后 | 提升幅度 |
-|------|--------|--------|----------|
-| 并发查询（10用户） | 2-5s | 0.5-1s | 70-80% |
-| 高并发查询（20用户） | 5-10s | 1-2s | 80-90% |
-| 文档批量上传（10文件） | 20-30s | 10-15s | 50% |
-| 内存使用 | 500MB | 300-400MB | 20-40% |
-| CPU使用率 | 70-80% | 40-50% | 30-40% |
-
-#### 使用优化功能
-
-系统提供了多种API端点，支持不同的优化策略：
-
-1. **标准API端点**
-   - `/api/v1/calculate-score` - 标准证书加分计算
-   - `/api/v1/chat` - 标准AI对话
-
-2. **缓存优化端点**
-   - `/api/v1/calculate-score/cached` - 带缓存的证书加分计算
-   - `/api/v1/chat/cached` - 带缓存的AI对话
-
-3. **后台任务端点**
-   - `/api/v1/calculate-score/background` - 后台任务证书加分计算
-   - `/api/v1/chat/background` - 后台任务AI对话
-   - `/api/v1/task/{task_id}` - 查询后台任务结果
-
-#### 性能测试
-
-项目提供了完整的性能测试工具：
-
-```bash
-# 运行性能测试
-python run_performance_test.py
-
-# 或直接运行测试脚本
-python performance_test.py
-```
-
-测试结果将保存为JSON文件，包含详细的性能指标和统计分析。
-
----
-
-## 📚 使用文档
-
-### 完整文档
-
-- **[API 完整文档](./API_DOCUMENTATION.md)** - 详细的API使用说明
-- **[Swagger UI](http://localhost:8000/docs)** - 交互式API文档
-- **[ReDoc](http://localhost:8000/redoc)** - 美观的API文档
-
-### 快速教程
-
-#### 1. 上传规则文档
-
-```bash
-# 使用cURL上传文档
-curl -X POST "http://localhost:8000/api/v1/documents/upload" \
-  -F "file=@规则文档.docx" \
-  -F "description=2025年综测规则"
-```
-
-#### 2. 查看文档列表
-
-```bash
-curl http://localhost:8000/api/v1/documents
-```
-
-#### 3. 计算加分
-
-```bash
-curl -X POST "http://localhost:8000/api/v1/calculate-score" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "certificate_text": "张三获得国家奖学金"
-  }'
-```
-
-#### 4. AI对话
-
-```bash
-curl -X POST "http://localhost:8000/api/v1/chat" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "message": "获得省级比赛奖项可以加分吗？",
-    "use_rag": true
-  }'
-```
-
-#### 5. 自定义Prompt
-
-```bash
-curl -X PUT "http://localhost:8000/api/v1/prompts" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "system_prompt": "你是专业的综测专家...\n规则文档：\n{context}\n..."
-  }'
-```
-
----
-
-## 📚 文档索引
-
-为了帮助您更好地理解和使用PaddleOCRRAG，我们提供了以下文档：
-
-| 文档 | 描述 | 适用对象 |
-|------|------|----------|
-| [README.md](./README.md) | 项目概述、安装和快速开始指南 | 所有用户 |
-| [API_DOCUMENTATION.md](./API_DOCUMENTATION.md) | 完整的API参考文档 | 开发者 |
-| [API_USAGE_GUIDE.md](./API_USAGE_GUIDE.md) | API使用指南和最佳实践 | 开发者 |
-| [API_FIX_SUMMARY.md](./API_FIX_SUMMARY.md) | API修复记录和变更说明 | 维护者 |
-| [交互式API文档](http://localhost:8000/static/interactive_api_docs.html) | 可交互的API文档和测试工具 | 所有用户 |
-
-### 快速导航
-
-- **新用户**: 先阅读本README，然后查看[交互式API文档](http://localhost:8000/static/interactive_api_docs.html)
-- **开发者**: 阅读[API_USAGE_GUIDE.md](./API_USAGE_GUIDE.md)和[paddle_ocrrag_client.py](./paddle_ocrrag_client.py)了解如何使用SDK
-- **API集成**: 参考[API_DOCUMENTATION.md](./API_DOCUMENTATION.md)获取完整的API规范
 
 ---
 
@@ -725,139 +889,44 @@ curl -X PUT "http://localhost:8000/api/v1/prompts" \
 PaddleOCRRAG/
 ├── app/
 │   ├── main.py                 # FastAPI 应用入口
-│   ├── config.py               # 配置管理
-│   ├── models.py               # 数据模型
-│   ├── document_manager.py     # 文档管理器
-│   ├── prompt_manager.py       # Prompt管理器
+│   ├── core/
+│   │   ├── config_manager.py   # 配置管理
+│   │   ├── llm_manager.py      # LLM管理器
+│   │   ├── prompt_manager.py   # Prompt管理器
+│   │   └── logger.py           # 日志系统
 │   ├── api/
-│   │   └── endpoints.py        # API 路由
-│   └── rag/
-│       ├── __init__.py         # RAG模块导入定义
-│       ├── loader.py           # 文档加载
-│       ├── vector_db.py        # 向量数据库
-│       ├── llm.py              # 规则匹配引擎
-│       ├── xunfei_llm.py       # 讯飞星火引擎
-│       ├── chain.py            # RAG 链
-│       ├── utils.py            # 工具函数
-│       ├── cache_manager.py    # 缓存管理器
-│       ├── competition_processor.py  # 竞赛数据处理器
-│       ├── competition_retriever.py  # 竞赛分数检索器
-│       └── task_queue.py       # 任务队列管理器
+│   │   ├── routes.py           # API 路由
+│   │   ├── chat_routes.py      # 聊天路由
+│   │   └── system_routes.py    # 系统路由
+│   ├── rag/
+│   │   ├── vector_db/
+│   │   │   ├── base_vector_db.py   # 向量数据库基类
+│   │   │   ├── vector_db.py        # 向量数据库实现
+│   │   │   └── reranker.py         # 重排序器
+│   │   ├── loaders/
+│   │   │   ├── loader.py           # 文档加载器
+│   │   │   └── enhanced_loader.py  # 增强加载器
+│   │   ├── preprocessors/
+│   │   │   ├── intent_recognizer.py    # 意图识别器
+│   │   │   ├── query_enhancer.py       # 查询增强器
+│   │   │   └── competition_mapper.py   # 竞赛映射器
+│   │   └── utils/
+│   │       └── category_keywords.py    # 类别关键词
+│   ├── services/
+│   │   └── chat_service.py        # 聊天服务
+│   └── models/
+│       └── schemas.py             # 数据模型
 ├── data/
 │   ├── rules/                  # 规则文档目录
 │   ├── chroma_db/              # 向量数据库
-│   ├── document_meta.json      # 文档元数据
-│   ├── prompt_config.json      # Prompt配置
-│   └── competitions.xlsx       # 竞赛数据文件
-├── static/
-│   └── interactive_api_docs.html # 交互式API文档
+│   └── document_meta.json      # 文档元数据
 ├── requirements.txt            # 项目依赖
-├── run.bat                     # Windows 启动脚本
-├── test_all_apis.py            # 完整API测试脚本
-├── paddle_ocrrag_client.py     # Python客户端SDK
-├── demo_app.py                 # SDK示例应用
-├── API_DOCUMENTATION.md        # API 文档
-├── API_USAGE_GUIDE.md          # API使用指南
-├── API_FIX_SUMMARY.md          # API修复记录
 └── README.md                   # 本文档
 ```
 
 ---
 
-## 📊 性能指标
-
-| 指标 | 数值 | 说明 |
-|------|------|------|
-| 启动时间 | < 5s | 服务启动到可接受请求 |
-| 文件上传（单个） | 1-3s | 包含解析和向量化 |
-| 批量上传（10文件） | 10-20s | 取决于文件大小 |
-| 查询响应（规则匹配） | < 100ms | 快速匹配模式 |
-| 查询响应（讯飞星火） | 500-1500ms | LLM调用 |
-| AI对话 | 2-5s | 包含RAG检索 |
-| 内存占用 | < 500MB | 稳定运行时 |
-| 准确率（规则匹配） | 60-70% | 基于正则表达式 |
-| 准确率（讯飞星火） | 85-95% | 基于大模型 |
-
----
-
-## 🔍 故障排除
-
-### 常见问题
-
-#### 1. 依赖安装失败
-
-```bash
-# 更新 pip
-python -m pip install --upgrade pip
-
-# 使用清华镜像
-pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
-```
-
-#### 2. 端口被占用
-
-```bash
-# Windows
-netstat -ano | findstr :8000
-taskkill /PID <进程ID> /F
-
-# Linux/Mac
-lsof -i :8000
-kill -9 <进程ID>
-```
-
-#### 3. 文档上传失败 / 500错误
-
-**症状**: 上传文档或重建向量数据库时出现 `Expected where to have exactly one operator` 错误
-
-**解决方案**:
-```bash
-# 1. 确保安装了 python-multipart
-pip install python-multipart
-
-# 2. 确认使用 v2.1.0 版本（已修复此问题）
-# 3. 重启服务
-```
-
-**原因**: v2.0.0 中ChromaDB的 `delete(where={})` 调用不兼容，v2.1.0已修复。
-
-#### 4. 向量数据库错误
-
-```bash
-# 重建向量数据库
-curl -X POST "http://localhost:8000/api/v1/vector-db/rebuild"
-
-# 或使用Python测试脚本
-python test_api.py  # 运行完整测试
-```
-
-#### 5. 讯飞星火配置问题
-
-- 检查 `XUNFEI_API_KEY` 是否正确
-- 确认 `XUNFEI_MODEL_ID` 与 API Key 匹配
-- 验证网络连接
-- 或使用API动态配置LLM参数（无需重启）:
-  ```bash
-  # 测试LLM连接
-  curl -X POST "http://localhost:8000/api/v1/llm-config/test"
-  ```
-
-#### 6. 如何验证系统正常工作？
-
-运行完整测试套件（19个测试用例）:
-```bash
-# 1. 启动服务
-run.bat
-
-# 2. 在另一个终端运行测试
-python test_api.py
-```
-
-预期结果: `✅ 通过: 19 ❌ 失败: 0` (100%通过率)
-
----
-
-## 🎓 学习资源
+## 📚 学习资源
 
 - **[FastAPI 官方文档](https://fastapi.tiangolo.com/)**
 - **[LangChain 文档](https://python.langchain.com/)**
@@ -873,33 +942,12 @@ python test_api.py
 
 ---
 
-## 🙏 致谢
-
-感谢以下开源项目：
-
-- [FastAPI](https://fastapi.tiangolo.com/)
-- [LangChain](https://python.langchain.com/)
-- [ChromaDB](https://www.trychroma.com/)
-- [Sentence-Transformers](https://www.sbert.net/)
-- [讯飞星火](https://xinghuo.xfyun.com/)
-
----
-
-## 📞 技术支持
-
-如有问题或建议，请：
-1. 查看 [API 文档](./API_DOCUMENTATION.md)
-2. 访问 [Swagger UI](http://localhost:8000/docs)
-3. 提交 Issue 或联系开发团队
-
----
-
 <div align="center">
 
 **🌟 如果这个项目对你有帮助，请给个 Star！ 🌟**
 
-**最后更新**: 2025-06-18  
+**最后更新**: 2026-02-28  
 **版本**: v2.2.0  
-**状态**: ✅ 生产就绪（性能优化版）
+**状态**: ✅ 生产就绪
 
 </div>

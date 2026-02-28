@@ -1,21 +1,20 @@
 /**
- * API服务模块 - 精简版
+ * API服务模块 - 完整版
  * 
  * 功能：
  * - 统一的错误处理
  * - 请求重试机制
  * - Loading状态管理
+ * - 支持多个后端服务
  */
 
 import axios from 'axios'
 import { ElMessage, ElLoading } from 'element-plus'
-import { API_CONFIG } from '@/constants'
+import { API_CONFIG, API_ENDPOINTS } from '@/constants'
 
-// 全局Loading状态管理
 let loadingInstance = null
 let loadingCount = 0
 
-// Loading工具函数
 const showLoading = () => {
   loadingCount++
   if (loadingCount === 1) {
@@ -36,85 +35,79 @@ const hideLoading = () => {
   }
 }
 
-// 创建axios实例
-const api = axios.create({
-  baseURL: API_CONFIG.BASE_URL,
+const createApiInstance = (baseURL) => axios.create({
+  baseURL,
   timeout: API_CONFIG.TIMEOUT,
   headers: {
     'Content-Type': 'application/json'
   }
 })
 
-// 请求拦截器
-api.interceptors.request.use(
-  config => {
-    // 显示Loading
-    if (config.showLoading !== false) {
-      showLoading()
-    }
-    
-    // 添加认证Token
-    const token = localStorage.getItem('token')
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
-    
-    // 添加请求ID
-    config.headers['X-Request-ID'] = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-    
-    // 开发环境日志
-    if (import.meta.env.DEV) {
-      console.log(`[API Request] ${config.method.toUpperCase()} ${config.url}`, config)
-    }
-    
-    return config
-  },
-  error => {
-    hideLoading()
-    console.error('[API Request Error]', error)
-    return Promise.reject(error)
-  }
-)
+const api = createApiInstance(API_CONFIG.BASE_URL)
+const ragApi = createApiInstance(API_CONFIG.RAG_BASE_URL)
 
-// 响应拦截器
-api.interceptors.response.use(
-  response => {
-    // 隐藏Loading
-    if (response.config.showLoading !== false) {
+const setupInterceptors = (instance, name = 'API') => {
+  instance.interceptors.request.use(
+    config => {
+      if (config.showLoading !== false) {
+        showLoading()
+      }
+      
+      const token = localStorage.getItem('token')
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`
+      }
+      
+      config.headers['X-Request-ID'] = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      
+      if (import.meta.env.DEV) {
+        console.log(`[${name} Request] ${config.method.toUpperCase()} ${config.url}`, config)
+      }
+      
+      return config
+    },
+    error => {
       hideLoading()
+      console.error(`[${name} Request Error]`, error)
+      return Promise.reject(error)
     }
-    
-    // 开发环境日志
-    if (import.meta.env.DEV) {
-      console.log(`[API Response] ${response.config.url}`, response.data)
-    }
-    
-    return response.data
-  },
-  async error => {
-    // 隐藏Loading
-    if (error.config?.showLoading !== false) {
-      hideLoading()
-    }
-    
-    // 错误处理
-    return handleErrorResponse(error)
-  }
-)
+  )
 
-// 错误处理函数
-const handleErrorResponse = async (error) => {
+  instance.interceptors.response.use(
+    response => {
+      if (response.config.showLoading !== false) {
+        hideLoading()
+      }
+      
+      if (import.meta.env.DEV) {
+        console.log(`[${name} Response] ${response.config.url}`, response.data)
+      }
+      
+      return response.data
+    },
+    async error => {
+      if (error.config?.showLoading !== false) {
+        hideLoading()
+      }
+      
+      return handleErrorResponse(error, name)
+    }
+  )
+}
+
+setupInterceptors(api, 'Main API')
+setupInterceptors(ragApi, 'RAG API')
+
+const handleErrorResponse = async (error, name = 'API') => {
   const { response, config, message } = error
   
-  // 日志记录
-  console.error('[API Error]', {
+  console.error(`[${name} Error]`, {
     url: config?.url,
     method: config?.method,
     error: error,
     response: response?.data
   })
   
-  // 网络错误
   if (!response) {
     const errorMsg = message.includes('timeout') ? '请求超时，请检查网络连接' :
                      message.includes('Network Error') ? '网络连接失败，请检查网络' :
@@ -123,11 +116,9 @@ const handleErrorResponse = async (error) => {
     return Promise.reject(error)
   }
   
-  // HTTP状态码错误
   const { status, data } = response
-  const errorMsg = data?.error?.message || getErrorMessage(status)
+  const errorMsg = data?.error?.message || data?.message || getErrorMessage(status)
   
-  // 特殊处理401未授权
   if (status === 401) {
     localStorage.removeItem('token')
     setTimeout(() => {
@@ -137,13 +128,12 @@ const handleErrorResponse = async (error) => {
   
   ElMessage.error(errorMsg)
   
-  // 请求重试机制
   if (config?.retry && (config.__retryCount || 0) < config.retry) {
     config.__retryCount = (config.__retryCount || 0) + 1
     const delay = config.retryDelay || 1000
     const backoff = delay * Math.pow(2, config.__retryCount - 1)
     
-    console.log(`[API Retry] 第 ${config.__retryCount} 次重试，延迟 ${backoff}ms`)
+    console.log(`[${name} Retry] 第 ${config.__retryCount} 次重试，延迟 ${backoff}ms`)
     
     await new Promise(resolve => setTimeout(resolve, backoff))
     return api(config)
@@ -152,7 +142,6 @@ const handleErrorResponse = async (error) => {
   return Promise.reject(error)
 }
 
-// 根据状态码获取错误消息
 const getErrorMessage = (status) => {
   const errorMap = {
     400: '请求参数错误',
@@ -169,7 +158,6 @@ const getErrorMessage = (status) => {
   return errorMap[status] || `请求失败 (${status})`
 }
 
-// 创建带重试的请求配置
 const createRetryConfig = (config, retryCount = 3, retryDelay = 1000) => {
   return {
     ...config,
@@ -179,51 +167,25 @@ const createRetryConfig = (config, retryCount = 3, retryDelay = 1000) => {
   }
 }
 
-// ==================== 认证API ====================
 export const authAPI = {
-  // 用户登录
-  login: (username, password) => {
-    return api.post('/v1/auth/login', {
-      username,
-      password
-    })
-  },
-  
-  // 用户注册
-  register: (userData) => {
-    return api.post('/v1/auth/register', userData)
-  },
-  
-  // 获取当前用户信息
-  getUserInfo: () => {
-    return api.get('/v1/auth/me')
-  },
-  
-  // 请求密码重置
-  requestPasswordReset: (email) => {
-    return api.post('/v1/auth/password/reset-request', {
-      email
-    })
-  },
-  
-  // 确认密码重置
-  confirmPasswordReset: (email, verificationCode, newPassword) => {
-    return api.post('/v1/auth/password/reset-confirm', {
+  login: (username, password) => api.post(API_ENDPOINTS.AUTH.LOGIN, { username, password }),
+  register: (userData) => api.post(API_ENDPOINTS.AUTH.REGISTER, userData),
+  getUserInfo: () => api.get(API_ENDPOINTS.AUTH.ME),
+  requestPasswordReset: (email) => api.post(API_ENDPOINTS.AUTH.PASSWORD_RESET, { email }),
+  confirmPasswordReset: (email, verificationCode, newPassword) => 
+    api.post(API_ENDPOINTS.AUTH.PASSWORD_CONFIRM, {
       email,
       verification_code: verificationCode,
       new_password: newPassword
     })
-  }
 }
 
-// ==================== 学生API ====================
 export const studentAPI = {
-  // 上传证书
   uploadCertificate: (file, onProgress) => {
     const formData = new FormData()
     formData.append('file', file)
     
-    return api.post('/v1/student/certificate/upload', formData, {
+    return api.post(API_ENDPOINTS.STUDENT.CERTIFICATE_UPLOAD, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
       onUploadProgress: progressEvent => {
         if (onProgress) {
@@ -236,41 +198,20 @@ export const studentAPI = {
     })
   },
   
-  // 查看成绩摘要
-  getScoresSummary: () => {
-    return api.get('/v1/student/scores/summary')
-  },
-  
-  // 查看成绩详情
-  getScoresDetail: () => {
-    return api.get('/v1/student/scores/detail')
-  },
-  
-  // 获取上传历史
-  getUploadHistory: () => {
-    return api.get('/v1/student/uploads')
-  },
-  
-  // 获取综合分析数据
-  getComprehensiveAnalysis: () => {
-    return api.get('/v1/student/comprehensive/analysis')
-  },
-  
-  // 获取成绩趋势数据
-  getScoreTrend: () => {
-    return api.get('/v1/student/scores/trend')
-  }
+  getScoresSummary: () => api.get(API_ENDPOINTS.STUDENT.SCORES_SUMMARY),
+  getScoresDetail: () => api.get(API_ENDPOINTS.STUDENT.SCORES_DETAIL),
+  getUploadHistory: () => api.get(API_ENDPOINTS.STUDENT.UPLOAD_HISTORY),
+  getComprehensiveAnalysis: () => api.get(API_ENDPOINTS.STUDENT.ANALYSIS),
+  getScoreTrend: () => api.get(API_ENDPOINTS.STUDENT.TREND)
 }
 
-// ==================== 教师API ====================
 export const teacherAPI = {
-  // 上传成绩单
   uploadScores: (file, classId, onProgress) => {
     const formData = new FormData()
     formData.append('file', file)
     formData.append('class_id', classId)
     
-    return api.post('/v1/teacher/scores/upload', formData, {
+    return api.post(API_ENDPOINTS.TEACHER.SCORES_UPLOAD, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
       onUploadProgress: progressEvent => {
         if (onProgress) {
@@ -283,155 +224,39 @@ export const teacherAPI = {
     })
   },
   
-
+  getStudents: (classId) => api.get(API_ENDPOINTS.TEACHER.STUDENTS, { params: { class_id: classId } }),
+  getStudentScores: (studentId) => api.get(`${API_ENDPOINTS.TEACHER.STUDENTS}/${studentId}/scores`),
+  getClasses: () => api.get(API_ENDPOINTS.TEACHER.CLASSES),
+  getClassList: () => api.get(API_ENDPOINTS.TEACHER.CLASSES),
   
-  // 查看学生列表
-  getStudents: (classId) => {
-    return api.get('/v1/teacher/students', {
-      params: { class_id: classId }
-    })
-  },
+  getStudentList: (params) => api.get(API_ENDPOINTS.TEACHER.STUDENTS, { params }),
+  getStudentDetail: (studentId) => api.get(`${API_ENDPOINTS.TEACHER.STUDENTS}/${studentId}`),
+  createStudent: (studentData) => api.post(API_ENDPOINTS.TEACHER.STUDENTS, studentData),
+  updateStudent: (studentId, studentData) => api.put(`${API_ENDPOINTS.TEACHER.STUDENTS}/${studentId}`, studentData),
+  deleteStudent: (studentId) => api.delete(`${API_ENDPOINTS.TEACHER.STUDENTS}/${studentId}`),
+  resetStudentPassword: (studentId) => api.post(`${API_ENDPOINTS.TEACHER.STUDENTS}/${studentId}/reset-password`),
+  updateStudentStatus: (studentId, status) => api.patch(`${API_ENDPOINTS.TEACHER.STUDENTS}/${studentId}/status`, { status }),
+  importStudents: (formData) => api.post(`${API_ENDPOINTS.TEACHER.STUDENTS}/import`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  exportStudents: (params) => api.get(`${API_ENDPOINTS.TEACHER.STUDENTS}/export`, { params, responseType: 'blob' }),
   
-  // 查看学生成绩
-  getStudentScores: (studentId) => {
-    return api.get(`/v1/teacher/students/${studentId}/scores`)
-  },
+  getClassStats: (classId) => api.get(API_ENDPOINTS.TEACHER.CLASS_STATS, { params: { class_id: classId } }),
+  getClassRanking: (classId) => api.get(API_ENDPOINTS.TEACHER.CLASS_RANKING, { params: { class_id: classId } }),
   
-  // 获取班级列表
-  getClasses: () => {
-    return api.get('/v1/teacher/classes')
-  },
+  getScoreDistribution: (params) => api.get('/v1/teacher/analysis/distribution', { params }),
+  getSubjectComparison: (params) => api.get('/v1/teacher/analysis/subject-comparison', { params }),
+  getScoreTrend: (params) => api.get('/v1/teacher/analysis/trend', { params }),
+  getClassComparison: (params) => api.get('/v1/teacher/analysis/class-comparison', { params }),
+  getScoreCorrelation: (params) => api.get('/v1/teacher/analysis/correlation', { params }),
+  getStudentScoreDetail: (studentId) => api.get(`${API_ENDPOINTS.TEACHER.STUDENTS}/${studentId}/score-detail`),
+  exportAnalysisData: (params) => api.get('/v1/teacher/analysis/export', { params, responseType: 'blob' }),
   
-  // 获取班级列表（别名）
-  getClassList: () => {
-    return api.get('/v1/teacher/classes')
-  },
-  
-  // ============ 学生管理 ============
-  
-  // 学生列表
-  getStudentList: (params) => {
-    return api.get('/v1/teacher/students', { params });
-  },
-  
-  // 获取学生详情
-  getStudentDetail: (studentId) => {
-    return api.get(`/v1/teacher/students/${studentId}`)
-  },
-  
-  // 创建学生
-  createStudent: (studentData) => {
-    return api.post('/v1/teacher/students', studentData)
-  },
-  
-  // 更新学生信息
-  updateStudent: (studentId, studentData) => {
-    return api.put(`/v1/teacher/students/${studentId}`, studentData)
-  },
-  
-  // 删除学生
-  deleteStudent: (studentId) => {
-    return api.delete(`/v1/teacher/students/${studentId}`)
-  },
-  
-  // 重置学生密码
-  resetStudentPassword: (studentId) => {
-    return api.post(`/v1/teacher/students/${studentId}/reset-password`)
-  },
-  
-  // 更新学生状态
-  updateStudentStatus: (studentId, status) => {
-    return api.patch(`/v1/teacher/students/${studentId}/status`, { status })
-  },
-  
-  // 批量导入学生
-  importStudents: (formData) => {
-    return api.post('/v1/teacher/students/import', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    })
-  },
-  
-  // 导出学生数据
-  exportStudents: (params) => {
-    return api.get('/v1/teacher/students/export', { 
-      params,
-      responseType: 'blob'
-    })
-  },
-  
-  // 获取班级统计信息
-  getClassStats: (classId) => {
-    return api.get('/v1/teacher/classes/stats', {
-      params: { class_id: classId }
-    })
-  },
-  
-  // 获取班级排名
-  getClassRanking: (classId) => {
-    return api.get('/v1/teacher/classes/ranking', {
-      params: { class_id: classId }
-    })
-  },
-  
-  // ============ 成绩可视化分析 ============
-  
-  // 获取成绩分布数据
-  getScoreDistribution: (params) => {
-    return api.get('/v1/teacher/analysis/distribution', { params })
-  },
-  
-  // 获取科目成绩对比数据
-  getSubjectComparison: (params) => {
-    return api.get('/v1/teacher/analysis/subject-comparison', { params })
-  },
-  
-  // 获取成绩趋势数据
-  getScoreTrend: (params) => {
-    return api.get('/v1/teacher/analysis/trend', { params })
-  },
-  
-  // 获取班级对比数据
-  getClassComparison: (params) => {
-    return api.get('/v1/teacher/analysis/class-comparison', { params })
-  },
-  
-  // 获取成绩相关性数据
-  getScoreCorrelation: (params) => {
-    return api.get('/v1/teacher/analysis/correlation', { params })
-  },
-  
-  // 获取学生成绩详情
-  getStudentScoreDetail: (studentId) => {
-    return api.get(`/v1/teacher/students/${studentId}/score-detail`)
-  },
-  
-  // 导出成绩分析数据
-  exportAnalysisData: (params) => {
-    return api.get('/v1/teacher/analysis/export', { 
-      params,
-      responseType: 'blob'
-    })
-  },
-  
-  // ============ 班级排名 ============
-  
-  // 获取班级学生排名
-  getClassStudentRanking: (classId) => {
-    return api.get(`/v1/teacher/classes/${classId}/student-ranking`)
-  },
-  
-  // 导出班级排名数据
-  exportClassRanking: (params) => {
-    return api.get('/v1/teacher/classes/ranking/export', { 
-      params,
-      responseType: 'blob'
-    })
-  }
+  getClassStudentRanking: (classId) => api.get(`${API_ENDPOINTS.TEACHER.CLASSES}/${classId}/student-ranking`),
+  exportClassRanking: (params) => api.get(`${API_ENDPOINTS.TEACHER.CLASSES}/ranking/export`, { params, responseType: 'blob' })
 }
 
-// ==================== 管理员API ====================
 export const adminAPI = {
-  // 上传综测规则文档
   uploadRuleDocument: (file, description, onProgress) => {
     const formData = new FormData()
     formData.append('file', file)
@@ -439,7 +264,7 @@ export const adminAPI = {
       formData.append('description', description)
     }
     
-    return api.post('/v1/admin/rules/upload', formData, {
+    return api.post(API_ENDPOINTS.ADMIN.RULES_UPLOAD, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
       onUploadProgress: progressEvent => {
         if (onProgress) {
@@ -452,163 +277,325 @@ export const adminAPI = {
     })
   },
   
-  // 获取规则文档列表
-  getRuleDocuments: (enabledOnly = false) => {
-    return api.get('/v1/admin/rules/list', {
-      params: { enabled_only: enabledOnly }
-    })
-  },
+  getRuleDocuments: (enabledOnly = false) => api.get(API_ENDPOINTS.ADMIN.RULES_LIST, { params: { enabled_only: enabledOnly } }),
+  updateRuleStatus: (docId, enabled) => api.patch(`${API_ENDPOINTS.ADMIN.RULES_UPLOAD.replace('/upload', '')}/${docId}/status`, { enabled }),
+  deleteRuleDocument: (docId, deleteFile = false) => api.delete(`${API_ENDPOINTS.ADMIN.RULES_UPLOAD.replace('/upload', '')}/${docId}`, { params: { delete_file: deleteFile } }),
   
-  // 启用/停用规则文档
-  updateRuleStatus: (docId, enabled) => {
-    return api.patch(`/v1/admin/rules/${docId}/status`, {
-      enabled
-    })
-  },
+  getAIConfig: () => api.get(API_ENDPOINTS.ADMIN.AI_CONFIG),
+  updateAIConfig: (config) => api.put(API_ENDPOINTS.ADMIN.AI_CONFIG, config),
+  testAIConnection: () => api.post(API_ENDPOINTS.ADMIN.AI_CONFIG_TEST),
+  resetAIConfig: () => api.post(`${API_ENDPOINTS.ADMIN.AI_CONFIG}/reset`),
+  validateAIConfig: () => api.get(`${API_ENDPOINTS.ADMIN.AI_CONFIG}/validate`),
   
-  // 删除规则文档
-  deleteRuleDocument: (docId, deleteFile = false) => {
-    return api.delete(`/v1/admin/rules/${docId}`, {
-      params: { delete_file: deleteFile }
-    })
-  },
+  getSystemSettings: () => api.get(API_ENDPOINTS.ADMIN.SETTINGS),
+  updateSystemSettings: (settings) => api.put(API_ENDPOINTS.ADMIN.SETTINGS, settings),
   
-  // 获取AI配置
-  getAIConfig: () => {
-    return api.get('/v1/admin/ai/config')
-  },
+  getUsers: () => api.get(API_ENDPOINTS.ADMIN.USERS),
+  createUser: (userData) => api.post(API_ENDPOINTS.ADMIN.USERS, userData),
+  updateUser: (userId, userData) => api.put(`${API_ENDPOINTS.ADMIN.USERS}/${userId}`, userData),
+  deleteUser: (userId) => api.delete(`${API_ENDPOINTS.ADMIN.USERS}/${userId}`),
   
-  // 更新AI配置
-  updateAIConfig: (config) => {
-    return api.put('/v1/admin/ai/config', config)
-  },
+  getPrompts: () => api.get(API_ENDPOINTS.ADMIN.PROMPTS),
+  updatePrompts: (prompts) => api.put(API_ENDPOINTS.ADMIN.PROMPTS, prompts),
+  resetPrompts: () => api.post(`${API_ENDPOINTS.ADMIN.PROMPTS}/reset`),
   
-  // 测试AI连接
-  testAIConnection: () => {
-    return api.post('/v1/admin/ai/config/test')
-  },
+  getVectorDBStats: () => ragApi.get(API_ENDPOINTS.ADMIN.VECTOR_DB_STATS),
+  clearVectorDB: () => ragApi.post(API_ENDPOINTS.ADMIN.VECTOR_DB_CLEAR),
+  resetVectorDB: (backup = true) => ragApi.post(API_ENDPOINTS.ADMIN.VECTOR_DB_RESET, null, { params: { backup } }),
+  reindexVectorDB: () => ragApi.post(API_ENDPOINTS.ADMIN.VECTOR_DB_REINDEX),
+  getVectorDBCollections: () => ragApi.get(API_ENDPOINTS.ADMIN.VECTOR_DB_COLLECTIONS),
+  getVectorDBHealth: () => ragApi.get(API_ENDPOINTS.ADMIN.VECTOR_DB_HEALTH),
+  rebuildVectorDB: () => ragApi.post(API_ENDPOINTS.ADMIN.VECTOR_DB_REINDEX),
   
-  // 获取系统设置
-  getSystemSettings: () => {
-    return api.get('/v1/admin/settings')
-  },
-  
-  // 更新系统设置
-  updateSystemSettings: (settings) => {
-    return api.put('/v1/admin/settings', settings)
-  },
-  
-  // 获取用户列表
-  getUsers: () => {
-    return api.get('/v1/admin/users')
-  },
-  
-  // 创建用户
-  createUser: (userData) => {
-    return api.post('/v1/admin/users', userData)
-  },
-  
-  // 更新用户
-  updateUser: (userId, userData) => {
-    return api.put(`/v1/admin/users/${userId}`, userData)
-  },
-  
-  // 删除用户
-  deleteUser: (userId) => {
-    return api.delete(`/v1/admin/users/${userId}`)
-  },
-  
-  // ============ Prompt管理 ============
-  
-  // 获取Prompt配置
-  getPrompts: () => {
-    return api.get('/v1/admin/prompts')
-  },
-  
-  // 更新Prompt配置
-  updatePrompts: (prompts) => {
-    return api.put('/v1/admin/prompts', prompts)
-  },
-  
-  // 重置Prompt为默认值
-  resetPrompts: () => {
-    return api.post('/v1/admin/prompts/reset')
-  },
-  
-  // ============ 向量数据库管理 ============
-  
-  // 获取向量数据库统计
-  getVectorDBStats: () => {
-    return api.get('/v1/admin/vector-db/stats')
-  },
-  
-  // 重置向量数据库
-  resetVectorDB: (confirm = true, rebuild = false) => {
-    return api.post('/v1/admin/vector-db/reset', null, {
-      params: { confirm, rebuild }
-    })
-  },
-  
-  // 重建向量数据库
-  rebuildVectorDB: () => {
-    return api.post('/v1/admin/vector-db/rebuild')
-  },
-  
-  // ============ RAG系统信息 ============
-  
-  // 获取RAG系统统计
-  getRAGStats: () => {
-    return api.get('/v1/admin/rag/stats')
-  },
-  
-  // RAG系统健康检查
-  ragHealthCheck: () => {
-    return api.get('/v1/admin/rag/health')
-  },
-  
-  // 重置AI配置
-  resetAIConfig: () => {
-    return api.post('/v1/admin/ai/config/reset')
-  },
-  
-  // 验证AI配置
-  validateAIConfig: () => {
-    return api.get('/v1/admin/ai/config/validate')
-  }
+  getRAGStats: () => api.get(API_ENDPOINTS.ADMIN.RAG_STATS),
+  ragHealthCheck: () => api.get(API_ENDPOINTS.ADMIN.RAG_HEALTH)
 }
 
-// ==================== 通用API ====================
+export const ragAPI = {
+  chat: (message, chatHistory = [], useRag = true) => 
+    ragApi.post(API_ENDPOINTS.RAG.CHAT, { 
+      message, 
+      chat_history: chatHistory,
+      use_rag: useRag 
+    }),
+  
+  chatStream: async function* (message, chatHistory = []) {
+    const response = await fetch(`${API_CONFIG.RAG_BASE_URL}${API_ENDPOINTS.RAG.CHAT_STREAM}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+      },
+      body: JSON.stringify({ message, chat_history: chatHistory })
+    })
+    
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      
+      const chunk = decoder.decode(value)
+      const lines = chunk.split('\n')
+      
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(line.slice(6))
+            yield data
+          } catch (e) {
+            console.error('Failed to parse SSE data:', e)
+          }
+        }
+      }
+    }
+  },
+  
+  chatAsync: (message, chatHistory = []) => 
+    ragApi.post(API_ENDPOINTS.RAG.CHAT_ASYNC, { message, chat_history: chatHistory }),
+  
+  getDocuments: (category, tags) => ragApi.get(API_ENDPOINTS.RAG.DOCUMENTS, { params: { category, tags } }),
+  getDocument: (docId) => ragApi.get(`${API_ENDPOINTS.RAG.DOCUMENTS}/${docId}`),
+  deleteDocument: (docId) => ragApi.delete(`${API_ENDPOINTS.RAG.DOCUMENTS}/${docId}`),
+  
+  getSystemInfo: () => ragApi.get(API_ENDPOINTS.RAG.SYSTEM_INFO),
+  getSystemHealth: () => ragApi.get(API_ENDPOINTS.RAG.SYSTEM_HEALTH),
+  
+  getLLMConfig: () => ragApi.get(API_ENDPOINTS.RAG.LLM_CONFIG),
+  updateLLMConfig: (config) => ragApi.put(API_ENDPOINTS.RAG.LLM_CONFIG, config),
+  testLLMConnection: () => ragApi.post(API_ENDPOINTS.RAG.LLM_TEST),
+  
+  getVectorDBStats: () => ragApi.get(API_ENDPOINTS.RAG.VECTOR_DB_STATS),
+  
+  getPrompts: () => ragApi.get(API_ENDPOINTS.RAG.PROMPTS),
+  updatePrompts: (prompts) => ragApi.put(API_ENDPOINTS.RAG.PROMPTS, prompts),
+  resetPrompts: () => ragApi.post(`${API_ENDPOINTS.RAG.PROMPTS}/reset`),
+  
+  getCacheStats: () => ragApi.get(`${API_ENDPOINTS.RAG.CHAT}/cache/stats`),
+  clearCache: () => ragApi.delete(`${API_ENDPOINTS.RAG.CHAT}/cache`)
+}
+
 export const commonAPI = {
-  // GET请求
-  get: (url, config) => {
-    return api.get(url, config)
+  get: (url, config) => api.get(url, config),
+  post: (url, data, config) => api.post(url, data, config),
+  put: (url, data, config) => api.put(url, data, config),
+  delete: (url, config) => api.delete(url, config),
+  patch: (url, data, config) => api.patch(url, data, config)
+}
+
+export const dataImportAPI = {
+  importExcel: (file, options = {}) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    if (options.academic_year) formData.append('academic_year', options.academic_year)
+    if (options.semester) formData.append('semester', options.semester)
+    if (options.class_id) formData.append('class_id', options.class_id)
+    
+    return api.post('/v1/data-import/excel', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000
+    })
   },
   
-  // POST请求
-  post: (url, data, config) => {
-    return api.post(url, data, config)
-  },
+  getTemplate: () => api.get('/v1/data-import/template'),
   
-  // PUT请求
-  put: (url, data, config) => {
-    return api.put(url, data, config)
-  },
-  
-  // DELETE请求
-  delete: (url, config) => {
-    return api.delete(url, config)
-  },
-  
-  // PATCH请求
-  patch: (url, data, config) => {
-    return api.patch(url, data, config)
+  previewExcel: (file, rows = 10) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('rows', rows)
+    
+    return api.post('/v1/data-import/preview', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
   }
 }
 
-// 导出工具函数
+export const comprehensiveScoreAPI = {
+  calculateStudentScore: (studentId, academicYear, semester, configId = null) => 
+    api.post(`/v1/comprehensive-score/calculate/student/${studentId}`, null, {
+      params: { academic_year: academicYear, semester, config_id: configId }
+    }),
+  
+  calculateClassScores: (classId, academicYear, semester, configId = null) =>
+    api.post(`/v1/comprehensive-score/calculate/class/${classId}`, null, {
+      params: { academic_year: academicYear, semester, config_id: configId }
+    }),
+  
+  getStudentScore: (studentId, academicYear, semester) =>
+    api.get(`/v1/comprehensive-score/student/${studentId}`, {
+      params: { academic_year: academicYear, semester }
+    }),
+  
+  getClassRanking: (classId, academicYear, semester) =>
+    api.get(`/v1/comprehensive-score/class/${classId}/ranking`, {
+      params: { academic_year: academicYear, semester }
+    }),
+  
+  addScoreDetail: (data) => api.post('/v1/comprehensive-score/detail', data),
+  
+  deleteScoreDetail: (detailId) => api.delete(`/v1/comprehensive-score/detail/${detailId}`),
+  
+  getConfigs: () => api.get('/v1/comprehensive-score/config/list'),
+  
+  createConfig: (config) => api.post('/v1/comprehensive-score/config', config),
+  
+  updateConfig: (configId, config) => api.put(`/v1/comprehensive-score/config/${configId}`, config),
+  
+  getClasses: () => api.get('/v1/comprehensive-score/classes'),
+  
+  getClassStats: (classId, academicYear, semester) =>
+    api.get(`/v1/comprehensive-score/class/${classId}/stats`, {
+      params: { academic_year: academicYear, semester }
+    })
+}
+
+export const excelFillAPI = {
+  fillFromTemplate: (templateFile, rawDataFile, options = {}) => {
+    const formData = new FormData()
+    formData.append('template_file', templateFile)
+    formData.append('raw_data_file', rawDataFile)
+    if (options.academic_year) formData.append('academic_year', options.academic_year)
+    if (options.semester) formData.append('semester', options.semester)
+    if (options.class_id) formData.append('class_id', options.class_id)
+    
+    return api.post('/v1/excel-fill/from-template', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 180000,
+      responseType: 'blob'
+    })
+  },
+  
+  processOCR: (data) => api.post('/v1/excel-fill/process-ocr', data),
+  
+  batchProcess: (data) => api.post('/v1/excel-fill/batch-process', data),
+  
+  getWeightConfig: (academicYear, semester) => 
+    api.get('/v1/excel-fill/weight-config', {
+      params: { academic_year: academicYear, semester }
+    }),
+  
+  analyzeCertificate: (certificateText, studentId = null, studentName = null) => {
+    const formData = new FormData()
+    formData.append('certificate_text', certificateText)
+    if (studentId) formData.append('student_id', studentId)
+    if (studentName) formData.append('student_name', studentName)
+    
+    return api.post('/v1/excel-fill/analyze-certificate', formData)
+  },
+  
+  retrieveRules: (query) => {
+    const formData = new FormData()
+    formData.append('query', query)
+    return api.post('/v1/excel-fill/retrieve-rules', formData)
+  },
+  
+  calculateScore: (data) => {
+    const formData = new FormData()
+    formData.append('student_id', data.student_id)
+    formData.append('student_name', data.student_name)
+    formData.append('class_name', data.class_name)
+    formData.append('academic_info', JSON.stringify(data.academic_info || {}))
+    formData.append('certificate_info', JSON.stringify(data.certificate_info || []))
+    formData.append('score_details', JSON.stringify(data.score_details || []))
+    
+    return api.post('/v1/excel-fill/calculate-score', formData)
+  },
+  
+  getTemplateColumns: () => api.get('/v1/excel-fill/template-columns')
+}
+
+export const fieldMappingAPI = {
+  processAndFill: (sourceFile, templateFile, options = {}) => {
+    const formData = new FormData()
+    formData.append('source_file', sourceFile)
+    formData.append('template_file', templateFile)
+    if (options.academic_year) formData.append('academic_year', options.academic_year)
+    if (options.semester) formData.append('semester', options.semester)
+    if (options.output_dir) formData.append('output_dir', options.output_dir)
+    
+    return api.post('/v1/field-mapping/process', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 180000
+    })
+  },
+  
+  processAndDownload: (sourceFile, templateFile, options = {}) => {
+    const formData = new FormData()
+    formData.append('source_file', sourceFile)
+    formData.append('template_file', templateFile)
+    if (options.academic_year) formData.append('academic_year', options.academic_year)
+    if (options.semester) formData.append('semester', options.semester)
+    
+    return api.post('/v1/field-mapping/download', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 180000,
+      responseType: 'blob'
+    })
+  },
+  
+  getSourceFields: () => api.get('/v1/field-mapping/source-fields'),
+  
+  getTargetFields: () => api.get('/v1/field-mapping/target-fields'),
+  
+  previewSource: (file, rows = 10) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('rows', rows)
+    
+    return api.post('/v1/field-mapping/preview-source', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  }
+}
+
+export const scoreUploadAPI = {
+  upload: (file, options) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('academic_year', options.academic_year)
+    formData.append('semester', options.semester)
+    formData.append('uploaded_by', options.uploaded_by)
+    if (options.upload_role) formData.append('upload_role', options.upload_role)
+    
+    return api.post('/v1/score-upload/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000
+    })
+  },
+  
+  getHistory: (studentId, options = {}) => 
+    api.get(`/v1/score-upload/history/${studentId}`, {
+      params: { 
+        academic_year: options.academic_year,
+        semester: options.semester
+      }
+    }),
+  
+  getUploadRecords: (options = {}) => 
+    api.get('/v1/score-upload/upload-records', {
+      params: {
+        upload_by: options.upload_by,
+        status: options.status,
+        limit: options.limit || 20
+      }
+    }),
+  
+  getFieldMapping: () => api.get('/v1/score-upload/field-mapping'),
+  
+  preview: (file, rows = 10) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('rows', rows)
+    
+    return api.post('/v1/score-upload/preview', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  }
+}
+
 export const showGlobalLoading = showLoading
 export const hideGlobalLoading = hideLoading
 export { createRetryConfig }
 
-// 默认导出axios实例
 export default api

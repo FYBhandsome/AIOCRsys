@@ -2,29 +2,32 @@
   "llm": {
     "enabled": true,
     "provider": "xunfei",
-    "api_key": "sk-Pv9SSZZx5yADN4FxB442A4Cc64074031A697E8C18aFb8874",
+    "api_key": "001aa457c2c63574b2799bf1e3342e72:YTRkOGU4NWU3NjRiZjk5Y2E5OTMzZTBl",
     "api_secret": "",
-    "app_id": "",
-    "api_base_url": "https://spark-api.xf-yun.com/v3.1/chat",
+    "app_id": "xop3qwen1b7",
+    "api_base_url": "https://maas-api.cn-huabei-1.xf-yun.com/v2",
     "model_id": "xop3qwen1b7",
-    "temperature": 0.7,
-    "max_tokens": 2000
+    "temperature": 0.1,
+    "max_tokens": 1024
   },
   "vector_db": {
-    "embedding_model": "shibing624/text2vec-base-chinese",
-    "persist_directory": "./data/vector_db",
+    "chroma_db_path": "./data/chroma_db",
+    "rules_docs_path": "./data/rules",
+    "embedding_model": "all-MiniLM-L6-v2",
+    "embedding_device": "cpu",
+    "hf_endpoint": "https://hf-mirror.com",
     "chunk_size": 500,
     "chunk_overlap": 50
   },
   "rag": {
-    "top_k": 5,
+    "top_k": 2,
     "similarity_threshold": 0.7,
     "chain_type": "stuff"
   },
   "prompt": {
-    "system_prompt": "你是一个专业的证书审核助手，专门帮助用户分析各类证书的加分情况。",
-    "user_prompt": "请帮我分析以下证书的加分情况：",
-    "chat_system_prompt": "你是一个专业的证书审核助手，可以回答用户关于证书审核、加分标准等问题。",
+    "system_prompt": "你是综测加分规则解析专家。基于以下规则文档，解析用户查询并输出 JSON 格式结果。\n\n规则文档：\n{context}\n\n输出要求：\n1. 严格基于提供的规则文档，不编造信息\n2. 必须输出有效的 JSON 格式，包含以下字段：\n   - category: 加分类别（国家级/省级/市级/校级/院级/其他）\n   - score: 加分数值（纯数字，如 10.0、5.5）\n   - rules: 匹配的具体规则（简短描述，不超过100字）\n   - confidence: 匹配置信度（0-1之间的浮点数）\n   - explanation: 加分说明（简洁明了，不超过150字）\n3. 若规则中无匹配项，score 填 0.0，category 填\"未匹配\"，explanation 填\"未找到匹配的加分规则\"",
+    "user_prompt": "请解析以下综测加分场景：{query}\n\n注意：请仔细分析竞赛名称、获奖级别和获奖形式（个人/团队），确保与规则文档准确匹配。",
+    "chat_system_prompt": "你是一位友好的综测加分规则助手，负责解答学生关于综合测评加分的问题。\n\n你的职责：\n1. 回答关于综测加分规则、分值、申请流程等问题\n2. 基于提供的规则文档给出准确的信息\n3. 用清晰、友好的语气与学生交流\n4. 如果问题不在你的知识范围内，诚实告知\n\n回答要求：\n- 简洁明了，避免冗长\n- 必要时使用列表或分点说明\n- 若涉及具体分值，需引用具体规则条文\n- 保持专业但不失亲和力\n- 对于竞赛加分问题，请特别说明竞赛级别、获奖名次对应的加分标准\n\n{context_section}\n{student_info_section}",
     "custom_prompts": {}
   }
 }

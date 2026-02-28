@@ -213,6 +213,113 @@ class EmailService:
         """
         
         return await self.send_email(to_email, subject, body, html)
+    
+    async def send_verification_email(
+        self,
+        to_email: str,
+        username: str,
+        verification_link: str
+    ) -> bool:
+        """发送邮箱验证邮件（用于注册验证）
+        
+        Args:
+            to_email: 收件人邮箱
+            username: 用户名
+            verification_link: 验证链接
+            
+        Returns:
+            bool: 发送成功返回True，否则False
+        """
+        subject = "综测计算助手 - 邮箱验证"
+        
+        body = f"""
+        您好 {username}，
+        
+        感谢您注册综测计算助手！
+        
+        请点击以下链接完成邮箱验证：
+        {verification_link}
+        
+        如果这不是您本人的操作，请忽略此邮件。
+        
+        ---
+        综测计算助手团队
+        """
+        
+        html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    line-height: 1.6;
+                    color: #333;
+                }}
+                .container {{
+                    max-width: 600px;
+                    margin: 0 auto;
+                    padding: 20px;
+                    background-color: #f9f9f9;
+                }}
+                .header {{
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    padding: 30px;
+                    text-align: center;
+                    border-radius: 10px 10px 0 0;
+                }}
+                .content {{
+                    background: white;
+                    padding: 30px;
+                    border-radius: 0 0 10px 10px;
+                }}
+                .verify-button {{
+                    display: inline-block;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    text-decoration: none;
+                    padding: 15px 40px;
+                    border-radius: 25px;
+                    font-weight: bold;
+                    margin: 20px 0;
+                }}
+                .footer {{
+                    text-align: center;
+                    margin-top: 20px;
+                    color: #666;
+                    font-size: 12px;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>📧 邮箱验证</h1>
+                </div>
+                <div class="content">
+                    <p>您好 <strong>{username}</strong>，</p>
+                    <p>感谢您注册综测计算助手！</p>
+                    <p>请点击以下按钮完成邮箱验证：</p>
+                    <p style="text-align: center;">
+                        <a href="{verification_link}" class="verify-button">验证邮箱</a>
+                    </p>
+                    <p style="text-align: center; color: #999; font-size: 14px;">
+                        或复制以下链接到浏览器：<br>
+                        <code>{verification_link}</code>
+                    </p>
+                </div>
+                <div class="footer">
+                    <p>综测计算助手团队</p>
+                    <p>{datetime.now().strftime('%Y年%m月%d日 %H:%M')}</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        return await self.send_email(to_email, subject, body, html)
 
 
 def generate_verification_code() -> str:
@@ -223,6 +330,21 @@ def generate_verification_code() -> str:
     """
     import random
     return ''.join([str(random.randint(0, 9)) for _ in range(6)])
+
+
+def generate_reset_token() -> str:
+    """生成密码重置令牌
+    
+    Returns:
+        str: 随机生成的重置令牌
+    """
+    import secrets
+    import string
+    
+    # 生成32位随机字符串，包含大小写字母和数字
+    alphabet = string.ascii_letters + string.digits
+    token = ''.join(secrets.choice(alphabet) for _ in range(32))
+    return token
 
 
 # 创建全局邮件服务实例

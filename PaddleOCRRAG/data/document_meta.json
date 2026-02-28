@@ -1,26 +1,6 @@
 {
-  "147e743e7058f3746930cfe7a4ee4169": {
-    "id": "147e743e7058f3746930cfe7a4ee4169",
-    "original_name": "test_upload.txt",
-    "file_path": "data\\rules\\test_upload.txt",
-    "file_size": 46,
-    "file_type": ".txt",
-    "description": "测试文档",
-    "enabled": true,
-    "created_at": "2025-11-02T20:15:39.282305",
-    "updated_at": "2025-11-05T12:38:12.070812",
-    "chunk_count": 0
-  },
-  "2a5d248716c75eafbfc27b39e5bd325c": {
-    "id": "2a5d248716c75eafbfc27b39e5bd325c",
-    "original_name": "test_rule.txt",
-    "file_path": "data\\rules\\test_rule.txt",
-    "file_size": 161,
-    "file_type": ".txt",
-    "description": "测试规则文档",
-    "enabled": true,
-    "created_at": "2025-11-02T20:18:44.692879",
-    "updated_at": "2025-11-05T12:38:12.068122",
-    "chunk_count": 0
-  }
+  "_comment": "文档元数据存储文件 - 记录已上传文档的信息",
+  "_version": "2.0",
+  "_updated_at": "2026-02-28T00:00:00",
+  "documents": {}
 }

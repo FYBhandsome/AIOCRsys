@@ -3,225 +3,450 @@
 """
 综测成绩计算服务
 
-根据配置的权重和学业成绩，自动计算学生的综测总成绩。
+负责计算学生的综合测评成绩，包括：
+- A类材料成绩（思想道德素质）
+- B类材料成绩（学习成绩）
+- C类材料成绩（素质拓展）
 """
 
-from typing import Optional, Dict, Any
-from app.core.logger import logger
-from app.core.exceptions import DatabaseException
+from typing import Dict, List, Any, Optional
+from datetime import datetime
+import logging
+
+from app.models.tortoise_models import (
+    Student, Class, AcademicScore, ComprehensiveScore, 
+    ComprehensiveScoreConfig, ScoreDetail, Certificate
+)
+from app.core.logger import get_logger
+
+logger = get_logger(__name__)
 
 
-class ComprehensiveScoreCalculationService:
+class ComprehensiveScoreService:
     """综测成绩计算服务"""
     
+    DEFAULT_WEIGHTS = {
+        'a_weight': 20.0,
+        'b_weight': 70.0,
+        'c_weight': 10.0
+    }
+    
+    CERTIFICATE_SCORE_RULES = {
+        '国家级': {'A': 15, 'C': 12},
+        '省级': {'A': 10, 'C': 8},
+        '校级': {'A': 6, 'C': 5},
+        '院级': {'A': 4, 'C': 3},
+    }
+    
+    ENGLISH_SCORE_RULES = {
+        '四级': {'pass': 425, 'scores': {425: 3, 500: 4, 550: 5, 600: 6}},
+        '六级': {'pass': 425, 'scores': {425: 5, 500: 6, 550: 7, 600: 8}},
+    }
+    
     def __init__(self):
-        """初始化服务"""
-        logger.info("综测成绩计算服务已初始化")
+        pass
     
-    def calculate_comprehensive_score(
+    async def calculate_student_score(
         self,
-        academic_score: Any,  # AcademicScore model instance
-        config: Any,  # ComprehensiveScoreConfig model instance
-        a_total_score: float = 0.0,
-        c_total_score: float = 0.0
-    ) -> Dict[str, float]:
-        """计算综测总成绩
+        student_id: str,
+        academic_year: str,
+        semester: str,
+        config_id: int = None
+    ) -> Dict[str, Any]:
+        """
+        计算单个学生的综测成绩
         
         Args:
-            academic_score: 学业成绩对象
-            config: 综测配置对象
-            a_total_score: A类材料总成绩（0-100）
-            c_total_score: C类材料总成绩（0-100）
+            student_id: 学号
+            academic_year: 学年
+            semester: 学期
+            config_id: 配置ID（可选）
             
         Returns:
-            包含各部分成绩的字典
+            计算结果
         """
-        try:
-            # 1. 获取学业成绩（B类）
-            b_score = self._get_academic_score_value(academic_score, config)
-            
-            # 2. 计算各部分的加权成绩
-            a_weighted = a_total_score * (config.a_weight / 100.0)
-            b_weighted = b_score * (config.b_weight / 100.0)
-            c_weighted = c_total_score * (config.c_weight / 100.0)
-            
-            # 3. 计算综测总分
-            total_score = a_weighted + b_weighted + c_weighted
-            
-            logger.info(
-                f"综测成绩计算: A类={a_total_score:.2f}*{config.a_weight}%={a_weighted:.2f}, "
-                f"B类={b_score:.2f}*{config.b_weight}%={b_weighted:.2f}, "
-                f"C类={c_total_score:.2f}*{config.c_weight}%={c_weighted:.2f}, "
-                f"总分={total_score:.2f}"
-            )
-            
-            return {
-                "a_total_score": a_total_score,
-                "a_weighted_score": a_weighted,
-                "b_total_score": b_score,
-                "b_weighted_score": b_weighted,
-                "c_total_score": c_total_score,
-                "c_weighted_score": c_weighted,
-                "total_score": total_score,
-                "config_id": config.id,
-                "config_name": config.name
+        student = await Student.get_or_none(id=student_id)
+        if not student:
+            return {'success': False, 'message': f'学生不存在: {student_id}'}
+        
+        config = await self._get_config(config_id)
+        
+        a_score = await self._calculate_a_score(student_id, academic_year, semester)
+        b_score = await self._calculate_b_score(student_id, academic_year, semester, config)
+        c_score = await self._calculate_c_score(student_id, academic_year, semester)
+        
+        a_weighted = a_score['total'] * config.a_weight / 100
+        b_weighted = b_score['score'] * config.b_weight / 100
+        c_weighted = c_score['total'] * config.c_weight / 100
+        
+        total_score = a_weighted + b_weighted + c_weighted
+        
+        comp_score, created = await ComprehensiveScore.update_or_create(
+            student_id=student_id,
+            semester=semester,
+            academic_year=academic_year,
+            defaults={
+                'a1_score': a_score['a1'],
+                'a2_score': a_score['a2'],
+                'a3_score': a_score['a3'],
+                'a_total_score': a_score['total'],
+                'b_total_score': b_score['score'],
+                'c1_score': c_score['c1'],
+                'c2_score': c_score['c2'],
+                'c3_score': c_score['c3'],
+                'c4_score': c_score['c4'],
+                'c_total_score': c_score['total'],
+                'total_score': total_score,
+                'details': {
+                    'a_details': a_score['details'],
+                    'b_details': b_score['details'],
+                    'c_details': c_score['details']
+                }
             }
-        
-        except Exception as e:
-            logger.error(f"计算综测成绩失败: {e}", exc_info=True)
-            raise DatabaseException(f"计算综测成绩失败: {str(e)}")
-    
-    def _get_academic_score_value(self, academic_score: Any, config: Any) -> float:
-        """根据配置获取学业成绩值
-        
-        Args:
-            academic_score: 学业成绩对象
-            config: 综测配置对象
-            
-        Returns:
-            转换后的学业成绩值（百分制）
-        """
-        field_name = config.academic_score_field
-        scale = config.academic_score_scale
-        
-        # 获取字段值
-        if not hasattr(academic_score, field_name):
-            logger.warning(f"学业成绩对象没有字段: {field_name}，使用默认值0")
-            return 0.0
-        
-        value = getattr(academic_score, field_name, 0.0)
-        
-        # 应用缩放系数
-        scaled_value = value * scale
-        
-        # 确保在0-100范围内
-        scaled_value = max(0.0, min(100.0, scaled_value))
-        
-        logger.debug(
-            f"学业成绩字段={field_name}, 原始值={value:.2f}, "
-            f"缩放系数={scale}, 转换后={scaled_value:.2f}"
         )
         
-        return scaled_value
+        student.total_score = total_score
+        await student.save()
+        
+        return {
+            'success': True,
+            'student_id': student_id,
+            'student_name': student.name,
+            'scores': {
+                'a_score': a_score,
+                'b_score': b_score,
+                'c_score': c_score,
+                'a_weighted': a_weighted,
+                'b_weighted': b_weighted,
+                'c_weighted': c_weighted,
+                'total_score': total_score
+            },
+            'created': created
+        }
     
-    def batch_calculate_comprehensive_scores(
+    async def calculate_class_scores(
         self,
-        academic_scores: list,
-        config: Any,
-        a_scores_map: Dict[str, float] = None,
-        c_scores_map: Dict[str, float] = None
-    ) -> Dict[str, Dict[str, float]]:
-        """批量计算综测成绩
+        class_id: str,
+        academic_year: str,
+        semester: str,
+        config_id: int = None
+    ) -> Dict[str, Any]:
+        """
+        计算班级所有学生的综测成绩
         
         Args:
-            academic_scores: 学业成绩对象列表
-            config: 综测配置对象
-            a_scores_map: 学号->A类成绩的映射
-            c_scores_map: 学号->C类成绩的映射
+            class_id: 班级ID
+            academic_year: 学年
+            semester: 学期
+            config_id: 配置ID
             
         Returns:
-            学号->成绩字典的映射
+            计算结果统计
         """
-        a_scores_map = a_scores_map or {}
-        c_scores_map = c_scores_map or {}
+        students = await Student.filter(class_name=class_id).all()
         
-        results = {}
+        if not students:
+            return {'success': False, 'message': f'班级不存在或没有学生: {class_id}'}
         
-        for academic_score in academic_scores:
-            student_id = academic_score.student_id
-            a_score = a_scores_map.get(student_id, 0.0)
-            c_score = c_scores_map.get(student_id, 0.0)
-            
-            result = self.calculate_comprehensive_score(
-                academic_score=academic_score,
-                config=config,
-                a_total_score=a_score,
-                c_total_score=c_score
-            )
-            
-            results[student_id] = result
+        results = []
+        success_count = 0
+        error_count = 0
         
-        logger.info(f"批量计算了 {len(results)} 个学生的综测成绩")
+        for student in students:
+            try:
+                result = await self.calculate_student_score(
+                    student.id, academic_year, semester, config_id
+                )
+                results.append(result)
+                if result['success']:
+                    success_count += 1
+                else:
+                    error_count += 1
+            except Exception as e:
+                logger.error(f"计算学生 {student.id} 成绩失败: {e}")
+                results.append({
+                    'success': False,
+                    'student_id': student.id,
+                    'message': str(e)
+                })
+                error_count += 1
         
-        return results
+        ranked_results = await self._rank_students(class_id, academic_year, semester)
+        
+        return {
+            'success': True,
+            'class_id': class_id,
+            'academic_year': academic_year,
+            'semester': semester,
+            'total_students': len(students),
+            'success_count': success_count,
+            'error_count': error_count,
+            'results': results,
+            'rankings': ranked_results
+        }
     
-    def get_field_info(self, field_name: str) -> Dict[str, Any]:
-        """获取学业成绩字段的信息（中文版）
+    async def _get_config(self, config_id: int = None) -> ComprehensiveScoreConfig:
+        """获取综测配置"""
+        if config_id:
+            config = await ComprehensiveScoreConfig.get_or_none(id=config_id)
+            if config:
+                return config
         
-        Args:
-            field_name: 字段名（英文）
+        config = await ComprehensiveScoreConfig.filter(is_default=True).first()
+        if config:
+            return config
+        
+        return await ComprehensiveScoreConfig.create(
+            name="默认配置",
+            a_weight=20.0,
+            b_weight=70.0,
+            c_weight=10.0,
+            is_default=True,
+            is_active=True
+        )
+    
+    async def _calculate_a_score(
+        self,
+        student_id: str,
+        academic_year: str,
+        semester: str
+    ) -> Dict[str, Any]:
+        """计算A类材料成绩（思想道德素质）"""
+        details = await ScoreDetail.filter(
+            student_id=student_id,
+            academic_year=academic_year,
+            semester=semester,
+            category_type__in=['A1', 'A2', 'A3']
+        ).all()
+        
+        a1 = 0.0
+        a2 = 0.0
+        a3 = 0.0
+        detail_list = []
+        
+        for detail in details:
+            if detail.category_type == 'A1':
+                a1 += detail.score
+            elif detail.category_type == 'A2':
+                a2 += detail.score
+            elif detail.category_type == 'A3':
+                a3 += detail.score
             
-        Returns:
-            字段信息字典（包含中文标签）
-        """
-        field_infos = {
-            "arithmetic_average": {
-                "value": "arithmetic_average",
-                "label": "算术平均分",
-                "english_name": "Arithmetic Average",
-                "description": "所有课程成绩的算术平均值，不考虑学分权重",
-                "default_scale": 1.0,
-                "range": "0-100",
-                "unit": "分"
-            },
-            "weighted_average": {
-                "value": "weighted_average",
-                "label": "学分加权平均分",
-                "english_name": "Weighted Average",
-                "description": "按学分加权的平均分，反映课程学分对总成绩的影响",
-                "default_scale": 1.0,
-                "range": "0-100",
-                "unit": "分",
-                "recommended": True
-            },
-            "average_gpa": {
-                "value": "average_gpa",
-                "label": "平均绩点",
-                "english_name": "Average GPA",
-                "description": "GPA平均值（4分制），需转换为百分制使用",
-                "default_scale": 25.0,  # 4分制转100分制
-                "range": "0-4",
-                "unit": "GPA"
-            },
-            "average_credit_gpa": {
-                "value": "average_credit_gpa",
-                "label": "平均学分绩点",
-                "english_name": "Average Credit GPA",
-                "description": "按学分加权的GPA（4分制），需转换为百分制使用",
-                "default_scale": 25.0,  # 4分制转100分制
-                "range": "0-4",
-                "unit": "GPA"
-            },
-            "credit_gpa_sum": {
-                "value": "credit_gpa_sum",
-                "label": "学分绩点和",
-                "english_name": "Credit GPA Sum",
-                "description": "总学分绩点和，适用于特定计算场景",
-                "default_scale": 1.0,
-                "range": "varies",
-                "unit": "点"
+            detail_list.append({
+                'category': detail.category_type,
+                'item': detail.item_name,
+                'score': detail.score
+            })
+        
+        a1 = min(a1, 100)
+        
+        total = a1 + a2 + a3
+        
+        return {
+            'a1': a1,
+            'a2': a2,
+            'a3': a3,
+            'total': total,
+            'details': detail_list
+        }
+    
+    async def _calculate_b_score(
+        self,
+        student_id: str,
+        academic_year: str,
+        semester: str,
+        config: ComprehensiveScoreConfig
+    ) -> Dict[str, Any]:
+        """计算B类材料成绩（学习成绩）"""
+        academic = await AcademicScore.filter(
+            student_id=student_id,
+            academic_year=academic_year
+        ).first()
+        
+        if not academic:
+            return {
+                'score': 0.0,
+                'details': {'message': '未找到学业成绩数据'}
+            }
+        
+        field_name = config.academic_score_field
+        score = getattr(academic, field_name, 0) or 0
+        
+        score = score * config.academic_score_scale
+        
+        return {
+            'score': score,
+            'field_used': field_name,
+            'details': {
+                'weighted_average': academic.weighted_average,
+                'arithmetic_average': academic.arithmetic_average,
+                'average_gpa': academic.average_gpa,
+                'average_credit_gpa': academic.average_credit_gpa,
+                'credit_gpa_sum': academic.credit_gpa_sum,
+                'field_used': field_name,
+                'scale': config.academic_score_scale
             }
         }
+    
+    async def _calculate_c_score(
+        self,
+        student_id: str,
+        academic_year: str,
+        semester: str
+    ) -> Dict[str, Any]:
+        """计算C类材料成绩（素质拓展）"""
+        details = await ScoreDetail.filter(
+            student_id=student_id,
+            academic_year=academic_year,
+            semester=semester,
+            category_type__in=['C1', 'C2', 'C3', 'C4']
+        ).all()
         
-        return field_infos.get(field_name, {
-            "value": field_name,
-            "label": field_name,
-            "english_name": field_name,
-            "description": "未知字段",
-            "default_scale": 1.0,
-            "range": "unknown",
-            "unit": "未知"
-        })
+        c1 = 0.0
+        c2 = 0.0
+        c3 = 0.0
+        c4 = 0.0
+        detail_list = []
+        
+        for detail in details:
+            if detail.category_type == 'C1':
+                c1 += detail.score
+            elif detail.category_type == 'C2':
+                c2 += detail.score
+            elif detail.category_type == 'C3':
+                c3 += detail.score
+            elif detail.category_type == 'C4':
+                c4 += detail.score
+            
+            detail_list.append({
+                'category': detail.category_type,
+                'item': detail.item_name,
+                'score': detail.score
+            })
+        
+        total = c1 + c2 + c3 + c4
+        
+        return {
+            'c1': c1,
+            'c2': c2,
+            'c3': c3,
+            'c4': c4,
+            'total': total,
+            'details': detail_list
+        }
+    
+    async def _rank_students(
+        self,
+        class_id: str,
+        academic_year: str,
+        semester: str
+    ) -> List[Dict[str, Any]]:
+        """对学生成绩进行排名"""
+        scores = await ComprehensiveScore.filter(
+            student__class_name=class_id,
+            academic_year=academic_year,
+            semester=semester
+        ).order_by('-total_score').all()
+        
+        rankings = []
+        for rank, score in enumerate(scores, 1):
+            student = await Student.get(id=score.student_id)
+            rankings.append({
+                'rank': rank,
+                'student_id': score.student_id,
+                'student_name': student.name,
+                'total_score': score.total_score,
+                'a_score': score.a_total_score,
+                'b_score': score.b_total_score,
+                'c_score': score.c_total_score
+            })
+        
+        return rankings
+    
+    async def add_score_detail(
+        self,
+        student_id: str,
+        academic_year: str,
+        semester: str,
+        category_type: str,
+        item_name: str,
+        score: float,
+        description: str = None,
+        certificate_id: int = None
+    ) -> ScoreDetail:
+        """添加加减分明细"""
+        return await ScoreDetail.create(
+            student_id=student_id,
+            academic_year=academic_year,
+            semester=semester,
+            category_type=category_type,
+            item_name=item_name,
+            score=score,
+            description=description,
+            certificate_id=certificate_id,
+            source='manual'
+        )
+    
+    async def get_student_score_details(
+        self,
+        student_id: str,
+        academic_year: str,
+        semester: str
+    ) -> Dict[str, Any]:
+        """获取学生成绩明细"""
+        comp_score = await ComprehensiveScore.get_or_none(
+            student_id=student_id,
+            academic_year=academic_year,
+            semester=semester
+        )
+        
+        details = await ScoreDetail.filter(
+            student_id=student_id,
+            academic_year=academic_year,
+            semester=semester
+        ).all()
+        
+        grouped_details = {
+            'A1': [], 'A2': [], 'A3': [],
+            'C1': [], 'C2': [], 'C3': [], 'C4': []
+        }
+        
+        for detail in details:
+            if detail.category_type in grouped_details:
+                grouped_details[detail.category_type].append({
+                    'id': detail.id,
+                    'item_name': detail.item_name,
+                    'score': detail.score,
+                    'description': detail.description,
+                    'source': detail.source
+                })
+        
+        return {
+            'comprehensive_score': {
+                'a1_score': comp_score.a1_score if comp_score else 0,
+                'a2_score': comp_score.a2_score if comp_score else 0,
+                'a3_score': comp_score.a3_score if comp_score else 0,
+                'a_total_score': comp_score.a_total_score if comp_score else 0,
+                'b_total_score': comp_score.b_total_score if comp_score else 0,
+                'c1_score': comp_score.c1_score if comp_score else 0,
+                'c2_score': comp_score.c2_score if comp_score else 0,
+                'c3_score': comp_score.c3_score if comp_score else 0,
+                'c4_score': comp_score.c4_score if comp_score else 0,
+                'c_total_score': comp_score.c_total_score if comp_score else 0,
+                'total_score': comp_score.total_score if comp_score else 0,
+            } if comp_score else None,
+            'details': grouped_details
+        }
 
 
-# 全局单例
-_comprehensive_score_calculation_service: Optional[ComprehensiveScoreCalculationService] = None
+comprehensive_score_service = ComprehensiveScoreService()
 
 
-def get_comprehensive_score_calculation_service() -> ComprehensiveScoreCalculationService:
-    """获取综测成绩计算服务单例"""
-    global _comprehensive_score_calculation_service
-    if _comprehensive_score_calculation_service is None:
-        _comprehensive_score_calculation_service = ComprehensiveScoreCalculationService()
-    return _comprehensive_score_calculation_service
+def get_comprehensive_score_service() -> ComprehensiveScoreService:
+    """获取综测成绩计算服务实例"""
+    return comprehensive_score_service
 
+
+def get_comprehensive_score_calculation_service() -> ComprehensiveScoreService:
+    """获取综测成绩计算服务实例（别名）"""
+    return comprehensive_score_service

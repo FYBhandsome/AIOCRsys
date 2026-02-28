@@ -113,6 +113,7 @@ async def delete_document(document_id: str):
 async def enable_document(document_id: str):
     """启用文档"""
     try:
+        document_service = container.get_document_service()
         success = document_service.update_document_status(document_id, enabled=True)
         
         if not success:
@@ -138,6 +139,7 @@ async def enable_document(document_id: str):
 async def disable_document(document_id: str):
     """停用文档"""
     try:
+        document_service = container.get_document_service()
         success = document_service.update_document_status(document_id, enabled=False)
         
         if not success:
@@ -163,6 +165,7 @@ async def disable_document(document_id: str):
 async def get_document_processing_status(document_id: str):
     """获取文档处理状态"""
     try:
+        document_service = container.get_document_service()
         result = document_service.get_document_processing_status(document_id)
         
         return ApiResponse(

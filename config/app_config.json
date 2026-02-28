@@ -1,0 +1,33 @@
+{
+  "llm": {
+    "enabled": true,
+    "provider": "xunfei",
+    "api_key": "341787347bdc5374dc6377f29a192907:Nzk5NTk4OTFkYmE5MTUzODI1YTM0MjNj",
+    "api_secret": "",
+    "app_id": "xop3qwen1b7",
+    "api_base_url": "https://maas-api.cn-huabei-1.xf-yun.com/v2",
+    "model_id": "xop3qwen1b7",
+    "temperature": 0.1,
+    "max_tokens": 1024
+  },
+  "vector_db": {
+    "chroma_db_path": "./data/chroma_db",
+    "rules_docs_path": "./data/rules",
+    "embedding_model": "all-MiniLM-L6-v2",
+    "embedding_device": "cpu",
+    "hf_endpoint": "https://hf-mirror.com",
+    "chunk_size": 500,
+    "chunk_overlap": 50
+  },
+  "rag": {
+    "top_k": 2,
+    "similarity_threshold": 0.7,
+    "chain_type": "stuff"
+  },
+  "prompt": {
+    "system_prompt": "你是一个专业的证书审核助手，专门帮助用户分析各类证书的加分情况。",
+    "user_prompt": "请帮我分析以下证书的加分情况：",
+    "chat_system_prompt": "你是一个专业的证书审核助手，可以回答用户关于证书审核、加分标准等问题。",
+    "custom_prompts": {}
+  }
+}

@@ -31,35 +31,38 @@ async def get_teacher_classes(
     返回该教师管理的所有班级
     """
     try:
-        # TODO: 从数据库查询该教师负责的班级
-        # 当前返回模拟数据，后续需要根据实际数据库结构实现
         logger.info(f"教师 {current_user.username} 查询班级列表")
         
-        # 模拟数据
-        classes = [
-            {
-                "id": "class001",
-                "name": "计算机科学2021级1班",
-                "grade": "2021",
-                "major": "计算机科学与技术",
-                "student_count": 45,
-                "created_at": "2021-09-01"
-            },
-            {
-                "id": "class002",
-                "name": "计算机科学2021级2班",
-                "grade": "2021",
-                "major": "计算机科学与技术",
-                "student_count": 42,
-                "created_at": "2021-09-01"
-            }
-        ]
+        classes = await db_service.get_classes()
         
-        return classes
+        class_list = []
+        for cls in classes:
+            try:
+                student_count = await db_service.count_students_by_class(cls.id)
+                class_list.append({
+                    "id": str(cls.id),
+                    "name": cls.name,
+                    "grade": cls.grade,
+                    "major": cls.major,
+                    "student_count": student_count,
+                    "created_at": cls.created_at.strftime("%Y-%m-%d") if cls.created_at else None
+                })
+            except Exception as e:
+                logger.warning(f"获取班级 {cls.id} 学生数量失败: {e}")
+                class_list.append({
+                    "id": str(cls.id),
+                    "name": cls.name,
+                    "grade": cls.grade,
+                    "major": cls.major,
+                    "student_count": 0,
+                    "created_at": cls.created_at.strftime("%Y-%m-%d") if cls.created_at else None
+                })
+        
+        return class_list
     
     except Exception as e:
         logger.error(f"获取班级列表失败: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"获取班级列表失败: {str(e)}")
+        return []
 
 
 @router.post("/scores/upload")

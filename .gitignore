@@ -1,99 +1,88 @@
-# Environment variables and sensitive files (MUST NOT UPLOAD)
-.env
-.env.*
-!.env.example
-
-# Conda environment
-.conda/
-
-# Custom modules to exclude
-utils/
-license_client/
-docs/
-
-# Python
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
+
+# C extensions
 *.so
-*.egg
-*.egg-info/
-dist/
-build/
-*.pyc
-*.pyo
+
+# Distribution / packaging
 .Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
-.pytest_cache/
-.coverage
+
+# Unit test / coverage reports
 htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
 *.cover
+*.py,cover
 .hypothesis/
+.pytest_cache/
 
-# Virtual Environment
-venv/
-env/
-ENV/
+# Translations
+*.mo
+*.pot
+
+# Environments
+.env
 .venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.conda/
 
-# Node.js / Frontend
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-package-lock.json
-.npm
-.yarn/
-
-# Build outputs
-dist/
-build/
-*.bundle.js
-*.bundle.css
-
-# Database files
-*.db
-*.db-shm
-*.db-wal
-*.sqlite
-*.sqlite3
-database_backup_*.db
-data/database.db
-data/database.db-shm
-data/database.db-wal
-data/*.db
-
-# Logs
-logs/
-*.log
-app.log
-
-# Temporary files
-temp/
-tmp/
-*.tmp
-*.temp
-
-# Uploads (user generated content)
-uploads/
-!uploads/.gitkeep
-
-# Results
-results/
-!results/.gitkeep
-
-# IDE
-.vscode/
+# IDEs
 .idea/
+.vscode/
 *.swp
 *.swo
 *~
 .project
 .pydevproject
 .settings/
+*.sublime-workspace
+*.sublime-project
 
-# OS
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+.python-version
+
+# OS files
 .DS_Store
 .DS_Store?
 ._*
@@ -103,55 +92,102 @@ ehthumbs.db
 Thumbs.db
 desktop.ini
 
-# Environment variables and sensitive config
-.env
-.env.local
-.env.*.local
-*.key
-*.pem
-*.crt
-*.cert
-secrets.json
-config_local.py
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# Build outputs
+dist/
+build/
+*.local
+
+# PaddleOCR
+paddleocr/
+inference/
+.paddleocr/
+
+# Vector database
+chroma_db/
+*.parquet
+
+# Upload files
+uploads/
+temp/
+results/
+
+# Config files with secrets
+*.env.local
+*.env.*.local
+secrets/
+config/secrets/
+
+# Test artifacts
+test_report_*.json
+test_report_*.html
+api_test_report.json
+
+# Model cache
+.models/
+.cache/
+.paddlex/
 
 # Backup files
 *.bak
 *.backup
+*.old
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
 *~
 
-# Test coverage
-.coverage
-coverage/
-*.cover
+# Certificate uploads
+certificates/
 
-# Jupyter Notebook
-.ipynb_checkpoints
+# Compiled files
+*.pyc
+*.pyo
+*.class
 
-# Model files (uncomment if models are large and stored elsewhere)
-# *.pth
-# *.pt
-# *.onnx
-# *.pb
-# *.h5
+# Package files
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
 
-# macOS
-*.DS_Store
-.AppleDouble
-.LSOverride
+# Virtual machine crash logs
+hs_err_pid*
+replay_pid*
 
-# Windows
-Thumbs.db
-Thumbs.db:encryptable
-ehthumbs.db
-ehthumbs_vista.db
-*.stackdump
-[Dd]esktop.ini
-$RECYCLE.BIN/
+# Frontend build
+fronted/front/dist/
+fronted/front/.vite/
 
-# Linux
-*~
-.fuse_hidden*
-.directory
-.Trash-*
-.nfs*
-
+# Specific project files
+visual_model/data/database.db
+visual_model/data/database.db-shm
+visual_model/data/database.db-wal
+PaddleOCRRAG/data/chroma_db/
+PaddleOCRRAG/logs/
+visual_model/logs/
+visual_model/uploads/
+visual_model/temp/
+visual_model/results/

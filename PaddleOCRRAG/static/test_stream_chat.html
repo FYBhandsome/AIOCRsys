@@ -355,7 +355,7 @@
         // 检查连接状态
         async function checkConnectionStatus() {
             try {
-                const response = await fetch('/api/v1/health', {
+                const response = await fetch('/api/v1/system/health', {
                     method: 'GET',
                     signal: AbortSignal.timeout(5000)
                 });
@@ -367,7 +367,7 @@
                     
                     // 获取模型信息
                     try {
-                        const modelResponse = await fetch('/api/v1/model-info');
+                        const modelResponse = await fetch('/api/v1/system/model-info');
                         if (modelResponse.ok) {
                             const modelData = await modelResponse.json();
                             modelName.textContent = modelData.model_name || '未知';

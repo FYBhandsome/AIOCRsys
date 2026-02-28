@@ -8,7 +8,7 @@ API路由模块
 
 from fastapi import APIRouter
 from app.api import upload, class_
-from app.api import auth, student, teacher, admin, license, ai, database
+from app.api import auth, student, teacher, admin, license, ai, database, data_import, comprehensive_score, excel_fill, field_mapping, score_upload
 from app.business.certificate_ocr_api import router as certificate_ocr_router
 
 # 创建主路由器
@@ -30,6 +30,21 @@ api_router.include_router(database.router)
 
 # AI助手路由（需要认证）
 api_router.include_router(ai.router)
+
+# 数据导入路由（需要认证）
+api_router.include_router(data_import.router)
+
+# 综测成绩路由（需要认证）
+api_router.include_router(comprehensive_score.router)
+
+# Excel填充路由（需要认证）
+api_router.include_router(excel_fill.router)
+
+# 字段映射路由（需要认证）
+api_router.include_router(field_mapping.router)
+
+# 成绩上传路由（需要认证）
+api_router.include_router(score_upload.router)
 
 # 原有路由（保持兼容）
 api_router.include_router(upload.router)

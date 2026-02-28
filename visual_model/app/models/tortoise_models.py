@@ -13,12 +13,36 @@ from typing import Optional
 '''
 Tortoise ORM 数据模型
     用户模型
+    班级模型
     学生模型
     学业成绩模型（AcademicScore）
     综测配置模型（ComprehensiveScoreConfig）
     综测类别总成绩模型
+    综测加减分明细模型
     文件模型
+    证书模型
 '''
+
+class Class(Model):
+    """班级模型"""
+    id = fields.CharField(pk=True, max_length=50, description="班级编号，如230521")
+    name = fields.CharField(max_length=100, description="班级名称")
+    grade = fields.CharField(max_length=20, description="年级")
+    major = fields.CharField(max_length=100, description="专业")
+    college = fields.CharField(max_length=100, description="学院")
+    
+    student_count = fields.IntField(default=0, description="学生人数")
+    
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+    
+    class Meta:
+        table = "classes"
+        table_description = "班级信息表"
+    
+    def __str__(self):
+        return f"Class({self.id}, {self.name})"
+
 
 class User(Model):
     """用户模型"""
@@ -279,29 +303,56 @@ class File(Model):
         return f"File({self.filename})"
 
 
+class ScoreDetail(Model):
+    """综测加减分明细模型"""
+    id = fields.IntField(pk=True)
+    
+    student_id = fields.CharField(max_length=50, description="学生ID")
+    semester = fields.CharField(max_length=20, description="学期")
+    academic_year = fields.CharField(max_length=20, description="学年")
+    
+    category_type = fields.CharField(max_length=10, description="类别: A1, A2, A3, C1, C2, C3, C4")
+    item_name = fields.CharField(max_length=255, description="项目名称")
+    score = fields.FloatField(default=0.0, description="分数（正数为加分，负数为扣分）")
+    
+    description = fields.TextField(null=True, description="详细说明")
+    source = fields.CharField(max_length=50, null=True, description="来源：manual(手动录入), import(导入), ocr(OCR识别)")
+    
+    certificate_id = fields.IntField(null=True, description="关联证书ID")
+    
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+    
+    class Meta:
+        table = "score_details"
+        table_description = "综测加减分明细表"
+        indexes = [("student_id",), ("category_type",), ("semester", "academic_year")]
+    
+    def __str__(self):
+        return f"ScoreDetail({self.student_id}, {self.category_type}, {self.score})"
+
+
 class Certificate(Model):
     """证书模型"""
     id = fields.IntField(pk=True)
     
-    # 基本信息
     student_id = fields.CharField(max_length=50, description="学生ID")
     file_id = fields.CharField(max_length=50, null=True, description="关联文件ID")
     filename = fields.CharField(max_length=255, description="文件名")
     file_path = fields.CharField(max_length=500, null=True, description="文件路径")
     
-    # 证书信息（从OCR识别）
+    certificate_type = fields.CharField(max_length=20, null=True, description="证书类型：四级、六级、竞赛、活动等")
     title = fields.CharField(max_length=255, null=True, description="证书标题")
-    level = fields.CharField(max_length=100, null=True, description="证书级别")
+    level = fields.CharField(max_length=100, null=True, description="证书级别：国家级、省级、校级、院级")
     issuer = fields.CharField(max_length=255, null=True, description="颁发机构")
     issue_date = fields.CharField(max_length=50, null=True, description="颁发日期")
     raw_text = fields.TextField(null=True, description="OCR原始文本")
     
-    # 分类和分数
     category = fields.CharField(max_length=10, default="C", description="证书类别: A或C")
+    sub_category = fields.CharField(max_length=10, null=True, description="子类别: C1-科技类, C2-体育类, C3-文化类, C4-创新创业")
     score = fields.FloatField(default=0.0, description="证书分数")
     classification_reason = fields.TextField(null=True, description="分类原因")
     
-    # 状态
     status = fields.CharField(
         max_length=20, 
         default="pending", 
@@ -311,18 +362,137 @@ class Certificate(Model):
     reviewed_at = fields.DatetimeField(null=True, description="审核时间")
     review_comment = fields.TextField(null=True, description="审核意见")
     
-    # OCR结果
     ocr_result = fields.JSONField(null=True, description="OCR识别结果")
     certificate_info = fields.JSONField(null=True, description="证书详细信息")
     
-    # 时间戳
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
     
     class Meta:
         table = "certificates"
         table_description = "证书表"
-        indexes = [("student_id",), ("category",), ("status",)]
+        indexes = [("student_id",), ("category",), ("status",), ("sub_category",)]
     
     def __str__(self):
         return f"Certificate({self.student_id}, {self.title}, {self.category})"
+
+
+class AcademicScoreHistory(Model):
+    """学业成绩历史记录模型 - 用于版本控制"""
+    id = fields.IntField(pk=True)
+    
+    academic_score_id = fields.IntField(description="关联的学业成绩ID")
+    student_id = fields.CharField(max_length=50, description="学号")
+    
+    version = fields.IntField(default=1, description="版本号")
+    
+    total_score = fields.FloatField(default=0.0, description="总分")
+    course_count = fields.IntField(default=0, description="门数")
+    total_credits = fields.FloatField(default=0.0, description="总学分")
+    earned_credits = fields.FloatField(default=0.0, description="获得学分")
+    
+    arithmetic_average = fields.FloatField(default=0.0, description="算术平均分")
+    weighted_average = fields.FloatField(default=0.0, description="学分加权平均分")
+    average_gpa = fields.FloatField(default=0.0, description="平均绩点")
+    average_credit_gpa = fields.FloatField(default=0.0, description="平均学分绩点")
+    
+    failed_course_count = fields.IntField(default=0, description="不及格门次")
+    
+    semester = fields.CharField(max_length=20, description="学期")
+    academic_year = fields.CharField(max_length=20, description="学年")
+    
+    source_file = fields.CharField(max_length=255, null=True, description="来源文件名")
+    raw_data = fields.JSONField(null=True, description="原始数据快照")
+    
+    change_type = fields.CharField(max_length=20, default="create", description="变更类型: create, update, import")
+    change_reason = fields.TextField(null=True, description="变更原因")
+    changed_by = fields.CharField(max_length=50, null=True, description="操作人")
+    
+    created_at = fields.DatetimeField(auto_now_add=True)
+    
+    class Meta:
+        table = "academic_score_history"
+        table_description = "学业成绩历史记录表"
+        indexes = [("student_id",), ("academic_score_id",), ("semester", "academic_year")]
+    
+    def __str__(self):
+        return f"AcademicScoreHistory({self.student_id}, v{self.version})"
+
+
+class ComprehensiveScoreHistory(Model):
+    """综测成绩历史记录模型 - 用于版本控制"""
+    id = fields.IntField(pk=True)
+    
+    comprehensive_score_id = fields.IntField(description="关联的综测成绩ID")
+    student_id = fields.CharField(max_length=50, description="学号")
+    
+    version = fields.IntField(default=1, description="版本号")
+    
+    a_total_score = fields.FloatField(default=0.0, description="A类总分")
+    a1_score = fields.FloatField(default=0.0, description="A1类成绩")
+    a2_score = fields.FloatField(default=0.0, description="A2类成绩")
+    a3_score = fields.FloatField(default=0.0, description="A3类成绩")
+    
+    b_total_score = fields.FloatField(default=0.0, description="B类总分")
+    
+    c_total_score = fields.FloatField(default=0.0, description="C类总分")
+    c1_score = fields.FloatField(default=0.0, description="C1类成绩")
+    c2_score = fields.FloatField(default=0.0, description="C2类成绩")
+    c3_score = fields.FloatField(default=0.0, description="C3类成绩")
+    c4_score = fields.FloatField(default=0.0, description="C4类成绩")
+    
+    total_score = fields.FloatField(default=0.0, description="综测总成绩")
+    
+    semester = fields.CharField(max_length=20, description="学期")
+    academic_year = fields.CharField(max_length=20, description="学年")
+    
+    config_id = fields.IntField(null=True, description="使用的配置ID")
+    raw_data = fields.JSONField(null=True, description="原始数据快照")
+    
+    change_type = fields.CharField(max_length=20, default="create", description="变更类型: create, update, calculate")
+    change_reason = fields.TextField(null=True, description="变更原因")
+    changed_by = fields.CharField(max_length=50, null=True, description="操作人")
+    
+    created_at = fields.DatetimeField(auto_now_add=True)
+    
+    class Meta:
+        table = "comprehensive_score_history"
+        table_description = "综测成绩历史记录表"
+        indexes = [("student_id",), ("comprehensive_score_id",), ("semester", "academic_year")]
+    
+    def __str__(self):
+        return f"ComprehensiveScoreHistory({self.student_id}, v{self.version})"
+
+
+class UploadRecord(Model):
+    """上传记录模型 - 追踪文件上传历史"""
+    id = fields.IntField(pk=True)
+    
+    file_id = fields.CharField(max_length=50, description="关联文件ID")
+    file_name = fields.CharField(max_length=255, description="文件名")
+    file_type = fields.CharField(max_length=50, description="文件类型: score_sheet, certificate, template")
+    
+    upload_by = fields.CharField(max_length=50, description="上传者")
+    upload_role = fields.CharField(max_length=20, default="student", description="上传者角色")
+    
+    academic_year = fields.CharField(max_length=20, null=True, description="学年")
+    semester = fields.CharField(max_length=20, null=True, description="学期")
+    class_id = fields.CharField(max_length=50, null=True, description="班级ID")
+    
+    status = fields.CharField(max_length=20, default="pending", description="状态: pending, processing, completed, failed")
+    processed_count = fields.IntField(default=0, description="处理成功数量")
+    failed_count = fields.IntField(default=0, description="处理失败数量")
+    
+    error_message = fields.TextField(null=True, description="错误信息")
+    processing_log = fields.TextField(null=True, description="处理日志")
+    
+    created_at = fields.DatetimeField(auto_now_add=True)
+    processed_at = fields.DatetimeField(null=True, description="处理完成时间")
+    
+    class Meta:
+        table = "upload_records"
+        table_description = "上传记录表"
+        indexes = [("upload_by",), ("file_type",), ("status",)]
+    
+    def __str__(self):
+        return f"UploadRecord({self.file_name}, {self.status})"

@@ -76,12 +76,20 @@ async def list_rule_documents(
 ):
     """获取规则文档列表"""
     try:
+        logger.info(f"管理员 {current_user.username} 获取规则文档列表, enabled_only={enabled_only}")
+        
         rag_client = get_rag_client()
         result = await rag_client.list_documents(enabled_only=enabled_only)
+        logger.info(f"获取规则文档列表成功: {result}")
         return result
     except Exception as e:
         logger.error(f"获取规则文档列表失败: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"获取规则文档列表失败: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "documents": [],
+            "message": f"RAG服务连接失败，请确保RAG服务正在运行。错误: {str(e)}"
+        }
 
 
 @router.patch("/rules/{doc_id}/status")
