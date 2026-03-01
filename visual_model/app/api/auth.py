@@ -3,7 +3,7 @@
 """
 认证API路由 - 包含登录、注册、密码重置等功能
 """
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import Dict
 
@@ -224,10 +224,18 @@ async def request_password_reset(request: PasswordResetRequest):
                 detail="邮件服务未启用，请联系管理员"
             )
         
-        now = datetime.utcnow()
-        if user.verification_code and user.code_expires_at and user.code_expires_at > now:
-            verification_code = user.verification_code
-            logger.info(f"重新发送现有验证码: {user.email}")
+        now = datetime.now(timezone.utc)
+        if user.verification_code and user.code_expires_at:
+            expires_at_utc = user.code_expires_at.replace(tzinfo=timezone.utc) if user.code_expires_at.tzinfo is None else user.code_expires_at
+            if expires_at_utc > now:
+                verification_code = user.verification_code
+                logger.info(f"重新发送现有验证码: {user.email}")
+            else:
+                verification_code = generate_verification_code()
+                user.verification_code = verification_code
+                user.code_expires_at = now + timedelta(minutes=2)
+                await user.save()
+                logger.info(f"生成新验证码: {user.email}")
         else:
             verification_code = generate_verification_code()
             user.verification_code = verification_code

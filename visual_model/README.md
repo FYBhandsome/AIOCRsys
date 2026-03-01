@@ -168,26 +168,28 @@ python scripts/manage_db.py reset
 ## 🧪 测试
 
 ```bash
-# 运行完整系统测试（推荐）
-python test_system.py
+# 运行pytest测试套件
+python -m pytest tests/ -v
 
-# 快速测试（核心功能）
-python test_system.py --quick
+# 运行特定模块测试
+python -m pytest tests/test_auth_api.py -v
 
-# 详细输出
-python test_system.py --verbose
-
-# 使用pytest（单元测试）
-pytest
-pytest --cov=app
+# 运行并显示覆盖率
+python -m pytest tests/ -v --cov=app
 ```
 
 **测试覆盖：**
-- ✅ 35个综合测试用例
-- ✅ 认证、权限、安全测试
-- ✅ API功能测试
-- ✅ 数据库管理测试
-- ✅ RAG集成测试
+- ✅ 209个测试用例
+- ✅ 认证API测试 (12项)
+- ✅ 学生API测试 (10项)
+- ✅ 教师API测试 (14项)
+- ✅ 管理员API测试 (8项)
+- ✅ 文件管理API测试 (15项)
+- ✅ 证书API测试 (10项)
+- ✅ AI对话API测试 (8项)
+- ✅ 中间件API测试 (25项)
+- ✅ 综测计算API测试 (12项)
+- ✅ 端到端测试 (15项)
 
 ---
 

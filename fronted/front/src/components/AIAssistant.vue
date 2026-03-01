@@ -111,6 +111,7 @@ const hasNewMessage = ref(false)
 const isSending = ref(false)
 const inputMessage = ref('')
 const messagesContainer = ref(null)
+const sessionId = ref(null)
 
 const messages = ref([
   {
@@ -162,12 +163,22 @@ const sendMessage = async () => {
         content: m.content
       }))
     
-    const resp = await commonAPI.post('/ai/chat', {
+    const requestData = {
       message: userQuestion,
       userId: userStore?.userInfo?.id || 'anonymous',
       chat_history: chatHistory,
       use_rag: true
-    })
+    }
+    
+    if (sessionId.value) {
+      requestData.session_id = sessionId.value
+    }
+    
+    const resp = await commonAPI.post('/ai/chat', requestData)
+    
+    if (resp?.session_id) {
+      sessionId.value = resp.session_id
+    }
     
     const aiContent = resp?.reply || resp?.response || '抱歉，我没有理解您的问题，请重新表述。'
     const aiMessage = {

@@ -11,10 +11,7 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime
 import httpx
 
-from app.core.logger import get_logger
-from app.core.enhanced_logging import (
-    sanitize_for_logging, APILogMiddleware, log_function_call, create_context_logger
-)
+from app.core.logger import get_logger, sanitize_for_logging, APILogMiddleware, log_function_call, create_context_logger
 from app.core.comprehensive_prompts import comprehensive_score_prompts
 
 logger = get_logger(__name__)

@@ -471,6 +471,7 @@ class RequestContext:
 
 
 default_logger = setup_logger("comprehensive-assessment")
+logger = default_logger
 
 
 def get_logger(name: str = None) -> logging.Logger:
@@ -532,3 +533,151 @@ def log_branch_decision(branch_name: str, condition: bool, context: str = "", lo
         logger = default_logger
     
     logger.debug(f"[分支判断] {context} | 分支: {branch_name} | 结果: {condition}")
+
+
+SENSITIVE_KEYS: set = {
+    'password', 'passwd', 'pwd', 'secret', 'token', 'api_key', 'apikey',
+    'authorization', 'auth', 'credential', 'private_key', 'access_token',
+    'refresh_token', 'session_id', 'cookie', 'csrf_token'
+}
+
+
+def mask_sensitive_data(data: Any, mask: str = '******') -> Any:
+    """遮蔽敏感数据
+    
+    Args:
+        data: 原始数据
+        mask: 遮蔽字符串
+        
+    Returns:
+        遮蔽后的数据
+    """
+    if isinstance(data, dict):
+        return {
+            key: mask if key.lower() in SENSITIVE_KEYS else mask_sensitive_data(value, mask)
+            for key, value in data.items()
+        }
+    elif isinstance(data, list):
+        return [mask_sensitive_data(item, mask) for item in data]
+    elif isinstance(data, str):
+        for key in SENSITIVE_KEYS:
+            if key in data.lower():
+                return mask
+        return data
+    return data
+
+
+def sanitize_for_logging(data: Any, max_length: int = 1000) -> str:
+    """清理数据用于日志记录
+    
+    Args:
+        data: 原始数据
+        max_length: 最大长度
+        
+    Returns:
+        清理后的字符串
+    """
+    try:
+        masked_data = mask_sensitive_data(data)
+        json_str = json.dumps(masked_data, ensure_ascii=False, default=str)
+        if len(json_str) > max_length:
+            return json_str[:max_length] + "..."
+        return json_str
+    except Exception as e:
+        return f"<无法序列化: {type(data).__name__}>"
+
+
+def create_context_logger(name: str, **context) -> logging.LoggerAdapter:
+    """创建带上下文的日志记录器
+    
+    Args:
+        name: 日志记录器名称
+        **context: 上下文信息
+        
+    Returns:
+        日志记录器适配器
+    """
+    log = logging.getLogger(name)
+    return logging.LoggerAdapter(log, context)
+
+
+class APILogMiddleware:
+    """API日志中间件辅助类"""
+    
+    def __init__(self, name: str = "API"):
+        self.logger = get_logger(name)
+    
+    def log_request(self, method: str, path: str, headers: dict = None, 
+                   query_params: dict = None, body: Any = None):
+        """记录请求日志"""
+        log_data = {
+            "type": "request",
+            "method": method,
+            "path": path,
+        }
+        
+        if headers:
+            log_data["headers"] = mask_sensitive_data(dict(headers))
+        if query_params:
+            log_data["query_params"] = query_params
+        if body:
+            log_data["body"] = sanitize_for_logging(body, max_length=500)
+        
+        self.logger.info(f"[请求] {method} {path}", extra={'extra_data': log_data})
+    
+    def log_response(self, method: str, path: str, status_code: int,
+                    elapsed_ms: float, response_summary: Any = None):
+        """记录响应日志"""
+        log_data = {
+            "type": "response",
+            "method": method,
+            "path": path,
+            "status_code": status_code,
+            "elapsed_ms": round(elapsed_ms, 2)
+        }
+        
+        if response_summary:
+            log_data["response_summary"] = sanitize_for_logging(response_summary, max_length=200)
+        
+        level = logging.INFO if status_code < 400 else logging.WARNING
+        self.logger.log(level, f"[响应] {method} {path} -> {status_code} ({elapsed_ms:.2f}ms)", 
+                       extra={'extra_data': log_data})
+    
+    def log_error(self, method: str, path: str, error: Exception, extra_info: dict = None):
+        """记录错误日志"""
+        log_data = {
+            "type": "error",
+            "method": method,
+            "path": path,
+            "error_type": type(error).__name__,
+            "error_message": str(error)
+        }
+        
+        if extra_info:
+            log_data.update(extra_info)
+        
+        self.logger.error(f"[错误] {method} {path} -> {type(error).__name__}: {error}",
+                         extra={'extra_data': log_data}, exc_info=True)
+
+
+def setup_logging(log_dir: str = None, app_name: str = "app", 
+                  console_level: int = logging.INFO, 
+                  file_level: int = logging.DEBUG) -> logging.Logger:
+    """设置日志系统
+    
+    Args:
+        log_dir: 日志目录
+        app_name: 应用名称
+        console_level: 控制台日志级别
+        file_level: 文件日志级别
+        
+    Returns:
+        配置好的日志记录器
+    """
+    return setup_logger(
+        name=app_name,
+        log_level=logging.getLevelName(file_level),
+        log_dir=log_dir,
+        use_json=False,
+        use_color=True
+    )

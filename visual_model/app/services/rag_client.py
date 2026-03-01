@@ -89,6 +89,42 @@ class RAGClient:
             logger.error(f"调用RAG对话失败: {e}", exc_info=True)
             raise
     
+    async def chat_stream(
+        self,
+        message: str,
+        use_rag: bool = True,
+        chat_history: Optional[List[Dict[str, str]]] = None,
+        student_info: Optional[Dict[str, Any]] = None
+    ):
+        """AI流式对话
+        
+        Args:
+            message: 用户消息
+            use_rag: 是否使用RAG检索
+            chat_history: 聊天历史
+            student_info: 学生信息
+            
+        Yields:
+            AI回复片段
+        """
+        url = f"{self.base_url}{self.api_prefix}/chat/stream"
+        data = {
+            "message": message,
+            "use_rag": use_rag,
+            "chat_history": chat_history or [],
+            "student_info": student_info or {}
+        }
+        
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                async with client.stream("POST", url, json=data) as response:
+                    response.raise_for_status()
+                    async for chunk in response.aiter_text():
+                        yield chunk
+        except Exception as e:
+            logger.error(f"调用RAG流式对话失败: {e}", exc_info=True)
+            yield f"data: {{'error': '{str(e)}'}}\n\n"
+    
     async def upload_document(
         self,
         file_path: str,

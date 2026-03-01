@@ -17,7 +17,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
 from app.core.logger import get_logger
-from app.core.enhanced_logging import (
+from app.core.enhanced_logger import (
     APILogMiddleware, sanitize_for_logging, mask_sensitive_data, create_context_logger
 )
 from app.core.api_response import ResponseCode, ResponseBuilder

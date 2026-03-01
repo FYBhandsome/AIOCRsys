@@ -406,13 +406,41 @@ async def update_system_settings(
     """
     logger.info(f"管理员 {current_user.username} 更新系统设置")
     
-    # TODO: 实现设置持久化
-    # 目前仅记录日志，实际持久化需要进一步实现
-    logger.info(f"系统设置更新: {settings_data}")
+    from app.models.tortoise_models import SystemSetting
+    import json
+    
+    updated_keys = []
+    errors = []
+    
+    for key, value in settings_data.items():
+        try:
+            setting_type = "json"
+            if isinstance(value, bool):
+                setting_type = "boolean"
+            elif isinstance(value, (int, float)):
+                setting_type = "number"
+            elif isinstance(value, str):
+                setting_type = "string"
+            
+            setting_value = json.dumps(value) if not isinstance(value, str) else value
+            
+            await SystemSetting.update_or_create(
+                setting_key=key,
+                defaults={
+                    "setting_value": setting_value,
+                    "setting_type": setting_type,
+                    "updated_by": current_user.username
+                }
+            )
+            updated_keys.append(key)
+        except Exception as e:
+            errors.append({"key": key, "error": str(e)})
+            logger.error(f"保存设置 {key} 失败: {e}")
     
     return {
-        "message": "系统设置已更新（部分设置需重启服务）",
-        "settings": settings_data
+        "message": f"系统设置已更新（{len(updated_keys)}项）",
+        "updated_keys": updated_keys,
+        "errors": errors if errors else None
     }
 
 

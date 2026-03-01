@@ -373,7 +373,20 @@ export const ragAPI = {
   resetPrompts: () => ragApi.post(`${API_ENDPOINTS.RAG.PROMPTS}/reset`),
   
   getCacheStats: () => ragApi.get(`${API_ENDPOINTS.RAG.CHAT}/cache/stats`),
-  clearCache: () => ragApi.delete(`${API_ENDPOINTS.RAG.CHAT}/cache`)
+  clearCache: () => ragApi.delete(`${API_ENDPOINTS.RAG.CHAT}/cache`),
+  
+  getChatHistory: (limit = 20, sessionId = null) => {
+    const params = { limit }
+    if (sessionId) params.session_id = sessionId
+    return ragApi.get(API_ENDPOINTS.RAG.CHAT_HISTORY, { params })
+  },
+  
+  clearChatHistory: (sessionId = null) => {
+    if (sessionId) {
+      return ragApi.delete(API_ENDPOINTS.RAG.CHAT_HISTORY_CLEAR, { params: { session_id: sessionId } })
+    }
+    return ragApi.delete(API_ENDPOINTS.RAG.CHAT_HISTORY_CLEAR)
+  }
 }
 
 export const commonAPI = {

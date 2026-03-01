@@ -86,6 +86,8 @@ export const API_ENDPOINTS = {
     CHAT_STREAM: '/api/v1/chat/stream',
     CHAT_ASYNC: '/api/v1/chat/async',
     CHAT_STREAM_ASYNC: '/api/v1/chat/stream/async',
+    CHAT_HISTORY: '/api/v1/ai/history',
+    CHAT_HISTORY_CLEAR: '/api/v1/ai/history',
     DOCUMENTS: '/api/v1/documents',
     SYSTEM_INFO: '/api/v1/system/info',
     SYSTEM_HEALTH: '/api/v1/system/health',

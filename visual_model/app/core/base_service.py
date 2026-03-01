@@ -290,11 +290,20 @@ class ComprehensiveScoreService(BaseService):
             "semester": semester
         })
         
-        # TODO: 实现综测计算逻辑
-        return ResponseBuilder.success(
-            message="综测成绩计算完成",
-            data={"student_id": student_id}
-        )
+        from app.services.comprehensive_score_service import ComprehensiveScoreService
+        service = ComprehensiveScoreService()
+        result = await service.calculate_student_score(student_id, academic_year, semester)
+        
+        if result.get('success'):
+            return ResponseBuilder.success(
+                message="综测成绩计算完成",
+                data=result
+            )
+        else:
+            return ResponseBuilder.error(
+                message=result.get('message', '计算失败'),
+                data=result
+            )
 
 
 class CertificateService(BaseService):

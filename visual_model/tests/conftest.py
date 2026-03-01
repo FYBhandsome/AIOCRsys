@@ -186,6 +186,29 @@ async def initialize_db():
     )
     await Tortoise.generate_schemas()
     
+    from app.models.tortoise_models import User
+    from app.core.security import get_password_hash
+    
+    test_users_data = [
+        {"username": "admin", "password": "admin123", "role": "admin", "email": "admin@test.com", "real_name": "系统管理员", "is_active": True},
+        {"username": "teacher", "password": "teacher123", "role": "teacher", "email": "teacher@test.com", "real_name": "测试教师", "is_active": True},
+        {"username": "student_202300502128", "password": "student123", "role": "student", "email": "student@test.com", "real_name": "测试学生", "student_id": "202300502128", "is_active": True},
+    ]
+    
+    for user_data in test_users_data:
+        existing = await User.filter(username=user_data["username"]).first()
+        if not existing:
+            await User.create(
+                username=user_data["username"],
+                password=get_password_hash(user_data["password"]),
+                role=user_data["role"],
+                email=user_data["email"],
+                real_name=user_data["real_name"],
+                student_id=user_data.get("student_id"),
+                is_active=user_data["is_active"]
+            )
+            logger.info(f"创建测试用户: {user_data['username']}")
+    
     logger.info("测试数据库初始化完成")
     
     yield
@@ -447,6 +470,38 @@ class TestResult:
 def test_result():
     """测试结果记录器"""
     return TestResult()
+
+
+@pytest.fixture
+def sample_excel_bytes():
+    """示例Excel文件字节数据"""
+    import openpyxl
+    from io import BytesIO
+    
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "成绩表"
+    ws.append(["学号", "姓名", "班级", "成绩"])
+    ws.append(["202300502101", "张三", "计算机2301", 85.5])
+    ws.append(["202300502102", "李四", "计算机2301", 88.0])
+    
+    buffer = BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    return buffer.read()
+
+
+@pytest.fixture
+def sample_image_bytes():
+    """示例图片文件字节数据"""
+    from PIL import Image
+    from io import BytesIO
+    
+    img = Image.new('RGB', (100, 100), color='red')
+    buffer = BytesIO()
+    img.save(buffer, format='JPEG')
+    buffer.seek(0)
+    return buffer.read()
 
 
 def pytest_collection_modifyitems(config, items):

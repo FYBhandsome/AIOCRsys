@@ -16,8 +16,7 @@ import time
 from typing import Dict, Any
 from pathlib import Path
 
-from app.core.logger import logger
-from app.core.enhanced_logging import setup_logging, get_logger, APILogMiddleware
+from app.core.logger import logger, setup_logging, get_logger
 from app.core.exceptions import (
     validation_exception_handler,
     http_exception_handler,

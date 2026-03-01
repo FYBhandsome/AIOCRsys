@@ -25,6 +25,7 @@ class ChatRequest(BaseModel):
     userId: Optional[str] = Field(None, description="用户ID")
     chat_history: Optional[List[Dict[str, str]]] = Field(None, description="对话历史")
     use_rag: bool = Field(True, description="是否使用RAG检索")
+    session_id: Optional[str] = Field(None, description="会话ID")
 
 
 class ChatResponse(BaseModel):
@@ -33,6 +34,7 @@ class ChatResponse(BaseModel):
     success: bool = Field(True, description="是否成功")
     timestamp: Optional[str] = Field(None, description="时间戳")
     sources: Optional[List[Dict[str, Any]]] = Field(None, description="引用来源")
+    session_id: Optional[str] = Field(None, description="会话ID")
 
 
 class AssistantMessageRequest(BaseModel):
@@ -79,6 +81,19 @@ async def ai_chat(
             "role": current_user.role
         }
         
+        import uuid
+        from app.models.tortoise_models import ChatHistory
+        
+        session_id = request.session_id or str(uuid.uuid4())
+        
+        await ChatHistory.create(
+            user_id=current_user.username,
+            session_id=session_id,
+            role="user",
+            content=request.message,
+            message_type="text"
+        )
+        
         rag_client = get_rag_client()
         result = await rag_client.chat(
             message=request.message,
@@ -87,13 +102,23 @@ async def ai_chat(
             student_info=student_info
         )
         
+        await ChatHistory.create(
+            user_id=current_user.username,
+            session_id=session_id,
+            role="assistant",
+            content=result.get("reply", ""),
+            message_type="text",
+            metadata={"sources": result.get("sources")} if result.get("sources") else None
+        )
+        
         logger.info(f"用户 {current_user.username} 进行AI对话: {request.message[:50]}...")
         
         return ChatResponse(
             reply=result.get("reply", "抱歉，我现在无法回答。"),
             success=result.get("success", True),
             timestamp=result.get("timestamp", datetime.now().isoformat()),
-            sources=result.get("sources")
+            sources=result.get("sources"),
+            session_id=session_id
         )
     
     except Exception as e:
@@ -247,22 +272,60 @@ async def get_suggestions(
 @router.get("/history")
 async def get_chat_history(
     limit: int = 20,
+    session_id: str = None,
     current_user: TokenData = Depends(get_current_user)
 ):
     """获取对话历史
     
-    TODO: 实现对话历史持久化存储
+    支持按会话ID筛选，默认返回最近的对话记录
     """
+    from app.models.tortoise_models import ChatHistory
+    
+    query = ChatHistory.filter(user_id=current_user.username)
+    
+    if session_id:
+        query = query.filter(session_id=session_id)
+    
+    histories = await query.order_by("-created_at").limit(limit).all()
+    
     return {
-        "history": [],
-        "message": "对话历史功能暂未实现"
+        "history": [
+            {
+                "id": h.id,
+                "session_id": h.session_id,
+                "role": h.role,
+                "content": h.content,
+                "message_type": h.message_type,
+                "created_at": h.created_at.isoformat() if h.created_at else None
+            }
+            for h in histories
+        ],
+        "total": len(histories),
+        "session_id": session_id
     }
 
 
 @router.delete("/history")
 async def clear_chat_history(
+    session_id: str = None,
     current_user: TokenData = Depends(get_current_user)
 ):
-    """清空对话历史"""
-    logger.info(f"用户 {current_user.username} 清空对话历史")
-    return {"message": "对话历史已清空"}
+    """清空对话历史
+    
+    可选择清空特定会话或全部历史
+    """
+    from app.models.tortoise_models import ChatHistory
+    
+    if session_id:
+        deleted = await ChatHistory.filter(
+            user_id=current_user.username,
+            session_id=session_id
+        ).delete()
+        logger.info(f"用户 {current_user.username} 清空会话 {session_id} 的对话历史，删除 {deleted} 条记录")
+        return {"message": f"会话 {session_id} 的对话历史已清空", "deleted_count": deleted}
+    else:
+        deleted = await ChatHistory.filter(
+            user_id=current_user.username
+        ).delete()
+        logger.info(f"用户 {current_user.username} 清空全部对话历史，删除 {deleted} 条记录")
+        return {"message": "全部对话历史已清空", "deleted_count": deleted}
