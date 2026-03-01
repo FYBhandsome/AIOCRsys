@@ -28,6 +28,9 @@ from typing import Optional, Dict, Any, List
 from functools import wraps
 from pathlib import Path
 from dataclasses import dataclass, field
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+UNIFIED_LOG_DIR = PROJECT_ROOT / "logs" / "visual_model"
 from enum import Enum
 
 
@@ -263,7 +266,7 @@ def setup_logger(
         配置好的日志记录器
     """
     if log_dir is None:
-        log_dir = os.path.join(os.getcwd(), "logs")
+        log_dir = str(UNIFIED_LOG_DIR)
     
     Path(log_dir).mkdir(parents=True, exist_ok=True)
     

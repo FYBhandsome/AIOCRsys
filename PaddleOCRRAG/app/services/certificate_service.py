@@ -7,7 +7,7 @@ import re
 import logging
 from datetime import datetime
 from typing import Dict, Any, Optional
-from app.core.llm_manager import llm_manager
+from app.core.llm_manager import LLMManager
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,14 @@ class CertificateService:
     
     def __init__(self):
         """初始化证书服务"""
-        self.llm_manager = llm_manager
+        self._llm_manager = None
+    
+    @property
+    def llm_manager(self):
+        """延迟加载LLM管理器"""
+        if self._llm_manager is None:
+            self._llm_manager = LLMManager()
+        return self._llm_manager
     
     def calculate_score(self, certificate_text: str, student_info: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """计算证书加分（新接口）

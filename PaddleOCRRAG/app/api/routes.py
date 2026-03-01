@@ -9,68 +9,70 @@
 4. 确保API路由的一致性和可维护性
 """
 from fastapi import APIRouter
-from typing import Optional
-from app.core.logger import get_logger
+from typing import Optional, List
+import traceback
+import logging
+import sys
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
-api_router = APIRouter()
+_api_router = None
+_loaded_modules: List[str] = []
 
-try:
-    from app.api.certificate_routes import router as certificate_router
-    api_router.include_router(certificate_router)
-    logger.info("证书路由已加载")
-except Exception as e:
-    logger.warning(f"证书路由加载失败: {e}")
 
-try:
-    from app.api.chat_routes import router as chat_router
-    api_router.include_router(chat_router)
-    logger.info("聊天路由已加载")
-except Exception as e:
-    logger.warning(f"聊天路由加载失败: {e}")
+def _load_all_routers() -> APIRouter:
+    """加载所有路由模块"""
+    global _api_router, _loaded_modules
+    
+    if _api_router is not None:
+        return _api_router
+    
+    print("[Routes] 开始加载路由模块...", file=sys.stderr)
+    
+    _api_router = APIRouter()
+    _loaded_modules = []
+    
+    router_modules = [
+        ("certificate_routes", "证书管理"),
+        ("chat_routes", "AI对话"),
+        ("document_routes", "文档管理"),
+        ("system_routes", "系统管理"),
+        ("prompt_routes", "提示词管理"),
+        ("vector_db_routes", "向量数据库"),
+        ("log_routes", "日志管理"),
+        ("cache_routes", "缓存管理"),
+    ]
+    
+    for module_name, desc in router_modules:
+        try:
+            print(f"[Routes] 加载 {module_name}...", file=sys.stderr)
+            full_module = f"app.api.{module_name}"
+            module = __import__(full_module, fromlist=["router"])
+            router = getattr(module, "router")
+            _api_router.include_router(router)
+            _loaded_modules.append(module_name)
+            print(f"[Routes] [OK] {module_name} 路由已加载 ({desc})", file=sys.stderr)
+        except Exception as e:
+            print(f"[Routes] [FAIL] {module_name} 路由加载失败: {e}", file=sys.stderr)
+            traceback.print_exc()
+    
+    print(f"[Routes] 路由加载完成，共 {len(_loaded_modules)} 个模块", file=sys.stderr)
+    return _api_router
 
-try:
-    from app.api.document_routes import router as document_router
-    api_router.include_router(document_router)
-    logger.info("文档路由已加载")
-except Exception as e:
-    logger.warning(f"文档路由加载失败: {e}")
 
-try:
-    from app.api.system_routes import router as system_router
-    api_router.include_router(system_router)
-    logger.info("系统路由已加载")
-except Exception as e:
-    logger.warning(f"系统路由加载失败: {e}")
+def get_api_router() -> APIRouter:
+    """
+    获取主API路由实例
+    
+    Returns:
+        APIRouter: 配置好的主路由实例
+    """
+    return _load_all_routers()
 
-try:
-    from app.api.prompt_routes import router as prompt_router
-    api_router.include_router(prompt_router)
-    logger.info("提示词路由已加载")
-except Exception as e:
-    logger.warning(f"提示词路由加载失败: {e}")
 
-try:
-    from app.api.vector_db_routes import router as vector_db_router
-    api_router.include_router(vector_db_router)
-    logger.info("向量数据库路由已加载")
-except Exception as e:
-    logger.warning(f"向量数据库路由加载失败: {e}")
-
-try:
-    from app.api.log_routes import router as log_router
-    api_router.include_router(log_router)
-    logger.info("日志路由已加载")
-except Exception as e:
-    logger.warning(f"日志路由加载失败: {e}")
-
-try:
-    from app.api.cache_routes import router as cache_router
-    api_router.include_router(cache_router)
-    logger.info("缓存路由已加载")
-except Exception as e:
-    logger.warning(f"缓存路由加载失败: {e}")
+def get_loaded_modules() -> List[str]:
+    """获取已加载的模块列表"""
+    return _loaded_modules.copy()
 
 
 def init_optimized_components() -> bool:
@@ -109,13 +111,3 @@ def init_optimized_components() -> bool:
     except Exception as e:
         logger.error(f"优化组件初始化失败: {str(e)}", exc_info=True)
         return False
-
-
-def get_api_router() -> APIRouter:
-    """
-    获取主API路由实例
-    
-    Returns:
-        APIRouter: 配置好的主路由实例
-    """
-    return api_router

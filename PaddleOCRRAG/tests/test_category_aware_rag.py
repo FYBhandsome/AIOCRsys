@@ -1,9 +1,13 @@
 """
 RAG类别感知检索测试脚本
 测试各模块功能是否正常工作
+
+注意: 部分 test 需要 langchain，在 Windows 环境下可能因 numpy/transformers 
+兼容性问题而崩溃。设置环境变量 SKIP_LANGCHAIN_TESTS=1 可跳过这些测试。
 """
 import os
 import sys
+import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -161,6 +165,7 @@ def test_query_enhancer():
     return True
 
 
+@pytest.mark.skip_if_no_langchain
 def test_enhanced_loader():
     """测试增强文档加载器"""
     print("\n" + "="*60)

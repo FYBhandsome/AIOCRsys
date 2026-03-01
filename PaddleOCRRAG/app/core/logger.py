@@ -30,6 +30,9 @@ import time
 import threading
 from collections import defaultdict
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+UNIFIED_LOG_DIR = PROJECT_ROOT / "logs" / "rag"
+
 
 class LogLevel(Enum):
     """日志级别枚举"""
@@ -349,7 +352,7 @@ class SafeRotatingFileHandler(logging.handlers.RotatingFileHandler):
 class LogConfig:
     """日志配置"""
     
-    DEFAULT_LOG_DIR = "logs"
+    DEFAULT_LOG_DIR = str(UNIFIED_LOG_DIR)
     DEFAULT_LOG_LEVEL = "INFO"
     DEFAULT_MAX_BYTES = 10 * 1024 * 1024
     DEFAULT_BACKUP_COUNT = 10

@@ -11,8 +11,9 @@ from pydantic import Field, field_validator, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-# 基础目录
 BASE_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = BASE_DIR.parent
+UNIFIED_LOG_DIR = PROJECT_ROOT / "logs" / "visual_model"
 
 
 class Settings(BaseSettings):
@@ -186,7 +187,7 @@ class Settings(BaseSettings):
         description="日志格式"
     )
     LOG_FILE: Path = Field(
-        default=BASE_DIR / "logs" / "app.log",
+        default=UNIFIED_LOG_DIR / "app.log",
         description="日志文件路径"
     )
     
@@ -218,7 +219,7 @@ class Settings(BaseSettings):
     
     # RAG系统配置
     RAG_BASE_URL: str = Field(
-        default="http://localhost:8000",
+        default="http://localhost:8010",
         description="RAG系统基础URL"
     )
     RAG_ENABLED: bool = Field(
@@ -279,7 +280,7 @@ class Settings(BaseSettings):
     @property
     def LOGS_DIR(self) -> str:
         """日志目录路径"""
-        return str(BASE_DIR / "logs")
+        return str(UNIFIED_LOG_DIR)
 
 
 # 创建全局配置实例

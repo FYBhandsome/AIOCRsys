@@ -194,5 +194,18 @@ class PromptManager:
         return self.custom_prompts.copy()
 
 
-# 创建全局实例
-prompt_manager = PromptManager()
+# 创建全局实例（延迟初始化）
+prompt_manager = None
+
+def _get_prompt_manager():
+    """获取Prompt管理器单例（内部使用）"""
+    global prompt_manager
+    if prompt_manager is None:
+        prompt_manager = PromptManager()
+    return prompt_manager
+
+def __getattr__(name):
+    """延迟初始化prompt_manager"""
+    if name == "prompt_manager":
+        return _get_prompt_manager()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

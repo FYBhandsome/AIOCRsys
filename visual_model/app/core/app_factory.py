@@ -38,10 +38,10 @@ from app.services.ocr_service import get_ocr_service
 
 def init_logging():
     """初始化增强版日志系统"""
-    from config import BASE_DIR
-    log_dir = BASE_DIR / "logs"
+    from config import UNIFIED_LOG_DIR
+    UNIFIED_LOG_DIR.mkdir(parents=True, exist_ok=True)
     setup_logging(
-        log_dir=str(log_dir),
+        log_dir=str(UNIFIED_LOG_DIR),
         app_name="visual_model",
         console_level=20,
         file_level=10
@@ -90,11 +90,37 @@ def setup_middleware(app: FastAPI):
     """配置中间件"""
     allowed_origins = [
         "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:5175",
+        "http://localhost:5176",
+        "http://localhost:5177",
+        "http://localhost:5178",
         "http://localhost:8080",
         "http://localhost:8000",
+        "http://localhost:8010",
+        "http://localhost:8011",
+        "http://localhost:8012",
+        "http://localhost:8013",
+        "http://localhost:8014",
         "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
+        "http://127.0.0.1:5175",
+        "http://127.0.0.1:5176",
+        "http://127.0.0.1:5177",
+        "http://127.0.0.1:5178",
         "http://127.0.0.1:8080",
         "http://127.0.0.1:8000",
+        "http://127.0.0.1:8001",
+        "http://127.0.0.1:8002",
+        "http://127.0.0.1:8003",
+        "http://127.0.0.1:8004",
+        "http://127.0.0.1:8005",
+        "http://127.0.0.1:8006",
+        "http://127.0.0.1:8010",
+        "http://127.0.0.1:8011",
+        "http://127.0.0.1:8012",
+        "http://127.0.0.1:8013",
+        "http://127.0.0.1:8014",
     ]
     
     app.add_middleware(

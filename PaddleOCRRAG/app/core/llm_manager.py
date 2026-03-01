@@ -419,4 +419,17 @@ class LLMManager:
             }
 
 
-llm_manager = LLMManager()
+llm_manager = None
+
+def _get_llm_manager():
+    """获取LLM管理器单例（内部使用）"""
+    global llm_manager
+    if llm_manager is None:
+        llm_manager = LLMManager()
+    return llm_manager
+
+def __getattr__(name):
+    """延迟初始化llm_manager"""
+    if name == "llm_manager":
+        return _get_llm_manager()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

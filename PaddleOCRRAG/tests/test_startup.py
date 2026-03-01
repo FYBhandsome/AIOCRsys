@@ -1,14 +1,21 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""RAG服务启动测试脚本"""
+"""RAG服务启动测试脚本
+
+注意: 此测试需要 langchain，在 Windows 环境下可能因 numpy/transformers 
+兼容性问题而崩溃。设置环境变量 SKIP_LANGCHAIN_TESTS=1 可跳过此测试。
+"""
 import sys
 import os
 from pathlib import Path
 import traceback
+import pytest
 
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
+
+@pytest.mark.skip_if_no_langchain
 def test_init():
     """测试初始化"""
     print("=" * 60)

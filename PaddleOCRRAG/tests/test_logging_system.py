@@ -43,8 +43,8 @@ def test_basic_logging():
     
     logger.info("带参数的日志", extra={'params': {'key': 'value', 'count': 123}})
     
+    assert logger is not None, "日志器应该成功创建"
     print("✅ 基础日志测试完成")
-    return True
 
 
 def test_request_context():
@@ -57,20 +57,24 @@ def test_request_context():
     
     request_id = set_request_id()
     print(f"  设置请求ID: {request_id}")
+    assert request_id is not None, "请求ID应该被设置"
     
     set_user_id("user_12345")
     print(f"  设置用户ID: user_12345")
     
     logger.info("带请求上下文的日志")
     
-    print(f"  获取请求ID: {get_request_id()}")
-    print(f"  获取用户ID: {get_user_id()}")
+    current_rid = get_request_id()
+    current_uid = get_user_id()
+    print(f"  获取请求ID: {current_rid}")
+    print(f"  获取用户ID: {current_uid}")
+    assert current_rid == request_id, "请求ID应该匹配"
+    assert current_uid == "user_12345", "用户ID应该匹配"
     
     clear_context()
     logger.info("清除上下文后的日志")
     
     print("✅ 请求上下文测试完成")
-    return True
 
 
 def test_request_context_manager():
@@ -83,14 +87,17 @@ def test_request_context_manager():
     
     with RequestContext(request_id="test_req_001", user_id="test_user"):
         logger.info("在上下文管理器内的日志")
-        print(f"  请求ID: {get_request_id()}")
-        print(f"  用户ID: {get_user_id()}")
+        rid = get_request_id()
+        uid = get_user_id()
+        print(f"  请求ID: {rid}")
+        print(f"  用户ID: {uid}")
+        assert rid == "test_req_001", "请求ID应该匹配"
+        assert uid == "test_user", "用户ID应该匹配"
     
     logger.info("退出上下文管理器后的日志")
     print(f"  请求ID: {get_request_id() or '(空)'}")
     
     print("✅ 请求上下文管理器测试完成")
-    return True
 
 
 def test_sensitive_data_masking():
@@ -109,6 +116,8 @@ def test_sensitive_data_masking():
     for data, desc in test_cases:
         masked = mask_sensitive_data(data)
         print(f"  {desc}: '{data}' -> '{masked}'")
+        if "api_key" in data or "password" in data or "token" in data:
+            assert "***" in masked, f"敏感数据应该被过滤: {data}"
     
     test_dict = {
         "api_key": "secret_key_123",
@@ -121,9 +130,11 @@ def test_sensitive_data_masking():
     
     masked_dict = mask_dict(test_dict)
     print(f"\n  字典过滤结果: {masked_dict}")
+    assert masked_dict["api_key"] != "secret_key_123", "api_key应该被过滤"
+    assert masked_dict["password"] != "my_password", "password应该被过滤"
+    assert masked_dict["normal_field"] == "normal_value", "普通字段应该保留"
     
     print("✅ 敏感数据过滤测试完成")
-    return True
 
 
 def test_log_context():
@@ -139,7 +150,6 @@ def test_log_context():
         time.sleep(0.1)
     
     print("✅ 日志上下文测试完成")
-    return True
 
 
 def test_performance_tracking():
@@ -155,12 +165,13 @@ def test_performance_tracking():
     
     result = slow_function()
     print(f"  函数执行结果: {result}")
+    assert result == "done", "函数应该返回 'done'"
     
     stats = performance_monitor.get_stats("test_operation")
     print(f"  性能统计: {stats}")
+    assert stats is not None, "应该有性能统计"
     
     print("✅ 性能追踪测试完成")
-    return True
 
 
 def test_rag_logger():
@@ -201,8 +212,8 @@ def test_rag_logger():
     
     rag_logger.log_performance("test_operation", 100, {"detail": "test"})
     
+    assert rag_logger is not None, "RAG日志器应该存在"
     print("✅ RAG专用日志器测试完成")
-    return True
 
 
 def test_error_logging():
@@ -221,7 +232,6 @@ def test_error_logging():
     rag_logger.log_error("test_operation", Exception("测试错误"), {"context": "test"})
     
     print("✅ 错误日志测试完成")
-    return True
 
 
 def test_performance_monitor():
@@ -237,15 +247,17 @@ def test_performance_monitor():
     
     stats_a = performance_monitor.get_stats("operation_a")
     print(f"  operation_a 统计: {stats_a}")
+    assert stats_a is not None, "应该有统计数据"
+    assert stats_a.get("count", 0) >= 3, "应该有至少3条记录"
     
     slow_ops = performance_monitor.get_slow_operations(threshold_ms=1000)
     print(f"  慢操作: {slow_ops}")
     
     summary = performance_monitor.get_operations_summary()
     print(f"  操作摘要: {summary}")
+    assert len(summary) >= 2, "应该有至少2个操作的摘要"
     
     print("✅ 性能监控器测试完成")
-    return True
 
 
 def test_log_analyzer():
@@ -268,7 +280,6 @@ def test_log_analyzer():
     print(f"  错误摘要: {error_summary}")
     
     print("✅ 日志分析器测试完成")
-    return True
 
 
 def run_all_tests():
@@ -305,9 +316,15 @@ def run_all_tests():
     
     for name, test_func in tests:
         try:
-            results[name] = test_func()
+            test_func()
+            results[name] = True
+        except AssertionError as e:
+            print(f"❌ {name} 测试失败: {e}")
+            results[name] = False
         except Exception as e:
-            print(f"❌ {name}测试失败: {e}")
+            print(f"❌ {name} 测试异常: {e}")
+            import traceback
+            traceback.print_exc()
             results[name] = False
     
     print("\n" + "="*60)

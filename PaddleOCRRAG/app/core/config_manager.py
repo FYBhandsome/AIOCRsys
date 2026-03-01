@@ -6,7 +6,7 @@ import json
 import os
 from pathlib import Path
 from typing import Dict, Any, Optional, List, Union
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from dotenv import load_dotenv
 
 # 加载环境变量
@@ -26,13 +26,15 @@ class LLMConfig(BaseModel):
     temperature: float = 0.7
     max_tokens: int = 2000
     
-    @validator('temperature')
+    @field_validator('temperature')
+    @classmethod
     def validate_temperature(cls, v):
         if not 0.0 <= v <= 1.0:
             raise ValueError('temperature必须在0.0到1.0之间')
         return v
     
-    @validator('max_tokens')
+    @field_validator('max_tokens')
+    @classmethod
     def validate_max_tokens(cls, v):
         if v <= 0:
             raise ValueError('max_tokens必须大于0')

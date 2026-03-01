@@ -140,6 +140,67 @@ class RuleVectorDB(BaseVectorDB):
             )
             raise
     
+    def _build_query_params(
+        self,
+        query: str,
+        top_k: int,
+        metadata_filter: Optional[Dict] = None
+    ) -> Dict[str, Any]:
+        """
+        构建查询参数
+        
+        Args:
+            query: 查询文本
+            top_k: 返回结果数量
+            metadata_filter: 元数据过滤条件
+            
+        Returns:
+            查询参数字典
+        """
+        params = {
+            "query_texts": [query],
+            "n_results": top_k
+        }
+        
+        if metadata_filter:
+            params["where"] = metadata_filter
+        
+        return params
+    
+    def _process_query_results(self, results: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        处理查询结果
+        
+        Args:
+            results: 原始查询结果
+            
+        Returns:
+            处理后的结果
+        """
+        if not results:
+            return {
+                "documents": [],
+                "metadatas": [],
+                "distances": []
+            }
+        
+        documents = results.get("documents", [[]])
+        metadatas = results.get("metadatas", [[]])
+        distances = results.get("distances", [[]])
+        
+        if documents and isinstance(documents[0], list):
+            documents = documents[0]
+        if metadatas and isinstance(metadatas[0], list):
+            metadatas = metadatas[0]
+        if distances and isinstance(distances[0], list):
+            distances = distances[0]
+        
+        return {
+            "documents": documents,
+            "metadatas": metadatas,
+            "distances": distances
+        }
+    
     def search_relevant(self, query: str, top_k: int = None, metadata_filter: Optional[Dict] = None):
         """
         检索相关规则

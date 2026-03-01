@@ -6,36 +6,41 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 from app.models import ApiResponse, PromptUpdateRequest
-from app.core.prompt_manager import prompt_manager
+from app.core.prompt_manager import PromptManager
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/prompts", tags=["Prompt管理"])
+
+def get_prompt_manager():
+    """获取Prompt管理器实例"""
+    return PromptManager()
 
 
 @router.get("")
 async def list_prompts():
     """获取Prompt列表"""
     try:
+        pm = get_prompt_manager()
         # 获取所有自定义Prompt
-        custom_prompts = prompt_manager.list_custom_prompts()
+        custom_prompts = pm.list_custom_prompts()
         
         # 添加系统内置Prompt
         system_prompts = [
             {
                 "prompt_type": "system",
-                "content": prompt_manager.system_prompt,
+                "content": pm.system_prompt,
                 "description": "系统默认Prompt",
                 "updated_at": datetime.now().isoformat()
             },
             {
                 "prompt_type": "user",
-                "content": prompt_manager.user_prompt,
+                "content": pm.user_prompt,
                 "description": "用户Prompt",
                 "updated_at": datetime.now().isoformat()
             },
             {
                 "prompt_type": "chat_system",
-                "content": prompt_manager.chat_system_prompt,
+                "content": pm.chat_system_prompt,
                 "description": "聊天系统Prompt",
                 "updated_at": datetime.now().isoformat()
             }
@@ -67,19 +72,20 @@ async def list_prompts():
 async def get_prompt(prompt_type: str):
     """获取特定类型的Prompt"""
     try:
+        pm = get_prompt_manager()
         # 获取系统内置Prompt
         if prompt_type == "system":
-            prompt_content = prompt_manager.system_prompt
+            prompt_content = pm.system_prompt
             description = "系统默认Prompt"
         elif prompt_type == "user":
-            prompt_content = prompt_manager.user_prompt
+            prompt_content = pm.user_prompt
             description = "用户Prompt"
         elif prompt_type == "chat_system":
-            prompt_content = prompt_manager.chat_system_prompt
+            prompt_content = pm.chat_system_prompt
             description = "聊天系统Prompt"
         else:
             # 获取自定义Prompt
-            prompt_content = prompt_manager.get_custom_prompt(prompt_type)
+            prompt_content = pm.get_custom_prompt(prompt_type)
             if prompt_content is None:
                 raise HTTPException(status_code=404, detail="Prompt不存在")
             description = f"自定义Prompt: {prompt_type}"
@@ -105,16 +111,17 @@ async def get_prompt(prompt_type: str):
 async def update_prompt(prompt_type: str, request: PromptUpdateRequest):
     """更新Prompt"""
     try:
+        pm = get_prompt_manager()
         # 更新系统内置Prompt
         if prompt_type == "system":
-            success = prompt_manager.update_prompt(system_prompt=request.content)
+            success = pm.update_prompt(system_prompt=request.content)
         elif prompt_type == "user":
-            success = prompt_manager.update_prompt(user_prompt=request.content)
+            success = pm.update_prompt(user_prompt=request.content)
         elif prompt_type == "chat_system":
-            success = prompt_manager.update_prompt(chat_system_prompt=request.content)
+            success = pm.update_prompt(chat_system_prompt=request.content)
         else:
             # 更新或添加自定义Prompt
-            success = prompt_manager.add_custom_prompt(prompt_type, request.content)
+            success = pm.add_custom_prompt(prompt_type, request.content)
         
         if not success:
             raise HTTPException(status_code=500, detail="Prompt更新失败")

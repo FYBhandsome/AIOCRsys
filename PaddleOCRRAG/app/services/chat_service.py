@@ -6,7 +6,7 @@ import json
 import logging
 from datetime import datetime
 from typing import Dict, Any, List, Optional, Generator, AsyncGenerator
-from app.core.llm_manager import llm_manager
+from app.core.llm_manager import LLMManager
 from app.core.cache import cached, async_cached, cache_manager
 from app.core.logger import get_logger
 
@@ -18,8 +18,15 @@ class ChatService:
     
     def __init__(self):
         """初始化聊天服务"""
-        self.llm_manager = llm_manager
+        self._llm_manager = None
         self._cache = cache_manager.get_cache("chat", max_size=500, ttl=600)
+    
+    @property
+    def llm_manager(self):
+        """延迟加载LLM管理器"""
+        if self._llm_manager is None:
+            self._llm_manager = LLMManager()
+        return self._llm_manager
     
     def chat(self, question: str, history: Optional[List[Dict]] = None, 
              use_cache: bool = True, use_optimized: bool = False) -> Dict[str, Any]:

@@ -1,5 +1,6 @@
 """
 基础向量数据库类 - 提取公共代码，减少重复
+实现懒加载模式，加快启动速度
 """
 import chromadb
 from chromadb.config import Settings as ChromaSettings
@@ -14,10 +15,11 @@ class BaseVectorDB:
     """向量数据库基础类，提供公共功能"""
     
     _initialized_collections = set()
+    _embedding_func_cache = None
     
     def __init__(self, collection_name: str = "zongce_rules"):
         """
-        初始化基础向量数据库
+        初始化基础向量数据库（懒加载模式）
         
         Args:
             collection_name: 集合名称
@@ -25,7 +27,8 @@ class BaseVectorDB:
         self.collection_name = collection_name
         self.logger = logging.getLogger(__name__)
         
-        self.embedding_func = None
+        self._embedding_func = None
+        self._embedding_loaded = False
         self.client = None
         self.collection = None
         
@@ -36,25 +39,39 @@ class BaseVectorDB:
             self.logger.warning(f"环境配置失败: {e}")
         
         try:
-            self._init_embedding_function()
-        except Exception as e:
-            self.logger.warning(f"嵌入函数初始化失败: {e}")
-            self.embedding_func = None
-        
-        try:
             self.client = self._create_client()
         except Exception as e:
             self.logger.error(f"创建Chroma客户端失败: {e}")
             return
         
         try:
-            self.collection = self._get_or_create_collection(self.client)
+            self.collection = self._get_collection_lazy()
         except Exception as e:
-            self.logger.error(f"获取或创建集合失败: {e}")
+            self.logger.error(f"获取集合失败: {e}")
             self.logger.error(traceback.format_exc())
     
-    def _init_embedding_function(self):
-        """初始化嵌入函数"""
+    @property
+    def embedding_func(self):
+        """懒加载嵌入函数"""
+        if not self._embedding_loaded:
+            self._embedding_func = self._load_embedding_function()
+            self._embedding_loaded = True
+        return self._embedding_func
+    
+    @embedding_func.setter
+    def embedding_func(self, value):
+        self._embedding_func = value
+        self._embedding_loaded = True
+    
+    def _load_embedding_function(self):
+        """
+        加载嵌入函数（懒加载）
+        使用缓存避免重复加载
+        """
+        if BaseVectorDB._embedding_func_cache is not None:
+            self.logger.info("使用缓存的嵌入模型")
+            return BaseVectorDB._embedding_func_cache
+        
         try:
             self.logger.info(f"正在加载嵌入模型: {settings.EMBEDDING_MODEL}...")
             
@@ -72,30 +89,38 @@ class BaseVectorDB:
             
             from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
             
-            self.embedding_func = SentenceTransformerEmbeddingFunction(
+            func = SentenceTransformerEmbeddingFunction(
                 model_name=settings.EMBEDDING_MODEL,
                 device=settings.EMBEDDING_DEVICE,
                 trust_remote_code=True
             )
             self.logger.info("嵌入模型加载完成!")
+            BaseVectorDB._embedding_func_cache = func
+            return func
         except Exception as e:
             self.logger.warning(f"加载嵌入模型失败: {e}")
-            try:
-                import ssl
-                ssl._create_default_https_context = ssl._create_unverified_context
-                
-                from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
-                
-                self.embedding_func = SentenceTransformerEmbeddingFunction(
-                    model_name="all-MiniLM-L6-v2",
-                    device="cpu",
-                    trust_remote_code=True
-                )
-                self.logger.info("使用备用嵌入模型 all-MiniLM-L6-v2")
-            except Exception as e2:
-                self.logger.error(f"初始化备用嵌入函数也失败: {e2}")
-                self.embedding_func = None
-                self.logger.warning("嵌入函数初始化失败，将在运行时重试")
+            return self._load_fallback_embedding()
+    
+    def _load_fallback_embedding(self):
+        """加载备用嵌入函数"""
+        try:
+            import ssl
+            ssl._create_default_https_context = ssl._create_unverified_context
+            
+            from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
+            
+            func = SentenceTransformerEmbeddingFunction(
+                model_name="all-MiniLM-L6-v2",
+                device="cpu",
+                trust_remote_code=True
+            )
+            self.logger.info("使用备用嵌入模型 all-MiniLM-L6-v2")
+            BaseVectorDB._embedding_func_cache = func
+            return func
+        except Exception as e2:
+            self.logger.error(f"初始化备用嵌入函数也失败: {e2}")
+            self.logger.warning("嵌入函数初始化失败，将在运行时重试")
+            return None
     
     def _create_client(self):
         """创建Chroma客户端"""
@@ -108,34 +133,29 @@ class BaseVectorDB:
             self.logger.error(f"创建Chroma客户端失败: {e}")
             raise
     
-    def _get_or_create_collection(self, client, collection_name=None):
-        """获取或创建集合"""
+    def _get_collection_lazy(self, collection_name=None):
+        """
+        获取集合（懒加载模式）
+        启动时不加载嵌入函数，只在需要时加载
+        """
         name = collection_name or self.collection_name
         try:
-            if self.embedding_func is None:
-                self.logger.info("尝试重新初始化嵌入函数...")
-                self._init_embedding_function()
-            
-            embedding_func = self.embedding_func
-            if embedding_func is None:
-                self.logger.warning("使用无嵌入函数模式创建集合")
-            
-            return client.get_or_create_collection(
+            collection = self.client.get_or_create_collection(
                 name=name,
-                embedding_function=embedding_func,
                 metadata={"hnsw:space": "cosine"}
             )
+            self.logger.info(f"集合 '{name}' 加载完成，文档数: {collection.count()}")
+            return collection
         except Exception as e:
-            self.logger.error(f"获取或创建集合失败: {e}")
-            try:
-                self.logger.info("尝试创建无嵌入函数的集合...")
-                return client.get_or_create_collection(
-                    name=name,
-                    metadata={"hnsw:space": "cosine"}
-                )
-            except Exception as e2:
-                self.logger.error(f"创建无嵌入函数集合也失败: {e2}")
-                raise
+            self.logger.error(f"获取集合失败: {e}")
+            raise
+    
+    def _ensure_embedding_func(self):
+        """确保嵌入函数已加载"""
+        if self._embedding_func is None and not self._embedding_loaded:
+            self._embedding_func = self._load_embedding_function()
+            self._embedding_loaded = True
+        return self._embedding_func
     
     def _prepare_documents_for_add(self, documents: List[Any]) -> Tuple[List[str], List[Dict]]:
         """
@@ -152,15 +172,19 @@ class BaseVectorDB:
         
         def sanitize_metadata(metadata: Dict) -> Dict:
             """清理元数据，确保所有值都是基本类型"""
-            sanitized = {}
-            for key, value in metadata.items():
-                if value is None:
-                    sanitized[key] = ""
-                elif isinstance(value, (str, int, float, bool)):
-                    sanitized[key] = value
+            result = {}
+            for k, v in metadata.items():
+                if v is None:
+                    continue
+                elif isinstance(v, (str, int, float, bool)):
+                    result[k] = v
+                elif isinstance(v, list):
+                    result[k] = ', '.join(str(item) for item in v)
+                elif isinstance(v, dict):
+                    result[k] = str(v)
                 else:
-                    sanitized[key] = str(value)
-            return sanitized
+                    result[k] = str(v)
+            return result
         
         texts = []
         metadatas = []
@@ -168,107 +192,26 @@ class BaseVectorDB:
         for doc in documents:
             if hasattr(doc, 'page_content'):
                 texts.append(doc.page_content)
-                metadata = getattr(doc, 'metadata', {})
+                metadata = getattr(doc, 'metadata', {}) or {}
                 metadatas.append(sanitize_metadata(metadata))
             elif isinstance(doc, dict):
-                texts.append(doc.get('content', doc.get('text', str(doc))))
-                metadatas.append(sanitize_metadata(doc.get('metadata', {})))
+                text = doc.get('content') or doc.get('text') or doc.get('page_content', '')
+                texts.append(text)
+                metadata = doc.get('metadata', {}) or {}
+                metadatas.append(sanitize_metadata(metadata))
             else:
                 texts.append(str(doc))
                 metadatas.append({})
         
         return texts, metadatas
     
-    def _generate_document_ids(self, count: int, existing_count: int = 0) -> List[str]:
-        """
-        生成文档ID
-        
-        Args:
-            count: 需要生成的ID数量
-            existing_count: 现有文档数量
-            
-        Returns:
-            ID列表
-        """
+    def _generate_document_ids(self, count: int, start_index: int = 0) -> List[str]:
+        """生成文档ID"""
         import uuid
-        return [f"doc_{existing_count + i}_{uuid.uuid4().hex[:8]}" for i in range(count)]
-    
-    def add_documents(self, documents: List[Any]) -> int:
-        """
-        添加文档到向量库
-        
-        Args:
-            documents: 文档列表
-            
-        Returns:
-            添加的文档数量
-        """
-        if not documents:
-            return 0
-        
-        if self.collection is None:
-            self.logger.error("集合未初始化")
-            return 0
-        
-        try:
-            texts, metadatas = self._prepare_documents_for_add(documents)
-            existing_count = self.collection.count()
-            ids = self._generate_document_ids(len(texts), existing_count)
-            
-            self.collection.add(
-                documents=texts,
-                metadatas=metadatas,
-                ids=ids
-            )
-            
-            return len(texts)
-        except Exception as e:
-            self.logger.error(f"添加文档失败: {e}")
-            return 0
-    
-    def search(self, query: str, n_results: int = 5, where: Dict = None) -> Dict:
-        """
-        搜索文档
-        
-        Args:
-            query: 查询文本
-            n_results: 返回结果数量
-            where: 过滤条件
-            
-        Returns:
-            搜索结果
-        """
-        if self.collection is None:
-            self.logger.error("集合未初始化")
-            return {"documents": [], "metadatas": [], "distances": [], "ids": []}
-        
-        try:
-            results = self.collection.query(
-                query_texts=[query],
-                n_results=n_results,
-                where=where,
-                include=["documents", "metadatas", "distances"]
-            )
-            return results
-        except Exception as e:
-            self.logger.error(f"搜索失败: {e}")
-            return {"documents": [], "metadatas": [], "distances": [], "ids": []}
+        return [str(uuid.uuid4()) for _ in range(count)]
     
     def count(self) -> int:
         """获取文档数量"""
         if self.collection is None:
             return 0
-        try:
-            return self.collection.count()
-        except Exception as e:
-            self.logger.error(f"获取文档数量失败: {e}")
-            return 0
-    
-    def delete_collection(self):
-        """删除集合"""
-        if self.client and self.collection_name:
-            try:
-                self.client.delete_collection(self.collection_name)
-                self.logger.info(f"集合 {self.collection_name} 已删除")
-            except Exception as e:
-                self.logger.error(f"删除集合失败: {e}")
+        return self.collection.count()

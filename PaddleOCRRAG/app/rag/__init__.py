@@ -6,8 +6,16 @@ RAG模块
 from app.core.llm_manager import llm_manager
 from app.core.prompt_manager import prompt_manager
 
-from .loaders.loader import RuleDocumentLoader
-from .loaders.enhanced_loader import EnhancedRuleLoader, get_enhanced_loader
+# 延迟导入，避免 Windows 环境下 numpy/transformers 崩溃问题
+def get_rule_document_loader():
+    """延迟导入文档加载器"""
+    from .loaders.loader import RuleDocumentLoader
+    return RuleDocumentLoader
+
+def get_enhanced_rule_loader():
+    """延迟导入增强文档加载器"""
+    from .loaders.enhanced_loader import EnhancedRuleLoader, get_enhanced_loader
+    return EnhancedRuleLoader, get_enhanced_loader
 
 from .preprocessors import (
     get_competition_mapper,
@@ -34,9 +42,8 @@ __all__ = [
     "get_vector_db",
     "get_category_reranker",
     
-    "RuleDocumentLoader",
-    "EnhancedRuleLoader",
-    "get_enhanced_loader",
+    "get_rule_document_loader",
+    "get_enhanced_rule_loader",
     
     "get_competition_mapper",
     "get_intent_recognizer",

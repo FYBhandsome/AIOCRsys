@@ -2,7 +2,7 @@
   "llm": {
     "enabled": true,
     "provider": "xunfei",
-    "api_key": "341787347bdc5374dc6377f29a192907:Nzk5NTk4OTFkYmE5MTUzODI1YTM0MjNj",
+    "api_key": "001aa457c2c63574b2799bf1e3342e72:YTRkOGU4NWU3NjRiZjk5Y2E5OTMzZTBl",
     "api_secret": "",
     "app_id": "xop3qwen1b7",
     "api_base_url": "https://maas-api.cn-huabei-1.xf-yun.com/v2",

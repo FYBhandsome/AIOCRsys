@@ -9,11 +9,24 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 import sys
 import traceback
+from pathlib import Path
 from datetime import datetime
-from app.core.logger import setup_logging, get_logger
+import threading
 
-setup_logging(log_level="INFO", log_format="console")
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+from shared_utils.unified_logger import setup_logging, get_logger
+
+setup_logging(
+    service_name="rag",
+    log_level="INFO",
+    enable_file=True,
+    enable_async=True,
+    use_subdir=True
+)
 logger = get_logger(__name__)
+
+_vector_db_ready = False
 
 def log_startup_info():
     """记录启动信息"""
@@ -25,57 +38,62 @@ def log_startup_info():
     logger.info(f"进程ID: {os.getpid()}")
     logger.info("=" * 60)
 
+def init_vector_db_async():
+    """异步初始化向量数据库"""
+    global _vector_db_ready
+    try:
+        logger.info("[后台任务] 开始加载向量数据库...")
+        from app.rag.vector_db.vector_db import get_vector_db
+        vdb = get_vector_db()
+        if vdb is not None:
+            doc_count = vdb.count()
+            logger.info(f"[后台任务] 向量数据库加载完成，文档数: {doc_count}")
+        _vector_db_ready = True
+    except Exception as e:
+        logger.warning(f"[后台任务] 向量数据库加载失败: {e}")
+        logger.warning("[后台任务] 服务将以无向量数据库模式运行")
+
 def init_application():
     """初始化应用程序"""
     try:
         log_startup_info()
-        logger.info("[1/4] 开始初始化应用程序...")
+        logger.info("[1/3] 开始初始化应用程序...")
         
-        logger.info("[2/4] 加载配置...")
+        logger.info("[2/3] 加载配置...")
         try:
             from app.core.config_manager import config_manager, settings
             logger.info(f"  - 配置文件路径: {config_manager.config_file}")
             logger.info(f"  - LLM启用状态: {settings.USE_XUNFEI_LLM}")
             logger.info(f"  - 向量数据库路径: {settings.CHROMA_DB_PATH}")
             logger.info(f"  - 规则文档路径: {settings.RULES_DOCS_PATH}")
-            logger.info("  ✓ 配置加载完成")
+            logger.info("  [OK] 配置加载完成")
         except Exception as e:
-            logger.error(f"  ✗ 配置加载失败: {e}")
+            logger.error(f"  [FAIL] 配置加载失败: {e}")
             logger.error(traceback.format_exc())
             raise
         
-        logger.info("[3/4] 初始化LLM管理器...")
+        logger.info("[3/3] 初始化LLM管理器...")
         try:
             from app.core.llm_manager import LLMManager
             llm_manager = LLMManager()
             providers = llm_manager.list_providers()
             logger.info(f"  - 可用LLM提供商: {providers}")
             if "xunfei" in providers:
-                logger.info("  ✓ 讯飞星火大模型已启用")
+                logger.info("  [OK] 讯飞星火大模型已启用")
             else:
-                logger.warning("  ⚠ 讯飞星火大模型未启用，请检查配置")
-            logger.info("  ✓ LLM管理器初始化完成")
+                logger.warning("  [WARN] 讯飞星火大模型未启用，请检查配置")
+            logger.info("  [OK] LLM管理器初始化完成")
         except Exception as e:
-            logger.error(f"  ✗ LLM管理器初始化失败: {e}")
+            logger.error(f"  [FAIL] LLM管理器初始化失败: {e}")
             logger.error(traceback.format_exc())
             raise
         
-        logger.info("[4/4] 初始化向量数据库...")
-        try:
-            from app.rag.vector_db.vector_db import get_vector_db
-            vdb = get_vector_db()
-            if vdb is not None:
-                doc_count = vdb.count()
-                logger.info(f"  - 向量数据库文档数量: {doc_count}")
-                logger.info("  ✓ 向量数据库初始化完成")
-            else:
-                logger.warning("  ⚠ 向量数据库初始化返回None")
-        except Exception as e:
-            logger.warning(f"  ⚠ 向量数据库初始化失败: {e}")
-            logger.warning("  服务将以无向量数据库模式运行")
+        logger.info("向量数据库将在后台异步加载...")
+        db_thread = threading.Thread(target=init_vector_db_async, daemon=True)
+        db_thread.start()
         
         logger.info("=" * 60)
-        logger.info("应用程序初始化完成")
+        logger.info("应用程序初始化完成，服务已就绪")
         logger.info("=" * 60)
         return True
         
@@ -107,12 +125,33 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://127.0.0.1:8001",
-        "http://127.0.0.1:5174",
         "http://127.0.0.1:8002",
         "http://127.0.0.1:8003",
+        "http://127.0.0.1:8004",
+        "http://127.0.0.1:8005",
+        "http://127.0.0.1:8006",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
+        "http://127.0.0.1:5175",
+        "http://127.0.0.1:5176",
+        "http://127.0.0.1:5177",
+        "http://127.0.0.1:5178",
         "http://localhost:8000",
-        "http://127.0.0.1:8000",
+        "http://localhost:8001",
+        "http://localhost:8002",
+        "http://localhost:8003",
+        "http://localhost:8010",
+        "http://localhost:8011",
+        "http://localhost:8012",
+        "http://localhost:8013",
+        "http://localhost:8014",
         "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:5175",
+        "http://localhost:5176",
+        "http://localhost:5177",
+        "http://localhost:5178",
+        "http://127.0.0.1:8000",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -128,6 +167,9 @@ try:
 except Exception as e:
     logger.error(f"API路由加载失败: {e}")
     logger.error(traceback.format_exc())
+    print(f"\n[FATAL] API路由加载失败: {e}", file=sys.stderr)
+    print(traceback.format_exc(), file=sys.stderr)
+    raise
 
 static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
 if os.path.exists(static_dir):
