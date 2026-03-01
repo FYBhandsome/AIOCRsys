@@ -49,6 +49,7 @@
 - ✅ 增强的依赖注入机制，避免重复初始化服务实例
 - ✅ 改进的组件初始化流程，添加详细的错误处理
 - ✅ 模块化代码组织，提高可维护性和可测试性
+- ✅ 统一日志系统，整合重复的logger实现
 
 **性能优化提升**:
 - ✅ 全面异步处理架构，提升并发性能70-90%
@@ -898,7 +899,7 @@ PaddleOCRRAG/
 │   │   ├── config_manager.py   # 配置管理
 │   │   ├── llm_manager.py      # LLM管理器
 │   │   ├── prompt_manager.py   # Prompt管理器
-│   │   └── logger.py           # 日志系统
+│   │   └── logger.py           # 统一日志系统
 │   ├── api/
 │   │   ├── routes.py           # API 路由
 │   │   ├── chat_routes.py      # 聊天路由

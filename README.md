@@ -169,8 +169,9 @@ PaddleOCR/
 │   └── package.json             # Node依赖
 │
 ├── tests/                       # 测试文件
-│   ├── full_system_test.py      # 全面系统测试
-│   └── test_*.py                # 其他测试文件
+│   ├── test_api_integration.py  # API集成测试
+│   ├── test_rag.py              # RAG系统测试
+│   └── utils/                   # 测试工具
 │
 ├── docs/                        # 文档目录
 ├── start.bat                    # 一键启动脚本
@@ -331,13 +332,17 @@ final_score = base_score × 0.4 + category_bonus × 0.3 + level_bonus × 0.2 + k
 ### 运行测试
 
 ```bash
-# 运行后端测试
+# 运行RAG系统测试
+cd PaddleOCRRAG
+python -m pytest tests/ -v
+
+# 运行Visual Model测试
 cd visual_model
 python -m pytest tests/ -v
 
-# 运行全面系统测试
+# 运行API集成测试
 cd tests
-python full_system_test.py
+python -m pytest test_api_integration.py -v
 ```
 
 ---
