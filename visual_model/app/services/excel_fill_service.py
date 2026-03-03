@@ -25,18 +25,20 @@ class ExcelFillService:
     COLUMN_MAPPING = {
         'A1—基础分': 'A1',
         'A2—附加分': 'A2',
-        'A3—扣罚分': 'A3',
+        'A3—扣分项': 'A3',
         '思想道德素质(A)总分': 'A总分',
-        '思想道德素质(A)总分20%': 'A加权',
+        '思想道德素质(A)总分%': 'A加权',
         '学习成绩': 'B原始',
+        '学习成绩%': 'B百分比',
         '学习成绩70%': 'B加权',
-        'C1—科技类竞赛项目': 'C1',
+        'C1—科技竞赛项目': 'C1',
         'C2—体育竞技项目': 'C2',
         'C3—文化类竞赛项目': 'C3',
         'C4—创新创业实践项目': 'C4',
-        '素质拓展（C）总分': 'C总分',
-        '素质拓展（C）总分10%': 'C加权',
-        '综合测评总成绩': '总成绩'
+        '素质拓展(C)总分': 'C总分',
+        '素质拓展(C)总分10%': 'C加权',
+        '综合测评总成绩8%': '总成绩',
+        '学生签字': '签字'
     }
     
     HEADER_ROW = 3
@@ -226,18 +228,20 @@ class ExcelFillService:
         col_map = {
             'A1—基础分': 6,
             'A2—附加分': 7,
-            'A3—扣罚分': 8,
+            'A3—扣分项': 8,
             '思想道德素质(A)总分': 9,
-            '思想道德素质(A)总分20%': 10,
+            '思想道德素质(A)总分%': 10,
             '学习成绩': 11,
-            '学习成绩70%': 12,
-            'C1—科技类竞赛项目': 13,
-            'C2—体育竞技项目': 14,
-            'C3—文化类竞赛项目': 15,
-            'C4—创新创业实践项目': 16,
-            '素质拓展（C）总分': 17,
-            '素质拓展（C）总分10%': 18,
-            '综合测评总成绩': 19
+            '学习成绩%': 12,
+            '学习成绩70%': 13,
+            'C1—科技竞赛项目': 14,
+            'C2—体育竞技项目': 15,
+            'C3—文化类竞赛项目': 16,
+            'C4—创新创业实践项目': 17,
+            '素质拓展(C)总分': 18,
+            '素质拓展(C)总分10%': 19,
+            '综合测评总成绩8%': 20,
+            '学生签字': 21
         }
         
         for col_name, col_idx in col_map.items():
@@ -249,20 +253,40 @@ class ExcelFillService:
                     ws.cell(row=row, column=col_idx).value = value
     
     def _fill_detail_sheet(self, ws, student_data: Dict):
-        """填充加减分明细表"""
-        details = student_data.get("details", [])
+        """填充加减分明细表
+        
+        加减分说明表结构：
+        - 列1(A): 专业
+        - 列2(B): 班级
+        - 列3(C): 姓名
+        - 列4(D): A1—基础分
+        - 列5(E): A2—附加分
+        - 列6(F): A3—扣分项
+        - 列7(G): C1—科技竞赛项目
+        - 列8(H): C2—体育竞技项目
+        - 列9(I): C3—文化类竞赛项目
+        - 列10(J): C4—创新创业实践项目
+        """
+        columns = student_data.get("columns", {})
         student_id = student_data.get("student_id", "")
         student_name = student_data.get("student_name", "")
+        major = student_data.get("major", "")
+        class_name = student_data.get("class_name", "")
         
-        for detail in details:
-            row = ws.max_row + 1
-            
-            ws.cell(row=row, column=1).value = student_id
-            ws.cell(row=row, column=2).value = student_name
-            ws.cell(row=row, column=3).value = detail.get("category", "")
-            ws.cell(row=row, column=4).value = detail.get("item_name", "")
-            ws.cell(row=row, column=5).value = detail.get("score", 0)
-            ws.cell(row=row, column=6).value = detail.get("description", "")
+        row = ws.max_row + 1
+        
+        ws.cell(row=row, column=1).value = major
+        ws.cell(row=row, column=2).value = class_name
+        ws.cell(row=row, column=3).value = student_name
+        ws.cell(row=row, column=4).value = columns.get('A1—基础分', 0)
+        ws.cell(row=row, column=5).value = columns.get('A2—附加分', 0)
+        ws.cell(row=row, column=6).value = columns.get('A3—扣分项', 0)
+        ws.cell(row=row, column=7).value = columns.get('C1—科技竞赛项目', 0)
+        ws.cell(row=row, column=8).value = columns.get('C2—体育竞技项目', 0)
+        ws.cell(row=row, column=9).value = columns.get('C3—文化类竞赛项目', 0)
+        ws.cell(row=row, column=10).value = columns.get('C4—创新创业实践项目', 0)
+        
+        logger.debug(f"填充加减分明细: {student_name} - 专业:{major}, 班级:{class_name}")
     
     def _calculate_weighted_scores(self, ws, weight_config: Dict):
         """计算加权分数"""
@@ -281,18 +305,20 @@ class ExcelFillService:
             try:
                 a_total = ws.cell(row=row, column=9).value or 0
                 b_raw = ws.cell(row=row, column=11).value or 0
-                c_total = ws.cell(row=row, column=17).value or 0
+                c_total = ws.cell(row=row, column=18).value or 0
                 
                 a_weighted = float(a_total) * a_weight
+                b_percentage = float(b_raw)
                 b_weighted = float(b_raw) * b_weight
                 c_weighted = float(c_total) * c_weight
                 
                 ws.cell(row=row, column=10).value = round(a_weighted, 2)
-                ws.cell(row=row, column=12).value = round(b_weighted, 2)
-                ws.cell(row=row, column=18).value = round(c_weighted, 2)
+                ws.cell(row=row, column=12).value = round(b_percentage, 2)
+                ws.cell(row=row, column=13).value = round(b_weighted, 2)
+                ws.cell(row=row, column=19).value = round(c_weighted, 2)
                 
                 total_score = a_weighted + b_weighted + c_weighted
-                ws.cell(row=row, column=19).value = round(total_score, 2)
+                ws.cell(row=row, column=20).value = round(total_score, 2)
                 
             except Exception as e:
                 logger.warning(f"计算第{row}行加权分数失败: {e}")
@@ -302,7 +328,7 @@ class ExcelFillService:
         scores = []
         
         for row in range(self.HEADER_ROW + 1, ws.max_row + 1):
-            total_score = ws.cell(row=row, column=19).value
+            total_score = ws.cell(row=row, column=20).value
             if total_score is not None:
                 try:
                     scores.append((row, float(total_score)))

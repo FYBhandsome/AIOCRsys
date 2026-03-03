@@ -180,7 +180,8 @@ const loadAdminData = async () => {
     ])
     
     // 更新规则文档数据
-    ruleDocuments.value = rulesRes || []
+    const documents = rulesRes?.data?.documents || rulesRes?.documents || []
+    ruleDocuments.value = Array.isArray(documents) ? documents : (Array.isArray(rulesRes) ? rulesRes : [])
     ruleCount.value = ruleDocuments.value.length
     
     // 更新用户数据

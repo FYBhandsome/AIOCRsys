@@ -14,7 +14,8 @@ from app.core.exceptions import DatabaseException
 from app.core.db_connection import get_db_connection_manager
 from app.models.tortoise_models import (
     User, Student, AcademicScore, 
-    ComprehensiveScoreConfig, ComprehensiveScore, File, Certificate
+    ComprehensiveScoreConfig, ComprehensiveScore, File, Certificate,
+    Class, ClassStudent
 )
 from config import settings
 
@@ -137,7 +138,7 @@ class DatabaseService:
         """获取学生"""
         try:
             return await Student.get_or_none(id=student_id).prefetch_related(
-                'activities', 'score_records', 'comprehensive_scores'
+                'academic_scores'
             )
         except Exception as e:
             logger.error(f"获取学生失败: {e}", exc_info=True)
@@ -203,6 +204,129 @@ class DatabaseService:
         except Exception as e:
             logger.error(f"删除学生失败: {e}", exc_info=True)
             raise DatabaseException(f"删除学生失败: {str(e)}")
+    
+    # 班级相关操作
+    async def save_class(self, class_obj) -> Class:
+        """保存班级"""
+        try:
+            await class_obj.save()
+            logger.info(f"保存班级成功: {class_obj.id}")
+            return class_obj
+        except Exception as e:
+            logger.error(f"保存班级失败: {e}", exc_info=True)
+            raise DatabaseException(f"保存班级失败: {str(e)}")
+    
+    async def get_class(self, class_id: str) -> Optional[Class]:
+        """获取班级"""
+        try:
+            return await Class.get_or_none(id=class_id)
+        except Exception as e:
+            logger.error(f"获取班级失败: {e}", exc_info=True)
+            raise DatabaseException(f"获取班级失败: {str(e)}")
+    
+    async def get_class_by_name(self, class_name: str) -> Optional[Class]:
+        """根据名称获取班级"""
+        try:
+            return await Class.get_or_none(name=class_name)
+        except Exception as e:
+            logger.error(f"根据名称获取班级失败: {e}", exc_info=True)
+            raise DatabaseException(f"根据名称获取班级失败: {str(e)}")
+    
+    async def get_classes(self, grade: str = None, college: str = None) -> List[Class]:
+        """获取班级列表"""
+        try:
+            query = Class.all()
+            if grade:
+                query = query.filter(grade=grade)
+            if college:
+                query = query.filter(college=college)
+            return await query.order_by('-created_at')
+        except Exception as e:
+            logger.error(f"获取班级列表失败: {e}", exc_info=True)
+            raise DatabaseException(f"获取班级列表失败: {str(e)}")
+    
+    async def update_class(self, class_obj) -> bool:
+        """更新班级"""
+        try:
+            await class_obj.save()
+            logger.info(f"更新班级成功: {class_obj.id}")
+            return True
+        except Exception as e:
+            logger.error(f"更新班级失败: {e}", exc_info=True)
+            raise DatabaseException(f"更新班级失败: {str(e)}")
+    
+    async def delete_class(self, class_id: str) -> bool:
+        """删除班级"""
+        try:
+            class_obj = await Class.get_or_none(id=class_id)
+            if not class_obj:
+                return False
+            await class_obj.delete()
+            logger.info(f"删除班级成功: {class_id}")
+            return True
+        except Exception as e:
+            logger.error(f"删除班级失败: {e}", exc_info=True)
+            raise DatabaseException(f"删除班级失败: {str(e)}")
+    
+    async def get_class_student(self, class_id: str, student_id: str) -> Optional[ClassStudent]:
+        """获取班级学生关联"""
+        try:
+            return await ClassStudent.get_or_none(class_id=class_id, student_id=student_id)
+        except Exception as e:
+            logger.error(f"获取班级学生关联失败: {e}", exc_info=True)
+            raise DatabaseException(f"获取班级学生关联失败: {str(e)}")
+    
+    async def add_student_to_class(self, class_id: str, student_id: str, class_student_id: str = None) -> ClassStudent:
+        """添加学生到班级"""
+        try:
+            class_student = await ClassStudent.create(
+                class_id=class_id,
+                student_id=student_id
+            )
+            logger.info(f"添加学生到班级成功: {student_id} -> {class_id}")
+            return class_student
+        except IntegrityError:
+            logger.error(f"学生已在班级中: {student_id} -> {class_id}")
+            raise DatabaseException(f"学生已在班级中")
+        except Exception as e:
+            logger.error(f"添加学生到班级失败: {e}", exc_info=True)
+            raise DatabaseException(f"添加学生到班级失败: {str(e)}")
+    
+    async def delete_class_student(self, class_student_id: int) -> bool:
+        """删除班级学生关联"""
+        try:
+            class_student = await ClassStudent.get_or_none(id=class_student_id)
+            if not class_student:
+                return False
+            await class_student.delete()
+            logger.info(f"删除班级学生关联成功: {class_student_id}")
+            return True
+        except Exception as e:
+            logger.error(f"删除班级学生关联失败: {e}", exc_info=True)
+            raise DatabaseException(f"删除班级学生关联失败: {str(e)}")
+    
+    async def get_class_students(self, class_id: str) -> List[Dict[str, Any]]:
+        """获取班级学生列表"""
+        try:
+            class_students = await ClassStudent.filter(class_id=class_id).all()
+            result = []
+            for cs in class_students:
+                student = await Student.get_or_none(id=cs.student_id)
+                if student:
+                    result.append({
+                        "id": cs.id,
+                        "class_id": cs.class_id,
+                        "student_id": student.id,
+                        "student_name": student.name,
+                        "student_college": student.college,
+                        "student_major": student.major,
+                        "student_grade": student.grade,
+                        "created_at": cs.created_at
+                    })
+            return result
+        except Exception as e:
+            logger.error(f"获取班级学生列表失败: {e}", exc_info=True)
+            raise DatabaseException(f"获取班级学生列表失败: {str(e)}")
     
     # 学业成绩相关操作
     async def create_academic_score(self, student_id: str, student_name: str,

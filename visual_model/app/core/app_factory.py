@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.openapi.utils import get_openapi
+from starlette.exceptions import HTTPException
 from contextlib import asynccontextmanager
 import time
 from typing import Dict, Any
@@ -20,7 +21,9 @@ from app.core.logger import logger, setup_logging, get_logger
 from app.core.exceptions import (
     validation_exception_handler,
     http_exception_handler,
-    general_exception_handler
+    general_exception_handler,
+    business_exception_handler,
+    BusinessError
 )
 from app.core.db_connection import get_db_connection_manager
 from app.core.executor_manager import executor_manager
@@ -42,7 +45,7 @@ def init_logging():
     UNIFIED_LOG_DIR.mkdir(parents=True, exist_ok=True)
     setup_logging(
         log_dir=str(UNIFIED_LOG_DIR),
-        app_name="visual_model",
+        service_name="visual_model",
         console_level=20,
         file_level=10
     )
@@ -149,6 +152,8 @@ def setup_middleware(app: FastAPI):
 def register_exception_handlers(app: FastAPI):
     """注册异常处理器"""
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
+    app.add_exception_handler(HTTPException, http_exception_handler)
+    app.add_exception_handler(BusinessError, business_exception_handler)
     app.add_exception_handler(Exception, general_exception_handler)
     
     @app.exception_handler(Exception)
@@ -207,23 +212,39 @@ def custom_openapi(app: FastAPI):
 
 ### 业务模块
 - **认证模块**: 用户登录、注册、权限管理
-- **学生模块**: 学生信息管理、成绩查询
+- **学生模块**: 学生信息管理、成绩查询、材料上传
+- **教师模块**: 班级管理、学生列表、成绩分析
+- **管理员模块**: 用户管理、系统设置、规则管理
 - **综测模块**: 综合测评计算、成绩导入导出
 - **证书模块**: 证书上传、OCR识别、审核管理
 - **文件模块**: 文件上传下载、分片上传管理
-- **RAG模块**: 规则检索、智能填充
+- **RAG模块**: 规则检索、智能填充、AI对话
+
+### 新增接口 (v2.4.0)
+- `POST /v1/student/material/upload` - 学生材料上传
+- `GET /v1/student/materials` - 获取学生材料列表
+- `GET /api/stats` - 获取系统性能统计（含RAG性能）
+- `GET /health` - 健康检查端点
+
+### 性能监控
+系统提供以下性能监控功能：
+- 请求响应时间监控（X-Response-Time响应头）
+- 慢请求警告（>1秒）
+- RAG请求特殊监控（>3秒警告）
+- 请求统计（次数、平均时间、错误率）
 """,
         routes=app.routes,
         tags=[
-            {"name": "认证", "description": "用户认证相关接口"},
-            {"name": "学生", "description": "学生信息管理接口"},
-            {"name": "教师", "description": "教师信息管理接口"},
-            {"name": "管理员", "description": "管理员操作接口"},
-            {"name": "综测", "description": "综合测评相关接口"},
-            {"name": "证书", "description": "证书管理相关接口"},
-            {"name": "文件", "description": "文件上传下载接口"},
-            {"name": "OCR", "description": "OCR识别相关接口"},
-            {"name": "RAG", "description": "RAG检索相关接口"},
+            {"name": "认证", "description": "用户认证相关接口 - 登录、注册、权限验证"},
+            {"name": "学生", "description": "学生信息管理接口 - 成绩查询、材料上传、综测查看"},
+            {"name": "教师", "description": "教师信息管理接口 - 班级管理、学生列表、成绩分析"},
+            {"name": "管理员", "description": "管理员操作接口 - 用户管理、系统配置、规则管理"},
+            {"name": "综测", "description": "综合测评相关接口 - 配置管理、成绩计算、排名查询"},
+            {"name": "证书", "description": "证书管理相关接口 - 上传、OCR识别、审核"},
+            {"name": "文件", "description": "文件上传下载接口 - 分片上传、文件管理"},
+            {"name": "OCR", "description": "OCR识别相关接口 - 图片识别、批量处理"},
+            {"name": "RAG", "description": "RAG检索相关接口 - 规则检索、智能填充、AI对话"},
+            {"name": "系统", "description": "系统管理接口 - 健康检查、性能统计"},
         ]
     )
     
@@ -265,6 +286,16 @@ def create_app() -> FastAPI:
             "debug": settings.DEBUG
         }
     
+    @app.get("/api/v1/health", tags=["系统"])
+    async def api_health_check():
+        """API健康检查端点（前端兼容）"""
+        return {
+            "status": "healthy",
+            "service": "Visual Model Backend",
+            "version": settings.PROJECT_VERSION,
+            "debug": settings.DEBUG
+        }
+    
     @app.get("/api/stats", tags=["系统"])
     async def get_stats():
         """获取系统统计信息"""
@@ -273,10 +304,11 @@ def create_app() -> FastAPI:
         for middleware in app.user_middleware:
             if isinstance(middleware, PerformanceMonitorMiddleware):
                 return {
-                    "performance": middleware.get_stats()
+                    "performance": middleware.get_stats(),
+                    "rag_performance": middleware.get_rag_stats()
                 }
         
-        return {"performance": {}}
+        return {"performance": {}, "rag_performance": {}}
     
     logger.info(f"应用创建完成: {settings.PROJECT_NAME} v{settings.PROJECT_VERSION}")
     

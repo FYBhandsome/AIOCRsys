@@ -184,6 +184,13 @@ class IntentRecognizer:
         """
         logger.debug(f"[_predict_sub_category] 预测子类别")
         query_lower = query.lower()
+        
+        formula_keywords = ["综合测评", "计算公式", "占比", "M=", "品德行为分", "学习成绩分", "素质拓展分"]
+        for kw in formula_keywords:
+            if kw.lower() in query_lower:
+                logger.debug(f"[_predict_sub_category] 检测到综合测评公式关键词: '{kw}', 跳过sub_category过滤")
+                return None, [kw]
+        
         scores = {}
         matched_keywords = {}
         

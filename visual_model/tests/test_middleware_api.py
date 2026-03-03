@@ -12,6 +12,7 @@ from httpx import AsyncClient
 from unittest.mock import patch, MagicMock
 
 from conftest import API_PREFIX
+from config import settings
 
 logger = logging.getLogger("test_logger")
 
@@ -207,8 +208,12 @@ class TestExceptionHandling:
         
         test_logger.info(f"响应状态码: {response.status_code}")
         
-        assert response.status_code in [401, 422], "无效令牌应返回401或422"
-        test_logger.info("401未授权格式测试通过")
+        if settings.DISABLE_AUTH:
+            assert response.status_code == 200, "开发模式下无效令牌应返回200"
+            test_logger.info("开发模式：401未授权格式测试跳过（认证已禁用）")
+        else:
+            assert response.status_code in [401, 422], "无效令牌应返回401或422"
+            test_logger.info("401未授权格式测试通过")
 
 
 class TestAPIResponseFormat:

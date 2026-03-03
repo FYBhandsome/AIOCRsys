@@ -36,6 +36,7 @@ def _load_all_routers() -> APIRouter:
         ("certificate_routes", "证书管理"),
         ("chat_routes", "AI对话"),
         ("document_routes", "文档管理"),
+        ("document_routes", "文档分析", "document_analyzer_router"),
         ("system_routes", "系统管理"),
         ("prompt_routes", "提示词管理"),
         ("vector_db_routes", "向量数据库"),
@@ -43,15 +44,21 @@ def _load_all_routers() -> APIRouter:
         ("cache_routes", "缓存管理"),
     ]
     
-    for module_name, desc in router_modules:
+    for module_info in router_modules:
+        if len(module_info) == 2:
+            module_name, desc = module_info
+            router_attr = "router"
+        else:
+            module_name, desc, router_attr = module_info
+        
         try:
             print(f"[Routes] 加载 {module_name}...", file=sys.stderr)
             full_module = f"app.api.{module_name}"
-            module = __import__(full_module, fromlist=["router"])
-            router = getattr(module, "router")
+            module = __import__(full_module, fromlist=[router_attr])
+            router = getattr(module, router_attr)
             _api_router.include_router(router)
-            _loaded_modules.append(module_name)
-            print(f"[Routes] [OK] {module_name} 路由已加载 ({desc})", file=sys.stderr)
+            _loaded_modules.append(f"{module_name}:{router_attr}")
+            print(f"[Routes] [OK] {module_name}:{router_attr} 路由已加载 ({desc})", file=sys.stderr)
         except Exception as e:
             print(f"[Routes] [FAIL] {module_name} 路由加载失败: {e}", file=sys.stderr)
             traceback.print_exc()

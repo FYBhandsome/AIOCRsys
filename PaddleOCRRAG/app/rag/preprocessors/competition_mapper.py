@@ -182,28 +182,50 @@ class CompetitionMapper:
             name_without_suffix = name[:match.start()].strip()
             aliases.append(name_without_suffix)
             aliases.append(f"{name_without_suffix}({suffix})")
+            
+            if suffix in ['国赛', '国赛)', '国家级']:
+                aliases.append(f"{name_without_suffix}国赛")
+                aliases.append(f"{name_without_suffix}国家级")
+            elif suffix in ['省赛', '省赛)', '省部级']:
+                aliases.append(f"{name_without_suffix}省赛")
+                aliases.append(f"{name_without_suffix}省部级")
         
         short_names = {
-            "全国大学生电子设计竞赛": ["电赛", "电子设计大赛", "电子设计竞赛"],
-            "全国大学生数学建模竞赛": ["数模", "数学建模", "建模大赛"],
+            "全国大学生电子设计竞赛": ["电赛", "电子设计大赛", "电子设计竞赛", "电子设计"],
+            "全国大学生数学建模竞赛": ["数模", "数学建模", "建模大赛", "数学建模竞赛"],
             "全国大学生智能汽车竞赛": ["智能车", "智能车竞赛"],
             "全国大学生机械创新设计大赛": ["机械创新", "机械设计"],
             "中国国际互联网+大学生创新创业大赛": ["互联网+", "互联网+大赛"],
             "挑战杯大学生科技作品竞赛": ["挑战杯", "挑战杯竞赛"],
-            "蓝桥杯全国软件和信息技术专业人才大赛": ["蓝桥杯", "蓝桥"],
+            "蓝桥杯全国软件和信息技术专业人才大赛": ["蓝桥杯", "蓝桥", "蓝桥杯大赛"],
             "外研社国才杯英语演讲比赛": ["外研社", "英语演讲"],
             "全国高校数字艺术设计大赛": ["数字艺术", "艺术设计大赛"],
             "中国机器人及人工智能大赛": ["机器人", "机器人竞赛", "人工智能大赛"],
             "全国大学生英语竞赛": ["英语竞赛", "NECCS"],
             "全国大学生计算机设计大赛": ["计算机设计", "计设"],
             "全国大学生创新创业年会": ["创新创业年会", "双创年会"],
+            "全国周培源大学生力学竞赛": ["周培源力学", "力学竞赛", "培源力学"],
         }
         
+        name_clean_quotes = name.replace('"', '').replace('"', '').replace('"', '')
+        
         for full_name, short_list in short_names.items():
-            if full_name in name:
+            if full_name in name or full_name in name_clean_quotes:
                 aliases.extend(short_list)
+                for short in short_list:
+                    if '国赛' in name or '国家级' in name:
+                        aliases.append(f"{short}国赛")
+                    if '省赛' in name or '省部级' in name:
+                        aliases.append(f"{short}省赛")
                 logger.debug(f"[_generate_aliases] 为 '{name}' 添加别名: {short_list}")
                 break
+        
+        if '蓝桥杯' in name:
+            aliases.extend(['蓝桥杯', '蓝桥', '蓝桥杯大赛'])
+            if '国赛' in name or '国家级' in name:
+                aliases.extend(['蓝桥杯国赛', '蓝桥国赛'])
+            if '省赛' in name or '省部级' in name:
+                aliases.extend(['蓝桥杯省赛', '蓝桥省赛'])
         
         return list(set(aliases))
     

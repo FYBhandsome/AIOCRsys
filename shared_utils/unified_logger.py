@@ -58,6 +58,14 @@ UNIFIED_LOG_DIR = PROJECT_ROOT / "logs"
 _log_lock = threading.Lock()
 _logging_initialized = False
 _async_handler = None
+_current_service_name = None
+
+DEFAULT_MAX_BYTES = 50 * 1024 * 1024
+DEFAULT_BACKUP_COUNT = 10
+DEFAULT_MAX_DAYS = 30
+DEFAULT_CONSOLE_LEVEL = logging.INFO
+DEFAULT_FILE_LEVEL = logging.DEBUG
+DEFAULT_ERROR_LEVEL = logging.ERROR
 
 _request_id: contextvars.ContextVar[str] = contextvars.ContextVar('request_id', default='')
 _user_id: contextvars.ContextVar[str] = contextvars.ContextVar('user_id', default='')
@@ -438,7 +446,7 @@ class SafeRotatingFileHandler(logging.handlers.RotatingFileHandler):
             self._handle_file_error(f"日志写入错误: {e}")
 
 
-def cleanup_old_logs(log_dir: Path, max_days: int = 30):
+def cleanup_old_logs(log_dir: Path, max_days: int = DEFAULT_MAX_DAYS):
     """清理旧日志文件"""
     try:
         if not log_dir.exists():
@@ -456,6 +464,36 @@ def cleanup_old_logs(log_dir: Path, max_days: int = 30):
         pass
 
 
+def cleanup_root_log_files():
+    """清理根目录下的散乱日志文件"""
+    root_log_files = [
+        "app_*.log",
+        "comprehensive-assessment*.log",
+        "errors.log",
+        "frontend.log",
+        "rag.log",
+        "startup.log",
+        "visual_model.log",
+    ]
+    
+    cleaned_files = []
+    for pattern in root_log_files:
+        for log_file in UNIFIED_LOG_DIR.glob(pattern):
+            if log_file.is_file():
+                try:
+                    log_file.unlink()
+                    cleaned_files.append(str(log_file))
+                except Exception:
+                    pass
+    
+    return cleaned_files
+
+
+def get_service_log_dir(service_name: str) -> Path:
+    """获取服务的日志目录路径"""
+    return UNIFIED_LOG_DIR / service_name
+
+
 def setup_logging(
     service_name: str = "app",
     log_level: str = "INFO",
@@ -463,10 +501,14 @@ def setup_logging(
     log_format: str = "console",
     enable_file: bool = True,
     enable_async: bool = True,
-    max_bytes: int = 10 * 1024 * 1024,
-    backup_count: int = 10,
+    max_bytes: int = None,
+    backup_count: int = None,
     enable_json: bool = False,
-    use_subdir: bool = True
+    use_subdir: bool = True,
+    console_level: int = None,
+    file_level: int = None,
+    error_level: int = None,
+    max_days: int = None
 ) -> logging.Logger:
     """
     配置应用日志
@@ -474,30 +516,46 @@ def setup_logging(
     Args:
         service_name: 服务名称，用于区分不同服务的日志
         log_level: 日志级别 (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-        log_dir: 日志目录，默认为项目根目录下的 logs 文件夹
+        log_dir: 日志目录，默认为项目根目录下的 logs/{service_name} 文件夹
         log_format: 日志格式 (console, json, simple)
         enable_file: 是否启用文件日志
         enable_async: 是否启用异步文件写入
-        max_bytes: 单个日志文件最大大小
-        backup_count: 保留的日志文件数量
+        max_bytes: 单个日志文件最大大小，默认50MB
+        backup_count: 保留的日志文件数量，默认10个
         enable_json: 是否启用 JSON 格式日志
-        use_subdir: 是否为每个服务创建子目录
+        use_subdir: 是否为每个服务创建子目录（强制为True）
+        console_level: 控制台日志级别，默认INFO
+        file_level: 文件日志级别，默认DEBUG
+        error_level: 错误日志级别，默认ERROR
+        max_days: 日志保留天数，默认30天
         
     Returns:
         配置好的根日志器
     """
-    global _logging_initialized, _async_handler
+    global _logging_initialized, _async_handler, _current_service_name
     
     if _logging_initialized:
         return logging.getLogger()
     
-    if log_dir is None:
-        if use_subdir:
-            log_dir = UNIFIED_LOG_DIR / service_name
-        else:
-            log_dir = UNIFIED_LOG_DIR
+    _current_service_name = service_name
     
-    log_dir = Path(log_dir)
+    if max_bytes is None:
+        max_bytes = DEFAULT_MAX_BYTES
+    if backup_count is None:
+        backup_count = DEFAULT_BACKUP_COUNT
+    if console_level is None:
+        console_level = DEFAULT_CONSOLE_LEVEL
+    if file_level is None:
+        file_level = DEFAULT_FILE_LEVEL
+    if error_level is None:
+        error_level = DEFAULT_ERROR_LEVEL
+    if max_days is None:
+        max_days = DEFAULT_MAX_DAYS
+    
+    if log_dir is None:
+        log_dir = UNIFIED_LOG_DIR / service_name
+    else:
+        log_dir = Path(log_dir)
     
     root_logger = logging.getLogger()
     root_logger.setLevel(getattr(logging, log_level.upper(), logging.INFO))
@@ -505,7 +563,7 @@ def setup_logging(
     root_logger.handlers.clear()
     
     console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(logging.DEBUG)
+    console_handler.setLevel(console_level)
     
     if enable_json or log_format == "json":
         console_handler.setFormatter(JsonFormatter())
@@ -527,14 +585,14 @@ def setup_logging(
         try:
             log_dir.mkdir(parents=True, exist_ok=True)
             
-            cleanup_old_logs(log_dir, max_days=30)
+            cleanup_old_logs(log_dir, max_days=max_days)
             
             today = datetime.now().strftime("%Y-%m-%d")
-            log_file = log_dir / f"{service_name}_{today}.log"
+            log_file = log_dir / f"app_{today}.log"
             
             if enable_async:
                 file_handler = AsyncFileHandler(log_file)
-                file_handler.setLevel(logging.DEBUG)
+                file_handler.setLevel(file_level)
                 file_handler.setFormatter(MillisecondFormatter(
                     fmt="%(asctime)s.%(msecs)03d | %(levelname)-8s | %(name)s:%(lineno)d | %(funcName)s | %(message)s",
                     datefmt="%Y-%m-%d %H:%M:%S"
@@ -547,7 +605,7 @@ def setup_logging(
                     encoding='utf-8',
                     delay=True
                 )
-                file_handler.setLevel(logging.DEBUG)
+                file_handler.setLevel(file_level)
                 file_handler.setFormatter(MillisecondFormatter(
                     fmt="%(asctime)s.%(msecs)03d | %(levelname)-8s | %(name)s:%(lineno)d | %(funcName)s | %(message)s",
                     datefmt="%Y-%m-%d %H:%M:%S"
@@ -555,11 +613,11 @@ def setup_logging(
             
             root_logger.addHandler(file_handler)
             
-            error_log_file = log_dir / f"{service_name}_error_{today}.log"
+            error_log_file = log_dir / f"error_{today}.log"
             
             if enable_async:
                 error_handler = AsyncFileHandler(error_log_file)
-                error_handler.setLevel(logging.ERROR)
+                error_handler.setLevel(error_level)
                 error_handler.setFormatter(MillisecondFormatter(
                     fmt="%(asctime)s.%(msecs)03d | %(levelname)-8s | %(name)s:%(lineno)d | %(funcName)s | %(message)s",
                     datefmt="%Y-%m-%d %H:%M:%S"
@@ -572,7 +630,7 @@ def setup_logging(
                     encoding='utf-8',
                     delay=True
                 )
-                error_handler.setLevel(logging.ERROR)
+                error_handler.setLevel(error_level)
                 error_handler.setFormatter(MillisecondFormatter(
                     fmt="%(asctime)s.%(msecs)03d | %(levelname)-8s | %(name)s:%(lineno)d | %(funcName)s | %(message)s",
                     datefmt="%Y-%m-%d %H:%M:%S"
@@ -778,4 +836,10 @@ __all__ = [
     'log_branch_decision',
     'LogLevel',
     'UNIFIED_LOG_DIR',
+    'cleanup_old_logs',
+    'cleanup_root_log_files',
+    'get_service_log_dir',
+    'DEFAULT_MAX_BYTES',
+    'DEFAULT_BACKUP_COUNT',
+    'DEFAULT_MAX_DAYS',
 ]

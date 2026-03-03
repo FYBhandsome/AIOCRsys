@@ -44,6 +44,23 @@ class Class(Model):
         return f"Class({self.id}, {self.name})"
 
 
+class ClassStudent(Model):
+    """班级学生关联模型"""
+    id = fields.IntField(pk=True)
+    class_id = fields.CharField(max_length=50, description="班级ID")
+    student_id = fields.CharField(max_length=50, description="学号")
+    
+    created_at = fields.DatetimeField(auto_now_add=True)
+    
+    class Meta:
+        table = "class_students"
+        table_description = "班级学生关联表"
+        unique_together = ("class_id", "student_id")
+    
+    def __str__(self):
+        return f"ClassStudent({self.class_id}, {self.student_id})"
+
+
 class User(Model):
     """用户模型"""
     id = fields.IntField(pk=True)
@@ -176,7 +193,7 @@ class AcademicScore(Model):
     
     # 关联关系
     student: fields.ForeignKeyRelation[Student] = fields.ForeignKeyField(
-        "models.Student", related_name="academic_scores"
+        "models.Student", related_name="academic_scores", null=True
     )
     
     class Meta:

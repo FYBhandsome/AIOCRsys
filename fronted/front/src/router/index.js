@@ -3,7 +3,7 @@ import { useUserStore } from '@/store'
 import { ElMessage } from 'element-plus'
 
 // 开发模式配置：禁用认证（与后端保持一致）
-const DISABLE_AUTH = import.meta.env.DEV && false  // 改为 true 以禁用认证
+const DISABLE_AUTH = import.meta.env.DEV && true  // 开发测试阶段禁用认证
 
 // 路由懒加载
 const Login = () => import('../views/Login.vue')

@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     
     # 开发测试配置
     DISABLE_AUTH: bool = Field(default=False, description="禁用认证（仅开发测试）")
+    DISABLE_MODEL_SOURCE_CHECK: bool = Field(default=False, description="禁用模型源检查（加速启动）")
     
     # 服务器配置
     HOST: str = Field(default="127.0.0.1", description="服务器主机地址")

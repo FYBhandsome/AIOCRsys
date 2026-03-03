@@ -228,7 +228,7 @@ class RAGClient:
     
     async def get_llm_config(self) -> Dict[str, Any]:
         """获取LLM配置"""
-        url = f"{self.base_url}{self.api_prefix}/llm-config"
+        url = f"{self.base_url}{self.api_prefix}/system/llm/config"
         
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
@@ -241,7 +241,7 @@ class RAGClient:
     
     async def update_llm_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """更新LLM配置"""
-        url = f"{self.base_url}{self.api_prefix}/llm-config"
+        url = f"{self.base_url}{self.api_prefix}/system/llm/config"
         
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
@@ -254,7 +254,7 @@ class RAGClient:
     
     async def test_llm_connection(self) -> Dict[str, Any]:
         """测试LLM连接"""
-        url = f"{self.base_url}{self.api_prefix}/llm-config/test"
+        url = f"{self.base_url}{self.api_prefix}/system/llm/test"
         
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
@@ -267,7 +267,7 @@ class RAGClient:
     
     async def reset_llm_config(self) -> Dict[str, Any]:
         """重置LLM配置"""
-        url = f"{self.base_url}{self.api_prefix}/llm-config/reset"
+        url = f"{self.base_url}{self.api_prefix}/system/llm/config/reset"
         
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
@@ -280,7 +280,7 @@ class RAGClient:
     
     async def validate_llm_config(self) -> Dict[str, Any]:
         """验证LLM配置"""
-        url = f"{self.base_url}{self.api_prefix}/llm-config/validate"
+        url = f"{self.base_url}{self.api_prefix}/system/llm/config/validate"
         
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:

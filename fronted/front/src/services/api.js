@@ -35,6 +35,9 @@ const hideLoading = () => {
   }
 }
 
+export const showGlobalLoading = showLoading
+export const hideGlobalLoading = hideLoading
+
 const createApiInstance = (baseURL) => axios.create({
   baseURL,
   timeout: API_CONFIG.TIMEOUT,
@@ -98,51 +101,183 @@ const setupInterceptors = (instance, name = 'API') => {
 setupInterceptors(api, 'Main API')
 setupInterceptors(ragApi, 'RAG API')
 
+const formatBackendError = (data) => {
+  if (!data) return null
+  
+  const errorInfo = {
+    code: data.error_code || data.code || null,
+    message: data.error_message || data.message || data.detail || null,
+    details: data.details || [],
+    suggestion: null
+  }
+  
+  if (errorInfo.details && errorInfo.details.length > 0) {
+    errorInfo.suggestion = errorInfo.details[0]?.suggestion || null
+  }
+  
+  return errorInfo
+}
+
+const getErrorSuggestion = (errorCode, status) => {
+  const suggestions = {
+    'FILE_FORMAT_ERROR': '请确保上传的文件格式正确。支持的格式：.xlsx、.xls、.jpg、.jpeg、.png',
+    'FILE_TOO_LARGE': '文件大小超过限制，请压缩文件或分批上传',
+    'INVALID_FILE_TYPE': '请上传正确类型的文件',
+    'DATA_VALIDATION_ERROR': '请检查数据格式，确保必填字段已填写',
+    'DUPLICATE_DATA': '数据已存在，请检查是否有重复记录',
+    'PERMISSION_DENIED': '您没有权限执行此操作',
+    'STUDENT_NOT_FOUND': '学号不存在，请检查学号是否正确',
+    'CLASS_NOT_FOUND': '班级不存在，请检查班级信息',
+    'SEMESTER_INVALID': '学期格式不正确，请选择正确的学期',
+    'SCORE_INVALID': '成绩格式不正确，请确保成绩为数字且在有效范围内',
+    'EXCEL_PARSE_ERROR': 'Excel文件解析失败，请检查文件是否损坏或格式是否正确',
+    'OCR_FAILED': '图片识别失败，请确保图片清晰且包含成绩信息',
+    'NETWORK_ERROR': '网络连接失败，请检查网络设置后重试',
+    'TIMEOUT_ERROR': '请求超时，请检查网络连接或尝试上传较小的文件'
+  }
+  
+  if (errorCode && suggestions[errorCode]) {
+    return suggestions[errorCode]
+  }
+  
+  const statusSuggestions = {
+    400: '请求参数错误，请检查输入数据',
+    401: '登录已过期，请重新登录',
+    403: '没有权限执行此操作',
+    404: '请求的资源不存在',
+    413: '文件大小超过服务器限制',
+    422: '数据验证失败，请检查数据格式',
+    429: '请求过于频繁，请稍后再试',
+    500: '服务器内部错误，请稍后重试',
+    502: '服务暂时不可用，请稍后重试',
+    503: '服务正在维护，请稍后重试'
+  }
+  
+  return statusSuggestions[status] || null
+}
+
+const showErrorWithSuggestion = (errorInfo, status) => {
+  let displayMessage = errorInfo?.message || '请求失败'
+  const suggestion = errorInfo?.suggestion || getErrorSuggestion(errorInfo?.code, status)
+  
+  if (suggestion) {
+    displayMessage += `\n建议：${suggestion}`
+  }
+  
+  if (errorInfo?.details && errorInfo.details.length > 0) {
+    const detailMessages = errorInfo.details
+      .slice(0, 3)
+      .map(d => d.message || d)
+      .join('；')
+    if (detailMessages) {
+      displayMessage += `\n详情：${detailMessages}`
+    }
+  }
+  
+  ElMessage({
+    message: displayMessage,
+    type: 'error',
+    duration: 5000,
+    showClose: true,
+    dangerouslyUseHTMLString: false
+  })
+}
+
 const handleErrorResponse = async (error, name = 'API') => {
   const { response, config, message } = error
   
   console.error(`[${name} Error]`, {
     url: config?.url,
     method: config?.method,
-    error: error,
-    response: response?.data
+    status: response?.status,
+    message: message
   })
   
+  if (import.meta.env.DEV) {
+    console.error(`[${name}] Response data:`, response?.data)
+    console.error(`[${name}] Request config:`, config)
+  }
+  
   if (!response) {
-    const errorMsg = message.includes('timeout') ? '请求超时，请检查网络连接' :
-                     message.includes('Network Error') ? '网络连接失败，请检查网络' :
-                     '请求失败，请稍后重试'
-    ElMessage.error(errorMsg)
-    return Promise.reject(error)
+    const isTimeout = message.includes('timeout') || error.code === 'ECONNABORTED'
+    const isNetworkError = message.includes('Network Error')
+    
+    const errorInfo = {
+      code: isTimeout ? 'TIMEOUT_ERROR' : 'NETWORK_ERROR',
+      message: isTimeout ? '请求超时，请检查网络连接' : 
+               isNetworkError ? '网络连接失败，请检查网络设置' : 
+               '请求失败，请稍后重试',
+      suggestion: getErrorSuggestion(isTimeout ? 'TIMEOUT_ERROR' : 'NETWORK_ERROR', 0)
+    }
+    
+    showErrorWithSuggestion(errorInfo, 0)
+    
+    const formattedError = {
+      ...error,
+      formatted: true,
+      code: errorInfo.code,
+      message: errorInfo.message,
+      suggestion: errorInfo.suggestion
+    }
+    
+    return Promise.reject(formattedError)
   }
   
   const { status, data } = response
-  const errorMsg = data?.error?.message || data?.message || getErrorMessage(status)
+  const backendError = formatBackendError(data)
   
   if (status === 401) {
     localStorage.removeItem('token')
+    localStorage.removeItem('userInfo')
+    ElMessage.warning('登录已过期，请重新登录')
     setTimeout(() => {
       window.location.href = '/login'
-    }, 1000)
+    }, 1500)
+    
+    return Promise.reject({
+      ...error,
+      formatted: true,
+      code: 'UNAUTHORIZED',
+      message: '登录已过期'
+    })
   }
   
-  ElMessage.error(errorMsg)
+  showErrorWithSuggestion(backendError, status)
   
   if (config?.retry && (config.__retryCount || 0) < config.retry) {
-    config.__retryCount = (config.__retryCount || 0) + 1
-    const delay = config.retryDelay || 1000
-    const backoff = delay * Math.pow(2, config.__retryCount - 1)
+    const retryableStatuses = [502, 503, 504, 408, 429]
+    const isRetryable = retryableStatuses.includes(status)
     
-    console.log(`[${name} Retry] 第 ${config.__retryCount} 次重试，延迟 ${backoff}ms`)
-    
-    await new Promise(resolve => setTimeout(resolve, backoff))
-    return api(config)
+    if (isRetryable) {
+      config.__retryCount = (config.__retryCount || 0) + 1
+      const delay = config.retryDelay || 1000
+      const backoff = delay * Math.pow(2, config.__retryCount - 1)
+      
+      console.log(`[${name} Retry] 第 ${config.__retryCount} 次重试，延迟 ${backoff}ms`)
+      
+      ElMessage.info(`正在重试 (${config.__retryCount}/${config.retry})...`)
+      await new Promise(resolve => setTimeout(resolve, backoff))
+      return api(config)
+    }
   }
   
-  return Promise.reject(error)
+  const formattedError = {
+    ...error,
+    formatted: true,
+    code: backendError?.code || `HTTP_${status}`,
+    message: backendError?.message || getErrorMessage(status, data),
+    details: backendError?.details || [],
+    suggestion: backendError?.suggestion || getErrorSuggestion(null, status)
+  }
+  
+  return Promise.reject(formattedError)
 }
 
-const getErrorMessage = (status) => {
+const getErrorMessage = (status, data = null) => {
+  if (data?.detail) return data.detail
+  if (data?.message) return data.message
+  if (data?.error?.message) return data.error.message
+  
   const errorMap = {
     400: '请求参数错误',
     401: '未授权，请先登录',
@@ -202,14 +337,29 @@ export const studentAPI = {
   getScoresDetail: () => api.get(API_ENDPOINTS.STUDENT.SCORES_DETAIL),
   getUploadHistory: () => api.get(API_ENDPOINTS.STUDENT.UPLOAD_HISTORY),
   getComprehensiveAnalysis: () => api.get(API_ENDPOINTS.STUDENT.ANALYSIS),
-  getScoreTrend: () => api.get(API_ENDPOINTS.STUDENT.TREND)
+  getScoreTrend: () => api.get(API_ENDPOINTS.STUDENT.TREND),
+  
+  uploadMaterial: (formData) => api.post('/v1/student/material/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 120000
+  }),
+  
+  getMaterials: () => api.get('/v1/student/materials')
 }
 
 export const teacherAPI = {
-  uploadScores: (file, classId, onProgress) => {
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('class_id', classId)
+  uploadScores: (formDataOrFile, onProgress, options = {}) => {
+    let formData
+    
+    if (formDataOrFile instanceof FormData) {
+      formData = formDataOrFile
+    } else {
+      formData = new FormData()
+      formData.append('file', formDataOrFile)
+      if (options.class_id) formData.append('class_id', options.class_id)
+      if (options.academic_year) formData.append('academic_year', options.academic_year)
+      if (options.semester) formData.append('semester', options.semester)
+    }
     
     return api.post(API_ENDPOINTS.TEACHER.SCORES_UPLOAD, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
@@ -219,8 +369,36 @@ export const teacherAPI = {
           onProgress(percentCompleted)
         }
       },
-      timeout: 60000,
+      timeout: 120000,
+      showLoading: false,
       ...createRetryConfig({}, 2, 2000)
+    })
+  },
+  
+  uploadComprehensiveScores: async (file, params = {}) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    if (params.academicYear) formData.append('academic_year', params.academicYear)
+    if (params.semester) formData.append('semester', params.semester)
+    
+    return api.post(API_ENDPOINTS.TEACHER.UPLOAD_COMPREHENSIVE, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 180000,
+      showLoading: false,
+      ...createRetryConfig({}, 2, 3000)
+    })
+  },
+  
+  getComprehensiveScores: (params) => api.get(API_ENDPOINTS.TEACHER.COMPREHENSIVE_LIST, { params }),
+  
+  previewScores: (file, rows = 10) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('rows', rows)
+    
+    return api.post('/v1/teacher/scores/preview', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 60000
     })
   },
   
@@ -281,6 +459,10 @@ export const adminAPI = {
   updateRuleStatus: (docId, enabled) => api.patch(`${API_ENDPOINTS.ADMIN.RULES_UPLOAD.replace('/upload', '')}/${docId}/status`, { enabled }),
   deleteRuleDocument: (docId, deleteFile = false) => api.delete(`${API_ENDPOINTS.ADMIN.RULES_UPLOAD.replace('/upload', '')}/${docId}`, { params: { delete_file: deleteFile } }),
   
+  getRules: (params) => api.get(API_ENDPOINTS.ADMIN.RULES_LIST, { params }),
+  updateRule: (ruleId, data) => api.patch(`${API_ENDPOINTS.ADMIN.RULES_UPLOAD.replace('/upload', '')}/${ruleId}`, data),
+  deleteRule: (ruleId) => api.delete(`${API_ENDPOINTS.ADMIN.RULES_UPLOAD.replace('/upload', '')}/${ruleId}`),
+  
   getAIConfig: () => api.get(API_ENDPOINTS.ADMIN.AI_CONFIG),
   updateAIConfig: (config) => api.put(API_ENDPOINTS.ADMIN.AI_CONFIG, config),
   testAIConnection: () => api.post(API_ENDPOINTS.ADMIN.AI_CONFIG_TEST),
@@ -299,13 +481,13 @@ export const adminAPI = {
   updatePrompts: (prompts) => api.put(API_ENDPOINTS.ADMIN.PROMPTS, prompts),
   resetPrompts: () => api.post(`${API_ENDPOINTS.ADMIN.PROMPTS}/reset`),
   
-  getVectorDBStats: () => ragApi.get(API_ENDPOINTS.ADMIN.VECTOR_DB_STATS),
-  clearVectorDB: () => ragApi.post(API_ENDPOINTS.ADMIN.VECTOR_DB_CLEAR),
-  resetVectorDB: (backup = true) => ragApi.post(API_ENDPOINTS.ADMIN.VECTOR_DB_RESET, null, { params: { backup } }),
-  reindexVectorDB: () => ragApi.post(API_ENDPOINTS.ADMIN.VECTOR_DB_REINDEX),
-  getVectorDBCollections: () => ragApi.get(API_ENDPOINTS.ADMIN.VECTOR_DB_COLLECTIONS),
-  getVectorDBHealth: () => ragApi.get(API_ENDPOINTS.ADMIN.VECTOR_DB_HEALTH),
-  rebuildVectorDB: () => ragApi.post(API_ENDPOINTS.ADMIN.VECTOR_DB_REINDEX),
+  getVectorDBStats: () => api.get(API_ENDPOINTS.ADMIN.VECTOR_DB_STATS),
+  clearVectorDB: () => api.post(API_ENDPOINTS.ADMIN.VECTOR_DB_CLEAR),
+  resetVectorDB: (backup = true) => api.post(API_ENDPOINTS.ADMIN.VECTOR_DB_RESET, null, { params: { backup } }),
+  reindexVectorDB: () => api.post(API_ENDPOINTS.ADMIN.VECTOR_DB_REINDEX),
+  getVectorDBCollections: () => api.get(API_ENDPOINTS.ADMIN.VECTOR_DB_COLLECTIONS),
+  getVectorDBHealth: () => api.get(API_ENDPOINTS.ADMIN.VECTOR_DB_HEALTH),
+  rebuildVectorDB: () => api.post(API_ENDPOINTS.ADMIN.VECTOR_DB_REINDEX),
   
   getRAGStats: () => api.get(API_ENDPOINTS.ADMIN.RAG_STATS),
   ragHealthCheck: () => api.get(API_ENDPOINTS.ADMIN.RAG_HEALTH)
@@ -776,8 +958,6 @@ export const fileManagementAPI = {
     api.get('/v1/file/categories')
 }
 
-export const showGlobalLoading = showLoading
-export const hideGlobalLoading = hideGlobalLoading
 export { createRetryConfig }
 
 export default api

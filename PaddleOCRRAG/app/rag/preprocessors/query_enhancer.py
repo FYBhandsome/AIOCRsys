@@ -42,6 +42,10 @@ class QueryEnhancer:
             logger.info(f"[enhance] 查询需人工审核: '{query[:30]}'")
             return enhanced
         
+        if intent.sub_category is None:
+            logger.info(f"[enhance] sub_category为None，使用原始查询: '{query[:30]}'")
+            return query
+        
         tags = self._build_tags(intent)
         
         if tags:
@@ -123,7 +127,7 @@ class QueryEnhancer:
             filters.append({"level": intent.level})
         
         if intent.certificate_type:
-            filters.append({"certificate_type": intent.certificate_type})
+            filters.append({"award_level": intent.certificate_type})
         
         if len(filters) == 0:
             logger.debug("[build_metadata_filter] 无过滤条件")

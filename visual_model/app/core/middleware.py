@@ -128,11 +128,13 @@ class PerformanceMonitorMiddleware(BaseHTTPMiddleware):
     """性能监控中间件"""
     
     SLOW_REQUEST_THRESHOLD = 1.0  # 慢请求阈值（秒）
+    RAG_SLOW_THRESHOLD = 3.0  # RAG请求慢阈值（秒）
     
     def __init__(self, app: ASGIApp):
         super().__init__(app)
         self.logger = get_logger("PerformanceMonitor")
         self.request_stats: Dict[str, Dict] = {}
+        self.rag_stats: Dict[str, Dict] = {}
     
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         start_time = time.time()
@@ -162,6 +164,32 @@ class PerformanceMonitorMiddleware(BaseHTTPMiddleware):
         if response.status_code >= 400:
             stats["error_count"] += 1
         
+        # RAG请求特殊监控
+        is_rag_request = '/rag/' in request.url.path or '/ai/' in request.url.path or '/chat' in request.url.path
+        
+        if is_rag_request:
+            if endpoint not in self.rag_stats:
+                self.rag_stats[endpoint] = {
+                    "count": 0,
+                    "total_time": 0,
+                    "max_time": 0,
+                    "min_time": float('inf'),
+                    "slow_count": 0
+                }
+            
+            rag_stats = self.rag_stats[endpoint]
+            rag_stats["count"] += 1
+            rag_stats["total_time"] += process_time
+            rag_stats["max_time"] = max(rag_stats["max_time"], process_time)
+            rag_stats["min_time"] = min(rag_stats["min_time"], process_time)
+            
+            if process_time > self.RAG_SLOW_THRESHOLD:
+                rag_stats["slow_count"] += 1
+                self.logger.warning(
+                    f"RAG慢请求警告: {endpoint} 耗时 {process_time*1000:.2f}ms "
+                    f"(阈值: {self.RAG_SLOW_THRESHOLD*1000:.0f}ms)"
+                )
+        
         # 慢请求警告
         if process_time > self.SLOW_REQUEST_THRESHOLD:
             self.logger.warning(
@@ -185,6 +213,21 @@ class PerformanceMonitorMiddleware(BaseHTTPMiddleware):
                 "min_time_ms": round(stats["min_time"] * 1000, 2),
                 "error_count": stats["error_count"],
                 "error_rate": round(stats["error_count"] / stats["count"] * 100, 2) if stats["count"] > 0 else 0
+            }
+        return result
+    
+    def get_rag_stats(self) -> Dict[str, Any]:
+        """获取RAG性能统计"""
+        result = {}
+        for endpoint, stats in self.rag_stats.items():
+            avg_time = stats["total_time"] / stats["count"] if stats["count"] > 0 else 0
+            result[endpoint] = {
+                "request_count": stats["count"],
+                "avg_time_ms": round(avg_time * 1000, 2),
+                "max_time_ms": round(stats["max_time"] * 1000, 2),
+                "min_time_ms": round(stats["min_time"] * 1000, 2),
+                "slow_count": stats["slow_count"],
+                "slow_rate": round(stats["slow_count"] / stats["count"] * 100, 2) if stats["count"] > 0 else 0
             }
         return result
 

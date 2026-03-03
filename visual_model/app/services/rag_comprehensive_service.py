@@ -6,6 +6,7 @@ import json
 import re
 import logging
 import time
+import asyncio
 import traceback
 from typing import Dict, Any, List, Optional
 from datetime import datetime
@@ -64,47 +65,206 @@ class RAGComprehensiveService:
         """记录变量值"""
         logger.debug(f"[变量记录] {context} | 变量: {var_name} | 值: {sanitize_for_logging(var_value)}")
     
-    def _parse_json_response(self, response_text: str) -> Dict[str, Any]:
-        """解析AI返回的JSON响应
+    def _clean_json_string(self, json_str: str) -> str:
+        """清理JSON字符串中的常见问题
+        
+        Args:
+            json_str: 原始JSON字符串
+            
+        Returns:
+            清理后的JSON字符串
+        """
+        json_str = json_str.strip()
+        json_str = re.sub(r'^```json\s*', '', json_str)
+        json_str = re.sub(r'^```\s*', '', json_str)
+        json_str = re.sub(r'\s*```$', '', json_str)
+        json_str = re.sub(r',\s*}', '}', json_str)
+        json_str = re.sub(r',\s*]', ']', json_str)
+        json_str = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', json_str)
+        
+        return json_str
+    
+    def _extract_json_multiple_methods(self, response_text: str) -> tuple:
+        """使用多种方法尝试提取JSON
         
         Args:
             response_text: AI返回的文本
             
         Returns:
+            (json_str, method_name) 或 (None, None)
+        """
+        method1 = re.search(r'^\s*\{[\s\S]*\}\s*$', response_text.strip())
+        if method1:
+            return method1.group().strip(), "纯JSON直接匹配"
+        
+        method2 = re.search(r'\{[\s\S]*\}', response_text)
+        if method2:
+            return method2.group(), "正则提取首个JSON对象"
+        
+        method3 = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', response_text)
+        if method3:
+            return method3.group(1).strip(), "Markdown代码块提取"
+        
+        lines = response_text.strip().split('\n')
+        json_lines = []
+        in_json = False
+        brace_count = 0
+        
+        for line in lines:
+            if '{' in line:
+                in_json = True
+            if in_json:
+                json_lines.append(line)
+                brace_count += line.count('{') - line.count('}')
+                if brace_count == 0:
+                    break
+        
+        if json_lines:
+            return '\n'.join(json_lines), "逐行解析提取"
+        
+        return None, None
+    
+    def _parse_json_response(self, response_text: str, default_value: Dict[str, Any] = None) -> Dict[str, Any]:
+        """解析AI返回的JSON响应（增强版）
+        
+        Args:
+            response_text: AI返回的文本
+            default_value: 解析失败时的默认返回值
+            
+        Returns:
             解析后的字典
         """
-        self._log_data_trace("JSON解析-原始响应", response_text[:500])
+        self._log_data_trace("JSON解析-原始响应", response_text[:500] if response_text else "空响应")
+        
+        if not response_text:
+            logger.warning("[JSON解析] 响应为空")
+            return default_value or {"success": False, "error": "响应为空"}
+        
+        json_str, method = self._extract_json_multiple_methods(response_text)
+        
+        if not json_str:
+            logger.error("[JSON解析] 无法提取JSON内容")
+            return default_value or {
+                "success": False,
+                "error": "无法提取JSON内容",
+                "raw_response": response_text[:500]
+            }
+        
+        self._log_data_trace(f"JSON解析-提取方法: {method}", json_str[:300])
+        
+        json_str = self._clean_json_string(json_str)
         
         try:
-            json_match = re.search(r'\{[\s\S]*\}', response_text)
-            if json_match:
-                json_str = json_match.group()
-                result = json.loads(json_str)
-                self._log_branch_decision("正则匹配解析", True, "JSON解析")
-                self._log_data_trace("JSON解析-成功", result)
-                return result
+            result = json.loads(json_str)
+            self._log_branch_decision(f"JSON解析成功({method})", True, "JSON解析")
+            self._log_data_trace("JSON解析-成功", result)
+            return result
         except json.JSONDecodeError as e:
-            self._log_branch_decision("正则匹配解析", False, "JSON解析")
-            logger.warning(f"[JSON解析] 正则匹配失败: {e}")
-        
-        try:
-            code_block_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', response_text)
-            if code_block_match:
-                json_str = code_block_match.group(1)
-                result = json.loads(json_str)
-                self._log_branch_decision("代码块提取解析", True, "JSON解析")
-                self._log_data_trace("JSON解析-代码块提取成功", result)
+            self._log_branch_decision(f"JSON解析失败({method})", False, "JSON解析")
+            logger.warning(f"[JSON解析] 解析失败: {e}, 尝试修复...")
+            
+            try:
+                fixed_str = self._repair_json(json_str)
+                result = json.loads(fixed_str)
+                self._log_branch_decision("JSON修复后解析", True, "JSON解析")
+                logger.info("[JSON解析] 修复后解析成功")
                 return result
-        except json.JSONDecodeError as e:
-            self._log_branch_decision("代码块提取解析", False, "JSON解析")
-            logger.warning(f"[JSON解析] 代码块提取失败: {e}")
+            except Exception as repair_error:
+                logger.error(f"[JSON解析] 修复后仍失败: {repair_error}")
         
-        logger.error("[JSON解析] 无法解析JSON响应")
-        return {
+        logger.error("[JSON解析] 所有解析方法均失败")
+        return default_value or {
             "success": False,
-            "error": "无法解析JSON响应",
+            "error": "JSON解析失败",
             "raw_response": response_text[:500]
         }
+    
+    def _repair_json(self, json_str: str) -> str:
+        """尝试修复常见的JSON格式问题
+        
+        Args:
+            json_str: 有问题的JSON字符串
+            
+        Returns:
+            修复后的JSON字符串
+        """
+        json_str = re.sub(r'(?<!\\)"([^"]*)"(\s*:)', r'"\1"\2', json_str)
+        json_str = re.sub(r':\s*"([^"]*)"(\s*[,}\]])', r': "\1"\2', json_str)
+        json_str = re.sub(r':\s*([^"{\[\d][^,}\]]*)(\s*[,}\]])', r': "\1"\2', json_str)
+        json_str = re.sub(r'\\(?!["\\/bfnrt])', r'\\\\', json_str)
+        json_str = re.sub(r'"([^"]*)"([^":,}\]\s])', r'"\1"\2', json_str)
+        
+        return json_str
+    
+    async def _call_rag_with_retry(
+        self, 
+        prompt: str, 
+        max_retries: int = 3,
+        retry_delay: float = 1.0,
+        default_response: Dict[str, Any] = None
+    ) -> Dict[str, Any]:
+        """带重试机制的RAG调用
+        
+        Args:
+            prompt: 提示词
+            max_retries: 最大重试次数
+            retry_delay: 重试延迟（秒）
+            default_response: 最终失败时的默认响应
+            
+        Returns:
+            RAG响应结果
+        """
+        last_error = None
+        
+        for attempt in range(max_retries):
+            try:
+                self._log_data_trace(f"RAG调用-尝试 {attempt + 1}/{max_retries}", {"prompt_length": len(prompt)})
+                
+                response = await self.client.post(
+                    f"{self.rag_base_url}/api/v1/chat",
+                    json={
+                        "message": prompt,
+                        "chat_history": [],
+                        "use_rag": True
+                    }
+                )
+                
+                if response.status_code != 200:
+                    error_msg = f"RAG请求失败: HTTP {response.status_code}"
+                    logger.warning(f"[RAG重试] {error_msg}, 尝试 {attempt + 1}/{max_retries}")
+                    last_error = error_msg
+                    
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(retry_delay)
+                        continue
+                    break
+                
+                result = response.json()
+                answer = result.get("answer", result.get("response", ""))
+                
+                parsed = self._parse_json_response(answer, default_response)
+                
+                if parsed.get("success"):
+                    self._log_data_trace(f"RAG调用成功-第{attempt + 1}次尝试", parsed)
+                    return parsed
+                else:
+                    last_error = parsed.get("error", "未知错误")
+                    logger.warning(f"[RAG重试] JSON解析失败: {last_error}, 尝试 {attempt + 1}/{max_retries}")
+                    
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(retry_delay)
+                        continue
+                        
+            except Exception as e:
+                last_error = str(e)
+                logger.error(f"[RAG重试] 异常: {e}, 尝试 {attempt + 1}/{max_retries}")
+                
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(retry_delay)
+                    continue
+        
+        logger.error(f"[RAG重试] 所有重试均失败: {last_error}")
+        return default_response or {"success": False, "error": f"重试失败: {last_error}"}
     
     async def retrieve_rules(self, query: str) -> Dict[str, Any]:
         """检索综测规则
@@ -173,13 +333,15 @@ class RAGComprehensiveService:
     async def analyze_certificate(
         self, 
         certificate_text: str, 
-        student_info: Dict[str, Any] = None
+        student_info: Dict[str, Any] = None,
+        max_retries: int = 2
     ) -> Dict[str, Any]:
         """分析证书并计算加分
         
         Args:
             certificate_text: 证书OCR文本
             student_info: 学生信息
+            max_retries: 最大重试次数
             
         Returns:
             分析结果
@@ -189,29 +351,29 @@ class RAGComprehensiveService:
             "student_info": student_info
         })
         
+        default_response = {
+            "success": False,
+            "category": "C",
+            "sub_category": "C1",
+            "score": 0,
+            "level": "",
+            "certificate_type": "",
+            "certificate_name": "",
+            "rules_matched": [],
+            "confidence": 0.0,
+            "explanation": "分析失败，使用默认值"
+        }
+        
         try:
             prompt = comprehensive_score_prompts.get_certificate_analysis_prompt(
                 certificate_text, student_info
             )
             
-            response = await self.client.post(
-                f"{self.rag_base_url}/api/v1/chat",
-                json={
-                    "message": prompt,
-                    "chat_history": [],
-                    "use_rag": True
-                }
+            parsed = await self._call_rag_with_retry(
+                prompt=prompt,
+                max_retries=max_retries,
+                default_response=default_response
             )
-            
-            if response.status_code != 200:
-                logger.error(f"RAG请求失败: {response.status_code}")
-                return {"success": False, "error": f"RAG请求失败: {response.status_code}"}
-            
-            result = response.json()
-            self._log_data_trace("证书分析-RAG响应", result)
-            
-            answer = result.get("answer", result.get("response", ""))
-            parsed = self._parse_json_response(answer)
             
             if parsed.get("success"):
                 return {
@@ -232,7 +394,7 @@ class RAGComprehensiveService:
             
         except Exception as e:
             logger.error(f"证书分析失败: {e}", exc_info=True)
-            return {"success": False, "error": str(e)}
+            return {**default_response, "error": str(e)}
     
     async def calculate_student_score(
         self,
@@ -241,7 +403,8 @@ class RAGComprehensiveService:
         class_name: str,
         academic_info: Dict[str, Any],
         certificate_info: List[Dict],
-        score_details: List[Dict]
+        score_details: List[Dict],
+        max_retries: int = 2
     ) -> Dict[str, Any]:
         """计算学生综测成绩
         
@@ -252,6 +415,7 @@ class RAGComprehensiveService:
             academic_info: 学业成绩信息
             certificate_info: 证书信息列表
             score_details: 加减分明细
+            max_retries: 最大重试次数
             
         Returns:
             计算结果
@@ -264,30 +428,33 @@ class RAGComprehensiveService:
             "detail_count": len(score_details)
         })
         
+        default_response = {
+            "success": False,
+            "student_id": student_id,
+            "student_name": student_name,
+            "scores": {
+                "a_score": {"a1_score": 0, "a2_score": 0, "a3_score": 0, "a_total": 0, "a_weighted": 0},
+                "b_score": {"raw_score": 0, "field_used": "", "b_weighted": 0},
+                "c_score": {"c1_score": 0, "c2_score": 0, "c3_score": 0, "c4_score": 0, "c_total": 0, "c_weighted": 0},
+                "total_score": 0
+            },
+            "total_score": 0,
+            "rank_info": {},
+            "details": [],
+            "error": "计算失败，使用默认值"
+        }
+        
         try:
             prompt = comprehensive_score_prompts.get_batch_calculation_prompt(
                 student_id, student_name, class_name,
                 academic_info, certificate_info, score_details
             )
             
-            response = await self.client.post(
-                f"{self.rag_base_url}/api/v1/chat",
-                json={
-                    "message": prompt,
-                    "chat_history": [],
-                    "use_rag": True
-                }
+            parsed = await self._call_rag_with_retry(
+                prompt=prompt,
+                max_retries=max_retries,
+                default_response=default_response
             )
-            
-            if response.status_code != 200:
-                logger.error(f"RAG请求失败: {response.status_code}")
-                return {"success": False, "error": f"RAG请求失败: {response.status_code}"}
-            
-            result = response.json()
-            self._log_data_trace("综测计算-RAG响应", result)
-            
-            answer = result.get("answer", result.get("response", ""))
-            parsed = self._parse_json_response(answer)
             
             if parsed.get("success"):
                 scores = parsed.get("scores", {})
@@ -308,7 +475,7 @@ class RAGComprehensiveService:
             
         except Exception as e:
             logger.error(f"综测计算失败: {e}", exc_info=True)
-            return {"success": False, "error": str(e)}
+            return {**default_response, "error": str(e)}
     
     async def get_weight_config(
         self, 
@@ -396,13 +563,15 @@ class RAGComprehensiveService:
     async def generate_excel_fill_data(
         self,
         raw_data: str,
-        student_list: List[Dict]
+        student_list: List[Dict],
+        max_retries: int = 2
     ) -> Dict[str, Any]:
         """生成Excel填充数据
         
         Args:
             raw_data: 原始数据（OCR识别或成绩单）
             student_list: 学生列表
+            max_retries: 最大重试次数
             
         Returns:
             填充数据
@@ -412,29 +581,27 @@ class RAGComprehensiveService:
             "student_count": len(student_list)
         })
         
+        default_response = {
+            "success": False,
+            "fill_data": [],
+            "summary": {
+                "total_students": len(student_list),
+                "processed": 0,
+                "failed": len(student_list)
+            },
+            "error": "生成失败，使用默认值"
+        }
+        
         try:
             prompt = comprehensive_score_prompts.get_excel_fill_prompt(
                 raw_data, student_list
             )
             
-            response = await self.client.post(
-                f"{self.rag_base_url}/api/v1/chat",
-                json={
-                    "message": prompt,
-                    "chat_history": [],
-                    "use_rag": True
-                }
+            parsed = await self._call_rag_with_retry(
+                prompt=prompt,
+                max_retries=max_retries,
+                default_response=default_response
             )
-            
-            if response.status_code != 200:
-                logger.error(f"RAG请求失败: {response.status_code}")
-                return {"success": False, "error": f"RAG请求失败: {response.status_code}"}
-            
-            result = response.json()
-            self._log_data_trace("Excel填充-RAG响应", result)
-            
-            answer = result.get("answer", result.get("response", ""))
-            parsed = self._parse_json_response(answer)
             
             if parsed.get("success"):
                 fill_data = parsed.get("fill_data", [])
@@ -453,7 +620,7 @@ class RAGComprehensiveService:
             
         except Exception as e:
             logger.error(f"生成Excel填充数据失败: {e}", exc_info=True)
-            return {"success": False, "error": str(e)}
+            return {**default_response, "error": str(e)}
 
 
 rag_comprehensive_service = RAGComprehensiveService()

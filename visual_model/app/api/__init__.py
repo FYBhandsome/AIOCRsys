@@ -10,6 +10,8 @@ from fastapi import APIRouter
 from app.api import upload, class_
 from app.api import auth, student, teacher, admin, license, ai, database, data_import, comprehensive_score, excel_fill, field_mapping, score_upload, certificate_upload, file_management
 from app.api.frontend_logs import router as frontend_logs_router
+from app.api.system_routes import router as system_router
+from app.api.system_routes import health_router
 from app.business.certificate_ocr_api import router as certificate_ocr_router
 
 api_router = APIRouter()
@@ -41,6 +43,9 @@ api_router.include_router(certificate_upload.router)
 api_router.include_router(file_management.router)
 
 api_router.include_router(frontend_logs_router, tags=["前端日志"])
+
+api_router.include_router(system_router, tags=["系统"])
+api_router.include_router(health_router)
 
 api_router.include_router(upload.router)
 api_router.include_router(class_.router)

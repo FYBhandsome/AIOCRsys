@@ -37,15 +37,15 @@
         </div>
         
         <div class="hero-actions">
-          <el-button class="action-btn primary" size="large" @click="$router.push('/upload-rule')">
+          <el-button class="action-btn primary" size="large" @click="$router.push('/upload/rule')">
             <el-icon><Document /></el-icon>
             上传综测规则
           </el-button>
-          <el-button class="action-btn success" size="large" @click="$router.push('/upload-score')">
+          <el-button class="action-btn success" size="large" @click="$router.push('/upload/score')">
             <el-icon><TrendCharts /></el-icon>
             上传成绩单
           </el-button>
-          <el-button class="action-btn warning" size="large" @click="$router.push('/upload-material')">
+          <el-button class="action-btn warning" size="large" @click="$router.push('/upload/material')">
             <el-icon><FolderOpened /></el-icon>
             上传证明材料
           </el-button>

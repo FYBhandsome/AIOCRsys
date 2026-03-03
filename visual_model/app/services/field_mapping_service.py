@@ -62,7 +62,7 @@ class FieldMappingService:
         'Q': 'C4—创新创业实践项目',
         'R': '素质拓展(C)总分',
         'S': '素质拓展(C)总分10%',
-        'T': '综合测评总成绩',
+        'T': '综合测评总成绩8%',
         'U': '学生签字'
     }
     
@@ -387,6 +387,8 @@ class FieldMappingService:
         total_score = calc_result.get('total_score', 0)
         ws_main.cell(row=row, column=20).value = round(total_score, 2)
         
+        ws_main.cell(row=row, column=21).value = ''
+        
         details = calc_result.get('details', [])
         for detail in details:
             self._add_detail_row(ws_detail, mapped_data, detail)
@@ -427,6 +429,8 @@ class FieldMappingService:
         
         total = 20 + round(b_raw * b_weight, 2)
         ws_main.cell(row=row, column=20).value = round(total, 2)
+        
+        ws_main.cell(row=row, column=21).value = ''
         
         self._log_data_trace(f"填充基础数据-{row}", {
             'student_id': mapped_data.get('student_id'),

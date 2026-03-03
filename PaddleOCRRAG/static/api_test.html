@@ -145,6 +145,11 @@
                             <i class="bi bi-hdd-stack"></i> 缓存管理
                         </button>
                     </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="docanalysis-tab" data-bs-toggle="tab" data-bs-target="#docanalysis" type="button" role="tab" aria-controls="docanalysis" aria-selected="false">
+                            <i class="bi bi-file-earmark-bar-graph"></i> 文档分析
+                        </button>
+                    </li>
                 </ul>
             </div>
         </div>
@@ -550,6 +555,99 @@
                     <div class="response-container" id="llmResponse">
                         <h5>LLM配置信息</h5>
                         <pre id="llmResult">等待获取LLM配置...</pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 文档分析 -->
+            <div class="tab-pane fade" id="docanalysis" role="tabpanel" aria-labelledby="docanalysis-tab">
+                <div class="api-section">
+                    <h3><i class="bi bi-file-earmark-bar-graph"></i> 文档分析概览</h3>
+                    <p>分析综测规则文档，提取计算规则、比例数据和分析说明</p>
+                    
+                    <div class="d-grid gap-2 d-md-flex mb-3">
+                        <button class="btn btn-primary" id="analyzeDocBtn">
+                            <i class="bi bi-search"></i> 分析文档
+                        </button>
+                        <button class="btn btn-info" id="getRulesBtn">
+                            <i class="bi bi-list-ul"></i> 获取规则
+                        </button>
+                        <button class="btn btn-success" id="getRatiosBtn">
+                            <i class="bi bi-percent"></i> 获取比例
+                        </button>
+                        <button class="btn btn-warning" id="getAnalysisBtn">
+                            <i class="bi bi-lightbulb"></i> 获取说明
+                        </button>
+                    </div>
+                    
+                    <div class="loading" id="docAnalysisLoading">
+                        <div class="loading-spinner"></div> 正在分析...
+                    </div>
+                    
+                    <div id="docAnalysisResult" style="display: none;">
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header bg-primary text-white">
+                                        <h5 class="mb-0"><i class="bi bi-calculator"></i> 综测计算公式</h5>
+                                    </div>
+                                    <div class="card-body text-center">
+                                        <h3 id="formulaDisplay" class="text-primary font-weight-bold">M = 20% × A + 70% × B + 10% × C</h3>
+                                        <div class="row mt-3">
+                                            <div class="col-md-4">
+                                                <div class="border rounded p-3">
+                                                    <h6 class="text-muted">A - 品德行为分</h6>
+                                                    <h2 id="ratioA" class="text-primary">20%</h2>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <div class="border rounded p-3">
+                                                    <h6 class="text-muted">B - 学习成绩分</h6>
+                                                    <h2 id="ratioB" class="text-success">70%</h2>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <div class="border rounded p-3">
+                                                    <h6 class="text-muted">C - 素质拓展分</h6>
+                                                    <h2 id="ratioC" class="text-info">10%</h2>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header bg-warning text-dark">
+                                        <h5 class="mb-0"><i class="bi bi-lightbulb"></i> 分析说明</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <p id="analysisText" class="mb-0">暂无分析说明</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header bg-success text-white">
+                                        <h5 class="mb-0"><i class="bi bi-list-check"></i> 计算规则 (<span id="rulesCountBadge">0</span>条)</h5>
+                                    </div>
+                                    <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                                        <div id="rulesList"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="response-container" id="docAnalysisResponse">
+                        <h5>API响应</h5>
+                        <pre id="docAnalysisResultRaw">等待分析文档...</pre>
                     </div>
                 </div>
             </div>
@@ -1171,6 +1269,147 @@
                 });
             }
         });
+        
+        // 文档分析功能
+        document.getElementById('analyzeDocBtn').addEventListener('click', function() {
+            toggleLoading('docAnalysisLoading', true);
+            
+            fetch(`${API_BASE_URL}/documents/analyze/overview`)
+            .then(response => response.json())
+            .then(data => {
+                showResponse('docAnalysisResultRaw', data, data.success ? 'success' : 'error');
+                if (data.success) {
+                    renderDocAnalysis(data.data);
+                }
+            })
+            .catch(error => {
+                showResponse('docAnalysisResultRaw', { error: error.message }, 'error');
+            })
+            .finally(() => {
+                toggleLoading('docAnalysisLoading', false);
+            });
+        });
+        
+        document.getElementById('getRulesBtn').addEventListener('click', function() {
+            toggleLoading('docAnalysisLoading', true);
+            
+            fetch(`${API_BASE_URL}/documents/analyze/rules?top_k=10`)
+            .then(response => response.json())
+            .then(data => {
+                showResponse('docAnalysisResultRaw', data, data.success ? 'success' : 'error');
+                if (data.success) {
+                    renderRulesList(data.data.rules);
+                }
+            })
+            .catch(error => {
+                showResponse('docAnalysisResultRaw', { error: error.message }, 'error');
+            })
+            .finally(() => {
+                toggleLoading('docAnalysisLoading', false);
+            });
+        });
+        
+        document.getElementById('getRatiosBtn').addEventListener('click', function() {
+            toggleLoading('docAnalysisLoading', true);
+            
+            fetch(`${API_BASE_URL}/documents/analyze/ratios`)
+            .then(response => response.json())
+            .then(data => {
+                showResponse('docAnalysisResultRaw', data, data.success ? 'success' : 'error');
+                if (data.success) {
+                    renderRatios(data.data);
+                }
+            })
+            .catch(error => {
+                showResponse('docAnalysisResultRaw', { error: error.message }, 'error');
+            })
+            .finally(() => {
+                toggleLoading('docAnalysisLoading', false);
+            });
+        });
+        
+        document.getElementById('getAnalysisBtn').addEventListener('click', function() {
+            toggleLoading('docAnalysisLoading', true);
+            
+            fetch(`${API_BASE_URL}/documents/analyze/description?max_length=100`)
+            .then(response => response.json())
+            .then(data => {
+                showResponse('docAnalysisResultRaw', data, data.success ? 'success' : 'error');
+                if (data.success) {
+                    document.getElementById('analysisText').textContent = data.data.analysis;
+                    document.getElementById('docAnalysisResult').style.display = 'block';
+                }
+            })
+            .catch(error => {
+                showResponse('docAnalysisResultRaw', { error: error.message }, 'error');
+            })
+            .finally(() => {
+                toggleLoading('docAnalysisLoading', false);
+            });
+        });
+        
+        function renderDocAnalysis(data) {
+            document.getElementById('docAnalysisResult').style.display = 'block';
+            
+            if (data.ratios) {
+                renderRatios(data.ratios);
+            }
+            
+            if (data.analysis) {
+                document.getElementById('analysisText').textContent = data.analysis;
+            }
+            
+            if (data.rules) {
+                renderRulesList(data.rules);
+            }
+        }
+        
+        function renderRatios(ratios) {
+            if (ratios.formula) {
+                document.getElementById('formulaDisplay').textContent = ratios.formula;
+            }
+            
+            const ratioData = ratios.data || ratios.ratios || {};
+            
+            if (ratioData.A !== undefined) {
+                document.getElementById('ratioA').textContent = Math.round(ratioData.A * 100) + '%';
+            }
+            if (ratioData.B !== undefined) {
+                document.getElementById('ratioB').textContent = Math.round(ratioData.B * 100) + '%';
+            }
+            if (ratioData.C !== undefined) {
+                document.getElementById('ratioC').textContent = Math.round(ratioData.C * 100) + '%';
+            }
+        }
+        
+        function renderRulesList(rules) {
+            const container = document.getElementById('rulesList');
+            document.getElementById('rulesCountBadge').textContent = rules.length;
+            
+            if (!rules || rules.length === 0) {
+                container.innerHTML = '<p class="text-muted text-center">暂无规则数据</p>';
+                return;
+            }
+            
+            let html = '';
+            rules.forEach((rule, index) => {
+                const similarity = rule.similarity ? (rule.similarity * 100).toFixed(1) : '0.0';
+                const content = rule.content || '无内容';
+                const displayContent = content.length > 150 ? content.substring(0, 150) + '...' : content;
+                
+                html += `
+                    <div class="border-left border-success mb-2 p-2" style="border-left-width: 3px !important; background-color: #f8f9fa;">
+                        <div class="d-flex justify-content-between">
+                            <span class="badge bg-primary">${index + 1}</span>
+                            <span class="badge bg-success">相似度: ${similarity}%</span>
+                        </div>
+                        <p class="mb-0 mt-1 small">${displayContent}</p>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
     </script>
 </body>
 </html>

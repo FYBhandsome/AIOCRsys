@@ -1,0 +1,86 @@
+ScoreVisualization.vue:326 获取学生成绩失败: ReferenceError: rankingChart is not defined
+    at initRankingChart (ScoreVisualization.vue:385:3)
+    at fetchStudentScores (ScoreVisualization.vue:323:7)
+    at async ScoreVisualization.vue:536:3
+element-plus.js?v=841e0da6:32371 Unhandled error during execution of mounted hook 
+Proxy(Object) {…}
+ at <ScoreVisualization>
+at <BaseTransition>
+at <Transition>
+at <RouterView>
+at <ElMain>
+at <ElContainer>
+at <ElContainer>
+at <App> 
+(8) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]
+ScoreVisualization.vue:433 Uncaught (in promise) ReferenceError: trendChart is not defined
+    at initTrendChart (ScoreVisualization.vue:433:3)
+    at ScoreVisualization.vue:538:3
+Sidebar.vue:144 [Vue warn]: Unhandled error during execution of mounted hook 
+  at <ScoreAnalysis onVnodeUnmounted=fn<onVnodeUnmounted> ref=Ref< 
+Proxy(Object) {__v_skip: true}
+ > > 
+  at <BaseTransition mode="out-in" appear=false persisted=false  ... > 
+  at <Transition name="fade-slide" mode="out-in" > 
+  at <RouterView> 
+  at <ElMain class="main-content" > 
+  at <ElContainer class="content-container" > 
+  at <ElContainer class="layout-container" > 
+  at <App>
+echarts.js?v=841e0da6:39326 Uncaught (in promise) TypeError: Cannot read properties of undefined (reading 'push')
+    at SeriesData$1.<anonymous> (echarts.js?v=841e0da6:39326:18)
+    at DataStore$1.each (echarts.js?v=841e0da6:19522:6)
+    at SeriesData$1.each (echarts.js?v=841e0da6:25783:15)
+    at echarts.js?v=841e0da6:39322:8
+    at GlobalModel$1.<anonymous> (echarts.js?v=841e0da6:16984:39)
+    at Array.forEach (<anonymous>)
+    at each (echarts.js?v=841e0da6:351:56)
+    at GlobalModel$1.eachSeriesByType (echarts.js?v=841e0da6:16982:3)
+    at Object.radarLayout [as overallReset] (echarts.js?v=841e0da6:39309:10)
+    at Task$1.overallTaskReset [as _reset] (echarts.js?v=841e0da6:21441:10)
+ScoreAnalysis.vue:220 [ECharts] Can't get DOM width or height. Please check dom.clientWidth and dom.clientHeight. They should not be 0.For example, you may need to call this in the callback of window.onload.
+element-plus.js?v=841e0da6:32371 Unhandled error during execution of mounted hook 
+Proxy(Object) {…}
+ at <ScoreAnalysis>
+at <ElTabPane>
+at <ElTabs>
+at <TeacherDashboard>
+at <BaseTransition>
+at <Transition>
+at <RouterView>
+at <ElMain>
+at <ElContainer>
+at <ElContainer>
+at <App> 
+(11) [{…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}, {…}]
+echarts.js?v=841e0da6:39326 Uncaught (in promise) TypeError: Cannot read properties of undefined (reading 'push')
+    at SeriesData$1.<anonymous> (echarts.js?v=841e0da6:39326:18)
+    at DataStore$1.each (echarts.js?v=841e0da6:19522:6)
+    at SeriesData$1.each (echarts.js?v=841e0da6:25783:15)
+    at echarts.js?v=841e0da6:39322:8
+    at GlobalModel$1.<anonymous> (echarts.js?v=841e0da6:16984:39)
+    at Array.forEach (<anonymous>)
+    at each (echarts.js?v=841e0da6:351:56)
+    at GlobalModel$1.eachSeriesByType (echarts.js?v=841e0da6:16982:3)
+    at Object.radarLayout [as overallReset] (echarts.js?v=841e0da6:39309:10)
+    at Task$1.overallTaskReset [as _reset] (echarts.js?v=841e0da6:21441:10)
+api.js:316 
+ GET http://localhost:5173/rag-api/api/v1/vector-db/stats 500 (Internal Server Error)
+api.js:107 [RAG API Error] 
+{url: '/api/v1/vector-db/stats', method: 'get', error: AxiosError$1, response: ''}
+VectorDBManager.vue:300 加载向量数据库统计失败: 
+AxiosError$1 {message: 'Request failed with status code 500', name: 'AxiosError', code: 'ERR_BAD_RESPONSE', config: {…}, request: XMLHttpRequest, …}
+api.js:298 
+ GET http://localhost:8001/api/v1/admin/ai/config 500 (Internal Server Error)
+api.js:107 [Main API Error] 
+{url: '/v1/admin/ai/config', method: 'get', error: AxiosError$1, response: {…}}
+SystemSettings.vue:264 加载AI配置失败: 
+AxiosError$1 {message: 'Request failed with status code 500', name: 'AxiosError', code: 'ERR_BAD_RESPONSE', config: {…}, request: XMLHttpRequest, …}
+api.js:312 
+ GET http://localhost:8001/api/v1/admin/prompts 500 (Internal Server Error)
+api.js:107 [Main API Error] 
+{url: '/v1/admin/prompts', method: 'get', error: AxiosError$1, response: {…}}
+PromptManager.vue:187 加载Prompt配置失败: 
+AxiosError$1 {message: 'Request failed with status code 500', name: 'AxiosError', code: 'ERR_BAD_RESPONSE', config: {…}, request: XMLHttpRequest, …}
+﻿
+

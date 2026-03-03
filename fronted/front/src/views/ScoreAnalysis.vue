@@ -98,7 +98,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import { TrendCharts, Top, Bottom, Compass, Histogram } from '@element-plus/icons-vue'
 import { studentAPI, teacherAPI } from '@/services/api'
@@ -212,32 +212,54 @@ const initData = async () => {
   ])
 }
 
+const initChartWithRetry = (chartRef, initFn, maxRetries = 5) => {
+  let retries = 0
+  const tryInit = () => {
+    if (!chartRef.value) {
+      if (retries < maxRetries) {
+        retries++
+        setTimeout(tryInit, 100)
+      }
+      return
+    }
+    const { clientWidth, clientHeight } = chartRef.value
+    if (clientWidth === 0 || clientHeight === 0) {
+      if (retries < maxRetries) {
+        retries++
+        setTimeout(tryInit, 200)
+      }
+      return
+    }
+    initFn()
+  }
+  tryInit()
+}
+
 onMounted(async () => {
-  // 先获取数据
   await initData()
+  await nextTick()
+  setTimeout(() => {
+    initChartWithRetry(radarChart, () => {
+      radarChartInstance = echarts.init(radarChart.value)
+      updateRadarChart()
+    })
+    initChartWithRetry(rankingChart, () => {
+      rankingChartInstance = echarts.init(rankingChart.value)
+      updateRankingChart()
+    })
+    initChartWithRetry(trendChart, () => {
+      trendChartInstance = echarts.init(trendChart.value)
+      updateTrendChart()
+    })
+  }, 100)
   
-  // 初始化雷达图
-  radarChartInstance = echarts.init(radarChart.value)
-  updateRadarChart()
-  
-  // 初始化排行榜图
-  rankingChartInstance = echarts.init(rankingChart.value)
-  updateRankingChart()
-  
-  // 初始化趋势图
-  trendChartInstance = echarts.init(trendChart.value)
-  updateTrendChart()
-  
-  // 监听窗口大小变化，自适应图表
   const handleResize = () => {
     radarChartInstance?.resize()
     rankingChartInstance?.resize()
     trendChartInstance?.resize()
   }
-  
   window.addEventListener('resize', handleResize)
   
-  // 组件卸载时清理事件监听器
   onUnmounted(() => {
     window.removeEventListener('resize', handleResize)
   })

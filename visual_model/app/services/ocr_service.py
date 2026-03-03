@@ -6,6 +6,11 @@ OCR服务封装 - 基于PaddleOCR
 提供图像OCR识别和证书信息提取功能。
 """
 
+import os
+
+if 'DISABLE_MODEL_SOURCE_CHECK' not in os.environ:
+    os.environ['DISABLE_MODEL_SOURCE_CHECK'] = 'True'
+
 from typing import Dict, Any, List, Union, Optional
 import re
 from pathlib import Path

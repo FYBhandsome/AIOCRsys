@@ -102,7 +102,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search } from '@element-plus/icons-vue'
 import { adminAPI } from '@/services/api'
@@ -159,17 +159,20 @@ const fetchRules = async () => {
       status: filterStatus.value
     })
     
-    if (response && response.rules) {
-      rules.value = response.rules.map(rule => ({
-        id: rule.id || rule.rule_id,
-        name: rule.name,
-        academicYear: rule.academic_year || rule.academicYear,
-        college: rule.college,
-        status: rule.status || 'active',
-        createTime: rule.create_time || rule.createTime,
-        content: rule.content
+    const rulesData = response.data?.documents || response.documents || response.rules || []
+    const total = response.data?.total || response.total || rulesData.length
+    
+    if (rulesData && Array.isArray(rulesData)) {
+      rules.value = rulesData.map(rule => ({
+        id: rule.id || rule.doc_id || rule.document_id,
+        name: rule.name || rule.filename || rule.title,
+        academicYear: rule.academic_year || rule.academicYear || '',
+        college: rule.college || rule.metadata?.college || '',
+        status: rule.enabled === false ? 'inactive' : 'active',
+        createTime: rule.create_time || rule.created_at || rule.uploaded_at || rule.createTime,
+        content: rule.content || rule.description || ''
       }))
-      pagination.total = response.total || rules.value.length
+      pagination.total = total
     }
   } catch (error) {
     console.error('获取规则列表失败:', error)

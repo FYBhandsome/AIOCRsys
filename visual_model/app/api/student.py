@@ -576,3 +576,91 @@ async def get_score_trend(
         logger.error(f"获取成绩趋势失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"获取成绩趋势失败: {str(e)}")
 
+
+@router.post("/material/upload")
+async def upload_material(
+    file: UploadFile = File(..., description="材料文件"),
+    material_type: str = "other",
+    current_user: TokenData = Depends(get_student_user),
+    db_service: DatabaseService = Depends(get_db_service),
+    upload_service: UploadService = Depends(get_upload_service)
+):
+    """学生上传材料
+    
+    上传各种材料文件（如申请材料、证明材料等）
+    """
+    try:
+        allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf']
+        if file.content_type not in allowed_types:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"不支持的文件类型: {file.content_type}，支持类型: {allowed_types}"
+            )
+        
+        file_path, file_id = await upload_service.save_uploaded_file(file)
+        
+        file.file.seek(0)
+        file_content = await file.read()
+        file_size = len(file_content)
+        
+        file_record = await db_service.create_file(
+            id=file_id,
+            filename=file.filename,
+            file_path=file_path,
+            file_type=material_type,
+            file_size=file_size,
+            student_id=current_user.user_id
+        )
+        
+        logger.info(f"学生上传材料成功: {current_user.user_id} - {file.filename}")
+        
+        return {
+            "success": True,
+            "file_id": file_id,
+            "filename": file.filename,
+            "file_size": file_size,
+            "material_type": material_type,
+            "message": "材料上传成功"
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"上传材料失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"上传材料失败: {str(e)}")
+
+
+@router.get("/materials")
+async def get_materials(
+    material_type: str = None,
+    current_user: TokenData = Depends(get_student_user),
+    db_service: DatabaseService = Depends(get_db_service)
+):
+    """获取学生上传的材料列表"""
+    try:
+        files = await db_service.get_files(
+            student_id=current_user.user_id,
+            file_type=material_type
+        )
+        
+        materials = []
+        for f in files:
+            materials.append({
+                "id": f.id,
+                "filename": f.filename,
+                "file_type": f.file_type,
+                "file_size": f.file_size,
+                "created_at": f.created_at.isoformat() if f.created_at else None,
+                "status": f.status if hasattr(f, 'status') else "uploaded"
+            })
+        
+        return {
+            "student_id": current_user.user_id,
+            "materials": materials,
+            "total": len(materials)
+        }
+    
+    except Exception as e:
+        logger.error(f"获取材料列表失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"获取材料列表失败: {str(e)}")
+

@@ -3,11 +3,14 @@
 """
 综测计算助手 - 主应用入口
 """
-
+import os
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+if os.environ.get('DISABLE_MODEL_SOURCE_CHECK', '').lower() not in ('true', '1'):
+    os.environ['DISABLE_MODEL_SOURCE_CHECK'] = 'True'
 
 from shared_utils.unified_logger import setup_logging, get_logger
 

@@ -1,5 +1,10 @@
 /**
  * 应用常量定义
+ * 
+ * API路径说明：
+ * - BASE_URL: 主后端服务代理路径，所有主后端API请求会自动添加此前缀
+ * - RAG_BASE_URL: RAG服务代理路径，所有RAG相关请求会自动添加此前缀
+ * - API_ENDPOINTS中的路径应为相对路径（不带代理前缀）
  */
 
 const ENV_BASE_URL = import.meta?.env?.VITE_API_BASE_URL
@@ -62,7 +67,9 @@ export const API_ENDPOINTS = {
     STUDENTS: '/v1/teacher/students',
     CLASSES: '/v1/teacher/classes',
     CLASS_STATS: '/v1/teacher/classes/stats',
-    CLASS_RANKING: '/v1/teacher/classes/ranking'
+    CLASS_RANKING: '/v1/teacher/classes/ranking',
+    UPLOAD_COMPREHENSIVE: '/v1/teacher/comprehensive/upload',
+    COMPREHENSIVE_LIST: '/v1/teacher/comprehensive/list'
   },
   ADMIN: {
     RULES_UPLOAD: '/v1/admin/rules/upload',
@@ -72,12 +79,12 @@ export const API_ENDPOINTS = {
     SETTINGS: '/v1/admin/settings',
     USERS: '/v1/admin/users',
     PROMPTS: '/v1/admin/prompts',
-    VECTOR_DB_STATS: '/v1/vector-db/stats',
-    VECTOR_DB_CLEAR: '/v1/vector-db/clear',
-    VECTOR_DB_RESET: '/v1/vector-db/reset',
-    VECTOR_DB_REINDEX: '/v1/vector-db/reindex',
-    VECTOR_DB_COLLECTIONS: '/v1/vector-db/collections',
-    VECTOR_DB_HEALTH: '/v1/vector-db/health',
+    VECTOR_DB_STATS: '/v1/admin/vector-db/stats',
+    VECTOR_DB_CLEAR: '/v1/admin/vector-db/clear',
+    VECTOR_DB_RESET: '/v1/admin/vector-db/reset',
+    VECTOR_DB_REINDEX: '/v1/admin/vector-db/reindex',
+    VECTOR_DB_COLLECTIONS: '/v1/admin/vector-db/collections',
+    VECTOR_DB_HEALTH: '/v1/admin/vector-db/health',
     RAG_STATS: '/v1/admin/rag/stats',
     RAG_HEALTH: '/v1/admin/rag/health'
   },
@@ -93,7 +100,12 @@ export const API_ENDPOINTS = {
     SYSTEM_HEALTH: '/api/v1/system/health',
     LLM_CONFIG: '/api/v1/system/llm/config',
     LLM_TEST: '/api/v1/system/llm/test',
-    VECTOR_DB_STATS: '/api/v1/system/vector_db/stats',
+    VECTOR_DB_STATS: '/api/v1/vector-db/stats',
+    VECTOR_DB_CLEAR: '/api/v1/vector-db/clear',
+    VECTOR_DB_RESET: '/api/v1/vector-db/reset',
+    VECTOR_DB_REINDEX: '/api/v1/vector-db/reindex',
+    VECTOR_DB_COLLECTIONS: '/api/v1/vector-db/collections',
+    VECTOR_DB_HEALTH: '/api/v1/vector-db/health',
     PROMPTS: '/api/v1/prompts'
   }
 }

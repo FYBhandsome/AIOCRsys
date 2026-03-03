@@ -14,57 +14,475 @@
 
 ## 📑 目录
 
-- [项目简介](#项目简介)
-- [核心特性](#核心特性)
-- [快速开始](#快速开始)
-- [RAG核心技术详解](#rag核心技术详解)
-  - [向量化存储技术](#向量化存储技术)
-  - [文档切片策略](#文档切片策略)
-  - [检索召回算法](#检索召回算法)
-  - [重排序优化](#重排序优化)
-- [系统架构](#系统架构)
-- [API功能](#api功能)
+- [项目概述](#项目概述)
+- [设计逻辑](#设计逻辑)
+- [核心技术架构](#核心技术架构)
+- [完整的业务处理流程](#完整的业务处理流程)
+- [切片策略说明](#切片策略说明)
+- [性能指标](#性能指标)
+- [使用说明](#使用说明)
+- [API接口](#api接口)
 - [配置说明](#配置说明)
+- [项目结构](#项目结构)
 
 ---
 
-## 🎯 项目简介
+## 项目概述
 
-综测加分规则 RAG 系统是一个基于**检索增强生成（RAG）**技术的智能API服务，提供：
+### 项目名称
 
-- 📄 **自动解析**: 上传规则文档，自动解析并向量化
-- 🤖 **智能计算**: 根据证书信息自动匹配加分规则和分值
-- 💬 **AI对话**: 自然语言问答，支持多轮对话
-- 🎛️ **灵活配置**: 自定义Prompt提示词，个性化计算规则
-- 📊 **完整管理**: 文档管理、向量库管理、统计分析
+**综测加分规则 RAG 系统** - 基于检索增强生成技术的智能综测加分查询API服务
 
----
+### 项目简介
 
-## ✨ 核心特性
+本系统是一个面向高校综合测评场景的智能问答系统，通过RAG（Retrieval-Augmented Generation，检索增强生成）技术，实现对综测加分规则的智能检索和精准问答。系统能够自动解析规则文档，构建向量索引，并根据用户查询智能匹配相关规则，返回准确的加分信息。
 
-### 🔥 v2.3.0 最新改进
+### 主要功能特性
 
-**代码架构优化**:
-- ✅ 统一API路由管理，集中注册所有子路由
-- ✅ 增强的依赖注入机制，避免重复初始化服务实例
-- ✅ 改进的组件初始化流程，添加详细的错误处理
-- ✅ 模块化代码组织，提高可维护性和可测试性
-- ✅ 统一日志系统，整合重复的logger实现
-
-**性能优化提升**:
-- ✅ 全面异步处理架构，提升并发性能70-90%
-- ✅ 智能缓存机制，减少重复计算50-80%
-- ✅ 连接池管理，优化资源使用30-40%
-- ✅ 批量处理优化，提高系统吞吐量50%
-
-**新增功能**:
-- ✅ AI对话历史记录存储
-- ✅ 会话管理功能
-- ✅ 系统设置持久化
+| 功能模块 | 描述 |
+|---------|------|
+| 📄 **自动解析** | 上传规则文档（docx/xlsx/pdf/txt），自动解析并向量化存储 |
+| 🤖 **智能计算** | 根据证书信息自动匹配加分规则和分值 |
+| 💬 **AI对话** | 自然语言问答，支持多轮对话上下文 |
+| 🎛️ **灵活配置** | 自定义Prompt提示词，个性化计算规则 |
+| 📊 **完整管理** | 文档管理、向量库管理、统计分析 |
+| 🏷️ **类别感知** | 自动识别查询意图，精准定位规则类别 |
 
 ---
 
-## 🚀 快速开始
+## 设计逻辑
+
+### RAG核心原理
+
+RAG（Retrieval-Augmented Generation）是一种结合检索和生成的AI架构，其核心思想是：
+
+```
+用户查询 → 检索相关文档 → 构建增强上下文 → LLM生成回答
+```
+
+**核心优势**：
+- **知识可更新**：无需重新训练模型，只需更新文档库
+- **答案可追溯**：每个回答都有明确的文档来源
+- **减少幻觉**：基于真实文档生成，降低模型编造风险
+- **领域适配**：轻松适配特定领域的知识库
+
+### 系统设计思路
+
+本系统采用**类别感知的RAG架构**，针对综测加分规则的特点进行深度优化：
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    系统设计核心思路                          │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  1. 文档预处理层                                            │
+│     ├─ 智能切片：保持规则完整性，避免规则与分数分离          │
+│     ├─ 类别标注：自动识别C1/C2/C3/C4子类别                  │
+│     └─ 元数据增强：添加竞赛类型、级别、分数等信息            │
+│                                                             │
+│  2. 检索增强层                                              │
+│     ├─ 意图识别：分析用户查询，预测类别和级别                │
+│     ├─ 查询增强：添加类别标签，提升检索精度                  │
+│     └─ 混合检索：向量检索 + 元数据过滤                       │
+│                                                             │
+│  3. 重排序层                                                │
+│     ├─ 类别匹配：优先返回类别一致的结果                      │
+│     ├─ 关键词匹配：重要术语加权                              │
+│     └─ 来源权威性：官方细则优先                              │
+│                                                             │
+│  4. 生成层                                                  │
+│     ├─ 上下文组装：整合检索结果                              │
+│     ├─ Prompt工程：结构化提示词                              │
+│     └─ LLM生成：讯飞星火大模型                               │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 核心技术架构
+
+### 架构总览
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         核心技术架构                                 │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐           │
+│  │ 向量数据库    │   │ 嵌入模型      │   │ 意图识别器    │           │
+│  │ (ChromaDB)   │   │ (Sentence-   │   │ (IntentRe-   │           │
+│  │              │   │ Transformers)│   │ cognizer)    │           │
+│  └──────────────┘   └──────────────┘   └──────────────┘           │
+│         │                  │                  │                     │
+│         ▼                  ▼                  ▼                     │
+│  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐           │
+│  │ 竞赛映射器    │   │ 查询增强器    │   │ 重排器        │           │
+│  │ (Competition │   │ (QueryEn-    │   │ (CategoryRe- │           │
+│  │ Mapper)      │   │ hancer)      │   │ ranker)      │           │
+│  └──────────────┘   └──────────────┘   └──────────────┘           │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### 1. 向量数据库（ChromaDB）
+
+**功能**：存储文档向量，支持高效相似度检索
+
+**技术特点**：
+- 使用HNSW（Hierarchical Navigable Small World）索引算法
+- 支持余弦相似度、欧氏距离、点积等多种距离度量
+- 持久化存储，支持元数据过滤
+
+**核心配置**：
+```python
+collection = client.get_or_create_collection(
+    name="zongce_rules",
+    embedding_function=embedding_function,
+    metadata={"hnsw:space": "cosine"}  # 使用余弦相似度
+)
+```
+
+### 2. 嵌入模型（Sentence-Transformers）
+
+**功能**：将文本转换为高维向量表示
+
+**模型选择**：
+
+| 模型名称 | 向量维度 | 速度 | 质量 | 适用场景 |
+|---------|---------|------|------|---------|
+| all-MiniLM-L6-v2 | 384 | 快 | 中 | 实时查询（默认） |
+| all-mpnet-base-v2 | 768 | 中 | 高 | 精确检索 |
+| paraphrase-multilingual | 768 | 中 | 高 | 多语言支持 |
+
+**相似度计算**：
+```
+余弦相似度: similarity = cos(θ) = (A · B) / (||A|| × ||B||)
+```
+
+### 3. 意图识别器
+
+**功能**：分析用户查询，预测主/子类别、竞赛类型、级别等
+
+**识别维度**：
+- **主类别**：C（素质拓展）
+- **子类别**：C1（科技）、C2（体育）、C3（文化）、C4（创新创业）
+- **竞赛类型**：A类、B类、非AB类
+- **级别**：国家级、省部级、校级
+- **获奖等级**：一等奖、二等奖、三等奖
+
+**核心实现**：
+```python
+class IntentRecognizer:
+    def recognize(self, query: str) -> IntentResult:
+        # 1. 竞赛名称提取与匹配
+        competition_name, comp_info, match_score = self._extract_competition(query)
+        
+        # 2. 子类别预测（基于关键词）
+        sub_category, matched_kw = self._predict_sub_category(query)
+        
+        # 3. 级别和获奖等级提取
+        level = self._extract_level(query)
+        award_level = self._extract_award_level(query)
+        
+        return IntentResult(
+            sub_category=sub_category,
+            competition_type=comp_info.competition_type,
+            level=level,
+            award_level=award_level,
+            confidence=match_score / 100.0
+        )
+```
+
+### 4. 竞赛映射器
+
+**功能**：标准化竞赛名称，支持模糊匹配
+
+**核心能力**：
+- 加载Excel竞赛列表，构建名称映射表
+- 支持别名匹配（如"蓝桥杯" → "蓝桥杯全国软件和信息技术专业人才大赛"）
+- 使用rapidfuzz进行模糊匹配，相似度阈值70%
+
+**映射示例**：
+```python
+competition_aliases = {
+    "蓝桥杯": ["蓝桥杯全国软件和信息技术专业人才大赛", "蓝桥杯大赛"],
+    "互联网+": ["中国国际互联网+大学生创新创业大赛"],
+    "数学建模": ["全国大学生数学建模竞赛", "高教社杯数学建模"],
+}
+```
+
+### 5. 查询增强器
+
+**功能**：为查询添加类别标签，提升检索精度
+
+**增强策略**：
+```python
+# 原始查询
+query = "蓝桥杯省赛一等奖加多少分"
+
+# 增强后查询
+enhanced_query = "【主类:C｜子类:C1｜竞赛类型:B｜级别:省部级｜获奖等级:一等奖】蓝桥杯省赛一等奖加多少分"
+```
+
+**元数据过滤器构建**：
+```python
+def build_metadata_filter(self, intent: IntentResult) -> Dict[str, Any]:
+    filters = []
+    if intent.sub_category:
+        filters.append({"sub_category": intent.sub_category})
+    if intent.competition_type:
+        filters.append({"competition_type": intent.competition_type})
+    return {"$and": filters} if len(filters) > 1 else filters[0]
+```
+
+### 6. 重排器
+
+**功能**：对检索结果进行二次排序，提升类别匹配度
+
+**评分权重**：
+
+| 评分维度 | 权重 | 说明 |
+|---------|------|------|
+| 相似度分数 | 35% | 向量相似度 |
+| 类别匹配 | 35% | 主类、子类、类型、级别匹配 |
+| 关键词匹配 | 20% | 重要术语匹配 |
+| 来源权威性 | 10% | 官方细则优先 |
+
+**类别匹配加分**：
+```python
+CATEGORY_BONUS = {
+    "main_match": 0.20,      # 主类别匹配
+    "sub_match": 0.20,       # 子类别匹配
+    "type_match": 0.15,      # 竞赛类型匹配
+    "level_match": 0.15,     # 级别匹配
+    "category_match": 0.10   # A/B类匹配
+}
+```
+
+---
+
+## 完整的业务处理流程
+
+### 1. 文档加载与向量化流程
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    文档加载与向量化流程                              │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐     │
+│  │ 文档上传  │ →  │ 格式解析  │ →  │ 智能切片  │ →  │ 类别标注  │     │
+│  └──────────┘    └──────────┘    └──────────┘    └──────────┘     │
+│       │              │              │              │               │
+│       │         docx/xlsx      chunk_size     C1/C2/C3/C4         │
+│       │         pdf/txt        =1000          自动识别             │
+│       │                                                        │
+│       ▼              ▼              ▼              ▼               │
+│  ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐     │
+│  │ 元数据增强 │ →  │ 向量嵌入  │ →  │ 存储入库  │ →  │ 索引构建  │     │
+│  └──────────┘    └──────────┘    └──────────┘    └──────────┘     │
+│                       │                                            │
+│                  Sentence-                                     │
+│                  Transformers                                  │
+│                  (384维向量)                                    │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**详细步骤**：
+
+1. **文档上传**：支持docx、xlsx、pdf、txt格式
+2. **格式解析**：提取文本内容，保留表格结构
+3. **智能切片**：按段落边界切分，保护规则完整性
+4. **类别标注**：根据章节标题自动识别子类别
+5. **元数据增强**：添加竞赛类型、级别、分数等信息
+6. **向量嵌入**：使用Sentence-Transformers生成向量
+7. **存储入库**：存入ChromaDB向量数据库
+8. **索引构建**：HNSW索引自动构建
+
+### 2. 用户查询处理流程
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    用户查询处理流程                                  │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  ┌──────────┐                                                      │
+│  │ 用户输入  │  "蓝桥杯省赛一等奖加多少分"                          │
+│  └──────────┘                                                      │
+│       │                                                             │
+│       ▼                                                             │
+│  ┌──────────┐                                                      │
+│  │ 意图识别  │  子类:C1, 类型:B, 级别:省部级, 获奖:一等奖           │
+│  └──────────┘                                                      │
+│       │                                                             │
+│       ▼                                                             │
+│  ┌──────────┐                                                      │
+│  │ 查询增强  │  添加类别标签【主类:C｜子类:C1｜...】                │
+│  └──────────┘                                                      │
+│       │                                                             │
+│       ▼                                                             │
+│  ┌──────────┐                                                      │
+│  │ 向量检索  │  ChromaDB相似度搜索，Top-K=10                        │
+│  └──────────┘                                                      │
+│       │                                                             │
+│       ▼                                                             │
+│  ┌──────────┐                                                      │
+│  │ 相似度过滤 │  阈值=0.7，过滤低相关结果                           │
+│  └──────────┘                                                      │
+│       │                                                             │
+│       ▼                                                             │
+│  ┌──────────┐                                                      │
+│  │ 重排序    │  类别匹配 + 关键词匹配 + 来源权威性                   │
+│  └──────────┘                                                      │
+│       │                                                             │
+│       ▼                                                             │
+│  ┌──────────┐                                                      │
+│  │ Top-K结果 │  返回最相关的5条规则                                  │
+│  └──────────┘                                                      │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### 3. 检索增强生成流程
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    检索增强生成流程                                  │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐     │
+│  │ 检索结果  │ →  │ 上下文组装 │ →  │ Prompt构建 │ →  │ LLM生成   │     │
+│  └──────────┘    └──────────┘    └──────────┘    └──────────┘     │
+│                       │              │              │               │
+│                  整合Top-K结果    结构化提示词    讯飞星火大模型    │
+│                  构建上下文窗口   注入规则信息    生成自然语言回答  │
+│                                                                     │
+│       ┌──────────────────────────────────────────────────┐         │
+│       │                 Prompt模板示例                    │         │
+│       ├──────────────────────────────────────────────────┤         │
+│       │ 你是一个综测加分规则助手。                        │         │
+│       │                                                  │         │
+│       │ 参考规则：                                        │         │
+│       │ {context}                                        │         │
+│       │                                                  │         │
+│       │ 用户问题：{query}                                │         │
+│       │                                                  │         │
+│       │ 请根据以上规则，回答用户的问题。                  │         │
+│       │ 如果规则中没有相关信息，请明确说明。              │         │
+│       └──────────────────────────────────────────────────┘         │
+│                                                                     │
+│       ┌──────────────────────────────────────────────────┐         │
+│       │                 输出示例                          │         │
+│       ├──────────────────────────────────────────────────┤         │
+│       │ 根据规则，蓝桥杯属于B类竞赛。                     │         │
+│       │ 省级（省部级）一等奖加分为：15分。                │         │
+│       │                                                  │         │
+│       │ 规则来源：计算机学院综合测评实施细则              │         │
+│       └──────────────────────────────────────────────────┘         │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 切片策略说明
+
+### 当前切片参数
+
+| 参数 | 值 | 说明 |
+|------|-----|------|
+| `chunk_size` | 1000 | 每个切片的最大字符数 |
+| `chunk_overlap` | 150 | 切片之间的重叠字符数 |
+| `similarity_threshold` | 0.7 | 相似度阈值，低于此值的结果将被过滤 |
+
+### 分隔符优先级
+
+系统按以下优先级进行文本切分：
+
+```python
+separators = [
+    "\n\n",      # 优先级1：段落边界
+    "。\n",      # 优先级2：句末换行
+    "。\r\n",    # 优先级3：句末换行（Windows）
+    "\n",        # 优先级4：换行符
+    "。",        # 优先级5：句号
+    "！",        # 优先级6：感叹号
+    "？",        # 优先级7：问号
+    "；",        # 优先级8：分号
+    "，",        # 优先级9：逗号
+    " ",         # 优先级10：空格
+    ""           # 优先级11：字符级切分
+]
+```
+
+### 规则边界检测
+
+系统采用**智能规则完整性保护**策略，确保规则与分数在同一切片：
+
+**检测模式**：
+```python
+RULE_SCORE_PATTERN = re.compile(
+    r'([AB]类[^国省市]*[国省市]级[^奖]*[一二三]等奖[^0-9]*(\d+)[分])|'
+    r'(国家级[^奖]*[一二三]等奖[^0-9]*(\d+)[分])|'
+    r'(省部级[^奖]*[一二三]等奖[^0-9]*(\d+)[分])'
+)
+```
+
+**示例**：
+```
+原始文本：
+"A类国家级一等奖20分，A类国家级二等奖15分，B类省部级一等奖10分"
+
+切分结果：
+切片1: "A类国家级一等奖20分"
+切片2: "A类国家级二等奖15分"
+切片3: "B类省部级一等奖10分"
+```
+
+### 特殊内容处理
+
+| 内容类型 | 处理策略 |
+|---------|---------|
+| **表格** | 按行切分，保持行完整性 |
+| **列表项** | 按列表项边界切分 |
+| **规则条款** | 保护规则与分数的完整性 |
+
+---
+
+## 性能指标
+
+### 检索准确率
+
+| 指标 | 数值 | 说明 |
+|------|------|------|
+| **竞赛类别匹配准确率** | 100% | A类/B类/非AB类识别准确率 |
+| **分数规则检索准确率** | 93.8% | 正确返回加分规则的比例 |
+| **综合测评规则覆盖率** | 87.5% | 规则文档覆盖的完整性 |
+| **测试通过率** | 85.7% | 7项测试中6项通过 |
+
+### 响应性能
+
+| 操作 | 平均耗时 | 说明 |
+|------|---------|------|
+| 文档加载（docx） | 139ms | 91个段落 |
+| 文档加载（xlsx） | 622ms | 172条记录 |
+| RAG系统初始化 | 2.7s | 包含模型加载 |
+| 向量检索 | 257ms | 单次查询 |
+| 类别感知检索 | 244ms | 含意图识别+重排 |
+
+### 系统资源
+
+| 指标 | 数值 | 说明 |
+|------|------|------|
+| 启动时间 | < 5s | 服务启动到可接受请求 |
+| 内存占用 | < 500MB | 稳定运行时 |
+| 向量维度 | 384 | all-MiniLM-L6-v2模型 |
+
+---
+
+## 使用说明
 
 ### 环境要求
 
@@ -72,783 +490,15 @@
 - **内存**: 8GB RAM（推荐）
 - **系统**: Windows 10+ / Linux / macOS
 
-### 步骤 1: 安装依赖
+### 安装依赖
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 步骤 2: 配置环境
+### 环境配置
 
 创建 `.env` 文件：
-
-```env
-CHROMA_DB_PATH=./data/chroma_db
-RULES_DOCS_PATH=./data/rules
-TOP_K=2
-MAX_CONTEXT_LENGTH=1024
-EMBEDDING_MODEL=all-MiniLM-L6-v2
-EMBEDDING_DEVICE=cpu
-```
-
-### 步骤 3: 启动服务
-
-```bash
-python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
-```
-
-### 步骤 4: 访问服务
-
-- **API 文档**: http://localhost:8000/docs
-- **健康检查**: http://localhost:8000/health
-
----
-
-## 🔬 RAG核心技术详解
-
-本章节详细讲解RAG系统中的核心技术算法，包括向量化存储、文档切片、检索召回和重排序优化。
-
-### 1. 向量化存储技术
-
-#### 1.1 技术原理
-
-向量化存储是RAG系统的基础，将文本转换为高维向量表示，使得语义相似的文本在向量空间中距离更近。
-
-```
-文本 ──→ 嵌入模型 ──→ 向量 ──→ 向量数据库
-                    (768维)      (ChromaDB)
-```
-
-#### 1.2 嵌入模型选择
-
-本项目使用 **Sentence-Transformers** 系列模型：
-
-| 模型名称 | 维度 | 速度 | 质量 | 适用场景 |
-|---------|------|------|------|---------|
-| all-MiniLM-L6-v2 | 384 | 快 | 中 | 实时查询 |
-| all-mpnet-base-v2 | 768 | 中 | 高 | 精确检索 |
-| paraphrase-multilingual | 768 | 中 | 高 | 多语言 |
-
-#### 1.3 向量化实现代码
-
-```python
-from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
-
-class RuleVectorDB:
-    """向量数据库管理器"""
-    
-    def __init__(self, collection_name: str = "zongce_rules"):
-        self.embedding_function = SentenceTransformerEmbeddingFunction(
-            model_name="all-MiniLM-L6-v2",
-            device="cpu",
-            normalize_embeddings=True
-        )
-        
-        self.client = chromadb.PersistentClient(path="./data/chroma_db")
-        self.collection = self.client.get_or_create_collection(
-            name=collection_name,
-            embedding_function=self.embedding_function,
-            metadata={"hnsw:space": "cosine"}
-        )
-    
-    def add_documents(self, documents: List[str], metadatas: List[dict] = None):
-        """添加文档到向量数据库"""
-        ids = [f"doc_{hashlib.md5(doc.encode()).hexdigest()[:12]}" for doc in documents]
-        
-        self.collection.add(
-            documents=documents,
-            ids=ids,
-            metadatas=metadatas or [{} for _ in documents]
-        )
-        
-        return ids
-```
-
-#### 1.4 向量相似度计算
-
-系统支持多种相似度计算方法：
-
-**余弦相似度 (Cosine Similarity)**
-```
-similarity = cos(θ) = (A · B) / (||A|| × ||B||)
-```
-
-**欧氏距离 (Euclidean Distance)**
-```
-distance = ||A - B|| = √(Σ(ai - bi)²)
-```
-
-**点积 (Dot Product)**
-```
-score = A · B = Σ(ai × bi)
-```
-
-#### 1.5 HNSW索引算法
-
-ChromaDB使用 **HNSW (Hierarchical Navigable Small World)** 算法进行高效近似最近邻搜索：
-
-```
-                    [顶层]
-                      │
-                 ┌────┴────┐
-                 │         │
-              [中层]    [中层]
-                 │         │
-            ┌────┴────┐    │
-            │         │    │
-         [底层]    [底层] [底层]
-            │         │    │
-         数据点    数据点  数据点
-```
-
-**HNSW参数配置**:
-- `M`: 每个节点的最大连接数（默认16）
-- `ef_construction`: 构建时的搜索范围（默认100）
-- `ef_search`: 查询时的搜索范围（默认10）
-
----
-
-### 2. 文档切片策略
-
-#### 2.1 切片的重要性
-
-文档切片是RAG系统的关键步骤，影响检索质量和上下文完整性：
-
-- **切片过大**: 包含过多无关信息，降低检索精度
-- **切片过小**: 丢失上下文，导致语义不完整
-
-#### 2.2 切片策略分类
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                   文档切片策略                           │
-├─────────────────────────────────────────────────────────┤
-│                                                         │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │
-│  │ 固定长度切片 │  │ 语义切片    │  │ 递归切片    │     │
-│  │ (Fixed)     │  │ (Semantic)  │  │ (Recursive) │     │
-│  └─────────────┘  └─────────────┘  └─────────────┘     │
-│                                                         │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │
-│  │ 段落切片    │  │ 句子切片    │  │ 混合切片    │     │
-│  │ (Paragraph) │  │ (Sentence)  │  │ (Hybrid)    │     │
-│  └─────────────┘  └─────────────┘  └─────────────┘     │
-│                                                         │
-└─────────────────────────────────────────────────────────┘
-```
-
-#### 2.3 本项目采用的切片策略
-
-**增强型文档加载器 (EnhancedDocumentLoader)**
-
-```python
-class EnhancedDocumentLoader:
-    """增强型文档加载器，支持多种切片策略"""
-    
-    def __init__(
-        self,
-        chunk_size: int = 500,      # 切片大小
-        chunk_overlap: int = 50,    # 重叠大小
-        separators: List[str] = None
-    ):
-        self.chunk_size = chunk_size
-        self.chunk_overlap = chunk_overlap
-        self.separators = separators or ["\n\n", "\n", "。", "；", "，", " "]
-    
-    def load_and_split(self, file_path: str) -> List[Document]:
-        """加载文档并切片"""
-        
-        # 1. 加载文档
-        documents = self._load_file(file_path)
-        
-        # 2. 递归切片
-        chunks = self._recursive_split(documents)
-        
-        # 3. 添加元数据
-        for i, chunk in enumerate(chunks):
-            chunk.metadata["chunk_index"] = i
-            chunk.metadata["source"] = file_path
-            chunk.metadata["chunk_size"] = len(chunk.page_content)
-        
-        return chunks
-    
-    def _recursive_split(self, documents: List[Document]) -> List[Document]:
-        """递归切片算法"""
-        from langchain.text_splitter import RecursiveCharacterTextSplitter
-        
-        splitter = RecursiveCharacterTextSplitter(
-            chunk_size=self.chunk_size,
-            chunk_overlap=self.chunk_overlap,
-            separators=self.separators,
-            length_function=len,
-            is_separator_regex=False
-        )
-        
-        return splitter.split_documents(documents)
-```
-
-#### 2.4 切片参数优化
-
-| 参数 | 默认值 | 说明 | 优化建议 |
-|------|--------|------|---------|
-| `chunk_size` | 500 | 每个切片的字符数 | 规则文档: 300-500 |
-| `chunk_overlap` | 50 | 切片间重叠字符数 | chunk_size的10-20% |
-| `separators` | ["\n\n", "\n", "。"] | 分隔符优先级 | 中文优先使用句号 |
-
-#### 2.5 切片质量评估
-
-```python
-def evaluate_chunk_quality(chunks: List[Document]) -> dict:
-    """评估切片质量"""
-    
-    sizes = [len(chunk.page_content) for chunk in chunks]
-    
-    return {
-        "total_chunks": len(chunks),
-        "avg_size": np.mean(sizes),
-        "std_size": np.std(sizes),
-        "min_size": min(sizes),
-        "max_size": max(sizes),
-        "size_distribution": np.histogram(sizes, bins=10)[0].tolist()
-    }
-```
-
----
-
-### 3. 检索召回算法
-
-#### 3.1 检索流程概述
-
-```
-用户查询
-    │
-    ▼
-┌─────────────┐
-│ 查询预处理   │ ← 意图识别、查询增强
-└─────────────┘
-    │
-    ▼
-┌─────────────┐
-│ 向量检索     │ ← ChromaDB相似度搜索
-└─────────────┘
-    │
-    ▼
-┌─────────────┐
-│ 竞赛检索     │ ← 竞赛名称精确匹配
-└─────────────┘
-    │
-    ▼
-┌─────────────┐
-│ 结果合并     │ ← 去重、排序
-└─────────────┘
-    │
-    ▼
-┌─────────────┐
-│ 重排序       │ ← 类别相关性重排
-└─────────────┘
-    │
-    ▼
-Top-K 结果
-```
-
-#### 3.2 查询预处理
-
-**意图识别器 (IntentRecognizer)**
-
-```python
-class IntentRecognizer:
-    """意图识别器 - 识别用户查询意图"""
-    
-    def __init__(self):
-        self.category_keywords = {
-            "C1": ["竞赛", "科技", "论文", "专利", "A类", "B类"],
-            "C2": ["体育", "运动会", "体测", "金牌"],
-            "C3": ["英语", "四级", "六级", "证书", "文化"],
-            "C4": ["创业", "互联网+", "挑战杯", "营业执照"]
-        }
-    
-    def recognize(self, query: str) -> dict:
-        """识别查询意图"""
-        
-        # 1. 关键词匹配
-        matched_categories = []
-        for category, keywords in self.category_keywords.items():
-            for keyword in keywords:
-                if keyword in query:
-                    matched_categories.append(category)
-                    break
-        
-        # 2. 竞赛级别识别
-        level = self._recognize_level(query)
-        
-        # 3. 奖项等级识别
-        award = self._recognize_award(query)
-        
-        return {
-            "categories": list(set(matched_categories)),
-            "level": level,
-            "award": award,
-            "original_query": query
-        }
-```
-
-**查询增强器 (QueryEnhancer)**
-
-```python
-class QueryEnhancer:
-    """查询增强器 - 扩展查询词"""
-    
-    def __init__(self):
-        self.synonyms = {
-            "一等奖": ["金奖", "第一名", "冠军"],
-            "二等奖": ["银奖", "第二名", "亚军"],
-            "三等奖": ["铜奖", "第三名", "季军"],
-            "国家级": ["国赛", "全国", "国级"],
-            "省级": ["省赛", "省部级", "地区级"]
-        }
-    
-    def enhance(self, query: str) -> List[str]:
-        """增强查询"""
-        enhanced_queries = [query]
-        
-        for term, synonyms in self.synonyms.items():
-            if term in query:
-                for syn in synonyms:
-                    enhanced_queries.append(query.replace(term, syn))
-        
-        return enhanced_queries
-```
-
-#### 3.3 向量检索实现
-
-```python
-class RuleVectorDB:
-    """向量数据库检索"""
-    
-    def search(
-        self,
-        query: str,
-        n_results: int = 5,
-        where: dict = None,
-        where_document: dict = None
-    ) -> dict:
-        """向量相似度检索"""
-        
-        results = self.collection.query(
-            query_texts=[query],
-            n_results=n_results,
-            where=where,
-            where_document=where_document,
-            include=["documents", "metadatas", "distances"]
-        )
-        
-        return {
-            "documents": results["documents"][0],
-            "metadatas": results["metadatas"][0],
-            "distances": results["distances"][0],
-            "ids": results["ids"][0]
-        }
-    
-    def search_by_embedding(
-        self,
-        embedding: List[float],
-        n_results: int = 5
-    ) -> dict:
-        """通过向量直接检索"""
-        
-        results = self.collection.query(
-            query_embeddings=[embedding],
-            n_results=n_results
-        )
-        
-        return results
-```
-
-#### 3.4 混合检索策略
-
-```python
-class HybridRetriever:
-    """混合检索器 - 结合多种检索方式"""
-    
-    def __init__(self, vector_db: RuleVectorDB, competition_retriever):
-        self.vector_db = vector_db
-        self.competition_retriever = competition_retriever
-    
-    def retrieve(self, query: str, top_k: int = 5) -> List[dict]:
-        """混合检索"""
-        
-        # 1. 向量检索
-        vector_results = self.vector_db.search(query, n_results=top_k * 2)
-        
-        # 2. 竞赛检索
-        competition_results = self.competition_retriever.search(query)
-        
-        # 3. 结果合并
-        merged = self._merge_results(vector_results, competition_results)
-        
-        # 4. 去重
-        deduplicated = self._deduplicate(merged)
-        
-        return deduplicated[:top_k]
-    
-    def _merge_results(self, vector_results, competition_results) -> List[dict]:
-        """合并检索结果"""
-        all_results = []
-        
-        # 向量检索结果
-        for i, doc in enumerate(vector_results["documents"]):
-            all_results.append({
-                "content": doc,
-                "metadata": vector_results["metadatas"][i],
-                "score": 1 - vector_results["distances"][i],
-                "source": "vector"
-            })
-        
-        # 竞赛检索结果
-        for comp in competition_results:
-            all_results.append({
-                "content": comp["content"],
-                "metadata": comp,
-                "score": comp.get("score", 0.8),
-                "source": "competition"
-            })
-        
-        return all_results
-```
-
-#### 3.5 检索性能指标
-
-| 指标 | 公式 | 说明 |
-|------|------|------|
-| **召回率 (Recall)** | Recall = TP / (TP + FN) | 检索到的相关文档 / 所有相关文档 |
-| **精确率 (Precision)** | Precision = TP / (TP + FP) | 检索到的相关文档 / 检索到的文档 |
-| **F1分数** | F1 = 2 × P × R / (P + R) | 精确率和召回率的调和平均 |
-| **MRR** | MRR = 1/│Q│ Σ 1/rank_i | 第一个相关结果的排名倒数 |
-| **NDCG** | NDCG = DCG / IDCG | 考虑位置的相关性评分 |
-
----
-
-### 4. 重排序优化
-
-#### 4.1 重排序的必要性
-
-初始检索结果可能存在以下问题：
-- 语义相似但类别不相关
-- 排名靠后但实际更相关
-- 缺乏领域知识的权重调整
-
-#### 4.2 类别相关性重排器
-
-```python
-class CategoryReranker:
-    """类别相关性重排器"""
-    
-    def __init__(self):
-        self.category_weights = {
-            "C1": 1.0,  # 科技类
-            "C2": 0.8,  # 体育类
-            "C3": 0.8,  # 文化类
-            "C4": 0.9   # 创新创业类
-        }
-        
-        self.level_weights = {
-            "国家级": 1.2,
-            "省部级": 1.0,
-            "校级": 0.8
-        }
-    
-    def rerank(
-        self,
-        query: str,
-        results: List[dict],
-        intent: dict
-    ) -> List[dict]:
-        """重排序检索结果"""
-        
-        scored_results = []
-        
-        for result in results:
-            # 1. 基础分数（向量相似度）
-            base_score = result.get("score", 0.5)
-            
-            # 2. 类别匹配加分
-            category_bonus = self._calculate_category_bonus(result, intent)
-            
-            # 3. 级别匹配加分
-            level_bonus = self._calculate_level_bonus(result, intent)
-            
-            # 4. 关键词匹配加分
-            keyword_bonus = self._calculate_keyword_bonus(result, query)
-            
-            # 5. 最终分数
-            final_score = (
-                base_score * 0.4 +
-                category_bonus * 0.3 +
-                level_bonus * 0.2 +
-                keyword_bonus * 0.1
-            )
-            
-            result["final_score"] = final_score
-            result["score_breakdown"] = {
-                "base": base_score,
-                "category": category_bonus,
-                "level": level_bonus,
-                "keyword": keyword_bonus
-            }
-            
-            scored_results.append(result)
-        
-        # 按最终分数排序
-        scored_results.sort(key=lambda x: x["final_score"], reverse=True)
-        
-        return scored_results
-    
-    def _calculate_category_bonus(self, result: dict, intent: dict) -> float:
-        """计算类别匹配加分"""
-        result_category = result.get("metadata", {}).get("category")
-        query_categories = intent.get("categories", [])
-        
-        if result_category in query_categories:
-            return self.category_weights.get(result_category, 1.0)
-        
-        return 0.0
-    
-    def _calculate_level_bonus(self, result: dict, intent: dict) -> float:
-        """计算级别匹配加分"""
-        result_level = result.get("metadata", {}).get("level")
-        query_level = intent.get("level")
-        
-        if result_level and query_level and result_level == query_level:
-            return self.level_weights.get(result_level, 1.0)
-        
-        return 0.0
-    
-    def _calculate_keyword_bonus(self, result: dict, query: str) -> float:
-        """计算关键词匹配加分"""
-        content = result.get("content", "").lower()
-        query_terms = set(query.lower().split())
-        
-        matches = sum(1 for term in query_terms if term in content)
-        return min(matches / len(query_terms), 1.0) if query_terms else 0.0
-```
-
-#### 4.3 竞赛名称映射器
-
-```python
-class CompetitionMapper:
-    """竞赛名称映射器 - 标准化竞赛名称"""
-    
-    def __init__(self):
-        self.competition_aliases = {
-            "蓝桥杯": ["蓝桥杯全国软件和信息技术专业人才大赛", "蓝桥杯大赛"],
-            "互联网+": ["中国国际互联网+大学生创新创业大赛", "互联网+大赛"],
-            "挑战杯": ["挑战杯大学生科技作品竞赛", "挑战杯竞赛"],
-            "数学建模": ["全国大学生数学建模竞赛", "高教社杯数学建模"],
-            "电子设计": ["全国大学生电子设计竞赛", "电子设计大赛"]
-        }
-    
-    def normalize(self, competition_name: str) -> str:
-        """标准化竞赛名称"""
-        for standard_name, aliases in self.competition_aliases.items():
-            if competition_name in aliases or competition_name == standard_name:
-                return standard_name
-        
-        return competition_name
-    
-    def get_competition_info(self, name: str) -> dict:
-        """获取竞赛详细信息"""
-        normalized_name = self.normalize(name)
-        
-        return {
-            "original_name": name,
-            "normalized_name": normalized_name,
-            "category": self._get_category(normalized_name),
-            "level": self._get_level(normalized_name)
-        }
-```
-
-#### 4.4 重排序效果评估
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                    重排序效果对比                        │
-├─────────────────────────────────────────────────────────┤
-│                                                         │
-│  查询: "蓝桥杯省赛一等奖加多少分"                        │
-│                                                         │
-│  ┌─────────────────────────────────────────────────┐   │
-│  │ 重排序前:                                        │   │
-│  │ 1. 蓝桥杯国赛获奖规则 (score: 0.85)             │   │
-│  │ 2. 省级竞赛加分标准 (score: 0.78)               │   │
-│  │ 3. 一等奖加分细则 (score: 0.72)                 │   │
-│  └─────────────────────────────────────────────────┘   │
-│                                                         │
-│  ┌─────────────────────────────────────────────────┐   │
-│  │ 重排序后:                                        │   │
-│  │ 1. 蓝桥杯省赛一等奖加分规则 (score: 0.92)       │   │
-│  │ 2. 省级竞赛一等奖标准 (score: 0.88)             │   │
-│  │ 3. 蓝桥杯竞赛级别说明 (score: 0.85)             │   │
-│  └─────────────────────────────────────────────────┘   │
-│                                                         │
-└─────────────────────────────────────────────────────────┘
-```
-
-#### 4.5 重排序参数调优
-
-| 参数 | 默认值 | 范围 | 说明 |
-|------|--------|------|------|
-| `base_weight` | 0.4 | 0.2-0.6 | 向量相似度权重 |
-| `category_weight` | 0.3 | 0.1-0.4 | 类别匹配权重 |
-| `level_weight` | 0.2 | 0.1-0.3 | 级别匹配权重 |
-| `keyword_weight` | 0.1 | 0.05-0.2 | 关键词匹配权重 |
-
----
-
-### 5. 完整RAG流程
-
-#### 5.1 端到端流程图
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         RAG 完整流程                                 │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│  ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐     │
-│  │ 用户查询  │ →  │ 意图识别  │ →  │ 查询增强  │ →  │ 向量检索  │     │
-│  └──────────┘    └──────────┘    └──────────┘    └──────────┘     │
-│                                                       │             │
-│                                                       ▼             │
-│  ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐     │
-│  │ LLM生成   │ ←  │ Prompt构建 │ ←  │ 上下文组装 │ ←  │ 重排序    │     │
-│  └──────────┘    └──────────┘    └──────────┘    └──────────┘     │
-│       │                                                             │
-│       ▼                                                             │
-│  ┌──────────┐                                                      │
-│  │ 结构化输出│                                                      │
-│  └──────────┘                                                      │
-│                                                                     │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
-#### 5.2 核心代码实现
-
-```python
-class RAGChain:
-    """RAG链 - 完整的检索增强生成流程"""
-    
-    def __init__(self):
-        self.intent_recognizer = IntentRecognizer()
-        self.query_enhancer = QueryEnhancer()
-        self.vector_db = RuleVectorDB()
-        self.reranker = CategoryReranker()
-        self.llm_manager = LLMManager()
-    
-    def process(self, query: str, top_k: int = 3) -> dict:
-        """处理查询"""
-        
-        # 1. 意图识别
-        intent = self.intent_recognizer.recognize(query)
-        logger.info(f"识别意图: {intent}")
-        
-        # 2. 查询增强
-        enhanced_queries = self.query_enhancer.enhance(query)
-        logger.info(f"增强查询: {enhanced_queries}")
-        
-        # 3. 向量检索
-        all_results = []
-        for eq in enhanced_queries:
-            results = self.vector_db.search(eq, n_results=top_k * 2)
-            all_results.extend(self._format_results(results))
-        
-        # 4. 重排序
-        reranked = self.reranker.rerank(query, all_results, intent)
-        top_results = reranked[:top_k]
-        
-        # 5. 构建上下文
-        context = self._build_context(top_results)
-        
-        # 6. LLM生成
-        response = self.llm_manager.generate(query, context)
-        
-        return {
-            "query": query,
-            "intent": intent,
-            "retrieved_docs": top_results,
-            "context": context,
-            "response": response
-        }
-```
-
----
-
-## 🏗️ 系统架构
-
-```
-用户请求
-    ↓
-[FastAPI 路由层]
-    ↓
-    ├─→ [文档管理器] ────→ 元数据存储
-    │      ↓
-    │   文件解析与向量化
-    │      ↓
-    ├─→ [向量数据库] (Chroma + Sentence-Transformers)
-    │      ↓
-    │   语义检索Top-K规则
-    │      ↓
-    ├─→ [意图识别器] ────→ 类别预测
-    │      ↓
-    ├─→ [查询增强器] ────→ 同义词扩展
-    │      ↓
-    ├─→ [重排序器] ────→ 类别相关性重排
-    │      ↓
-    └─→ [LLM引擎]
-           ├─→ 规则匹配引擎（快速）
-           └─→ 讯飞星火LLM（智能）
-                  ↓
-           结构化JSON响应
-```
-
----
-
-## 📡 API功能
-
-### 1. 文档管理
-
-| API端点 | 方法 | 功能 |
-|---------|------|------|
-| `/api/v1/documents/upload` | POST | 上传单个文档 |
-| `/api/v1/documents/batch-upload` | POST | 批量上传文档 |
-| `/api/v1/documents` | GET | 获取文档列表 |
-
-### 2. 加分计算
-
-| API端点 | 方法 | 功能 |
-|---------|------|------|
-| `/api/v1/chat` | POST | AI对话交流 |
-| `/api/v1/calculate-score` | POST | 计算综测加分 |
-
-### 使用示例
-
-```python
-import requests
-
-# AI对话
-url = "http://localhost:8000/api/v1/chat"
-data = {
-    "message": "蓝桥杯省赛一等奖加多少分",
-    "chat_history": []
-}
-response = requests.post(url, json=data)
-result = response.json()
-print(f"回复: {result['data']['response']}")
-```
-
----
-
-## ⚙️ 配置说明
-
-### 环境变量配置
 
 ```env
 # 向量数据库配置
@@ -873,37 +523,171 @@ XUNFEI_TEMPERATURE=0.1
 XUNFEI_MAX_TOKENS=1024
 ```
 
+### 缓存目录说明
+
+系统在运行时会在用户目录下创建缓存文件，Windows系统默认缓存目录为：
+
+```
+C:\Users\<用户名>\.cache\
+├── chroma/                          # Chroma向量数据库缓存
+│   └── (向量索引和元数据缓存)
+│
+└── huggingface/                     # Hugging Face模型缓存
+    └── hub/
+        └── models--sentence-transformers--all-MiniLM-L6-v2/
+            # 嵌入模型文件（约90MB）
+            # 首次运行时自动下载
+```
+
+**说明**：
+- `chroma`：存储Chroma向量数据库的缓存数据
+- `huggingface`：存储Hugging Face模型，包括`all-MiniLM-L6-v2`嵌入模型
+- 首次运行时，系统会自动下载嵌入模型到`huggingface/hub`目录
+- 如需更改缓存位置，可设置环境变量`HF_HOME`和`CHROMA_CACHE_DIR`
+
+### 测试账号
+
+系统提供以下测试账号供开发者登录测试使用：
+
+| 角色 | 用户名 | 密码 | 说明 |
+|------|--------|------|------|
+| **管理员** | `admin` | `admin123` | 系统管理员账号，拥有全部权限 |
+| **管理员** | `dev_admin` | `dev123` | 开发管理员账号（推荐使用） |
+| **教师** | `teacher` | `teacher123` | 测试教师账号 |
+| **教师** | `dev_teacher` | `dev123` | 开发教师账号 |
+| **学生** | `student_202300502128` | `student123` | 测试学生账号 |
+| **学生** | `dev_student` | `dev123` | 开发学生账号 |
+
+**推荐开发者使用**：`dev_admin` / `dev123`（管理员权限）
+
+### 启动服务
+
+```bash
+# 开发模式
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+
+# 生产模式
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+```
+
+### 访问服务
+
+- **API 文档**: http://localhost:8000/docs
+- **健康检查**: http://localhost:8000/health
+- **交互式测试**: http://localhost:8000/static/api_test.html
+- **文档分析页面**: http://localhost:8000/static/document_analysis.html
+
 ---
 
-## 📊 性能指标
+## API接口
 
-| 指标 | 数值 | 说明 |
-|------|------|------|
-| 启动时间 | < 5s | 服务启动到可接受请求 |
-| 文件上传（单个） | 1-3s | 包含解析和向量化 |
-| 查询响应（规则匹配） | < 100ms | 快速匹配模式 |
-| 查询响应（讯飞星火） | 500-1500ms | LLM调用 |
-| 内存占用 | < 500MB | 稳定运行时 |
-| 准确率（规则匹配） | 60-70% | 基于正则表达式 |
-| 准确率（讯飞星火） | 85-95% | 基于大模型 |
+### 1. 文档管理
+
+| API端点 | 方法 | 功能 |
+|---------|------|------|
+| `/api/v1/documents/upload` | POST | 上传单个文档 |
+| `/api/v1/documents/batch-upload` | POST | 批量上传文档 |
+| `/api/v1/documents` | GET | 获取文档列表 |
+| `/api/v1/documents/{doc_id}` | DELETE | 删除文档 |
+
+### 2. 加分计算
+
+| API端点 | 方法 | 功能 |
+|---------|------|------|
+| `/api/v1/chat` | POST | AI对话交流 |
+| `/api/v1/calculate-score` | POST | 计算综测加分 |
+
+### 3. 向量库管理
+
+| API端点 | 方法 | 功能 |
+|---------|------|------|
+| `/api/v1/vector-db/stats` | GET | 获取向量库统计 |
+| `/api/v1/vector-db/clear` | DELETE | 清空向量库 |
+
+### 使用示例
+
+```python
+import requests
+
+# AI对话
+url = "http://localhost:8000/api/v1/chat"
+data = {
+    "message": "蓝桥杯省赛一等奖加多少分",
+    "chat_history": []
+}
+response = requests.post(url, json=data)
+result = response.json()
+print(f"回复: {result['data']['response']}")
+
+# 计算加分
+url = "http://localhost:8000/api/v1/calculate-score"
+data = {
+    "competition_name": "蓝桥杯",
+    "award_level": "一等奖",
+    "level": "省部级"
+}
+response = requests.post(url, json=data)
+result = response.json()
+print(f"加分: {result['data']['score']}")
+```
 
 ---
 
-## 🔧 项目结构
+## 配置说明
+
+### 环境变量配置
+
+```env
+# 向量数据库配置
+CHROMA_DB_PATH=./data/chroma_db      # 向量数据库存储路径
+RULES_DOCS_PATH=./data/rules          # 规则文档目录
+
+# RAG配置
+TOP_K=2                               # 检索返回数量
+MAX_CONTEXT_LENGTH=1024               # 上下文最大长度
+
+# 嵌入模型配置
+EMBEDDING_MODEL=all-MiniLM-L6-v2      # 嵌入模型名称
+EMBEDDING_DEVICE=cpu                  # 计算设备（cpu/cuda）
+HF_ENDPOINT=https://hf-mirror.com     # HuggingFace镜像
+
+# 讯飞星火大模型配置
+USE_XUNFEI_LLM=true                   # 是否使用讯飞星火
+XUNFEI_API_KEY=your_api_key           # API密钥
+XUNFEI_MODEL_ID=your_model_id         # 模型ID
+XUNFEI_BASE_URL=http://maas-api.cn-huabei-1.xf-yun.com/v1
+XUNFEI_TEMPERATURE=0.1                # 生成温度
+XUNFEI_MAX_TOKENS=1024                # 最大生成长度
+```
+
+---
+
+## 项目结构
 
 ```
 PaddleOCRRAG/
 ├── app/
-│   ├── main.py                 # FastAPI 应用入口
+│   ├── main.py                     # FastAPI 应用入口
+│   ├── models.py                   # 数据模型定义
 │   ├── core/
-│   │   ├── config_manager.py   # 配置管理
-│   │   ├── llm_manager.py      # LLM管理器
-│   │   ├── prompt_manager.py   # Prompt管理器
-│   │   └── logger.py           # 统一日志系统
+│   │   ├── config_manager.py       # 配置管理
+│   │   ├── llm_manager.py          # LLM管理器
+│   │   ├── prompt_manager.py       # Prompt管理器
+│   │   ├── document_manager.py     # 文档管理器
+│   │   ├── cache.py                # 缓存管理
+│   │   ├── dependencies.py         # 依赖注入
+│   │   ├── exceptions.py           # 异常定义
+│   │   └── logger.py               # 统一日志系统
 │   ├── api/
-│   │   ├── routes.py           # API 路由
-│   │   ├── chat_routes.py      # 聊天路由
-│   │   └── system_routes.py    # 系统路由
+│   │   ├── routes.py               # API 路由注册
+│   │   ├── chat_routes.py          # 聊天路由
+│   │   ├── document_routes.py      # 文档路由
+│   │   ├── certificate_routes.py   # 证书路由
+│   │   ├── vector_db_routes.py     # 向量库路由
+│   │   ├── prompt_routes.py        # Prompt路由
+│   │   ├── system_routes.py        # 系统路由
+│   │   ├── cache_routes.py         # 缓存路由
+│   │   └── log_routes.py           # 日志路由
 │   ├── rag/
 │   │   ├── vector_db/
 │   │   │   ├── base_vector_db.py   # 向量数据库基类
@@ -919,15 +703,37 @@ PaddleOCRRAG/
 │   │   └── utils/
 │   │       └── category_keywords.py    # 类别关键词
 │   ├── services/
-│   │   └── chat_service.py        # 聊天服务
+│   │   ├── chat_service.py         # 聊天服务
+│   │   ├── document_service.py     # 文档服务
+│   │   ├── certificate_service.py  # 证书服务
+│   │   └── system_service.py       # 系统服务
 │   └── models/
-│       └── schemas.py             # 数据模型
+│       └── schemas.py              # Pydantic模型
+├── config/
+│   ├── app_config.json             # 应用配置
+│   └── prompts.json                # Prompt模板
 ├── data/
-│   ├── rules/                  # 规则文档目录
-│   ├── chroma_db/              # 向量数据库
-│   └── document_meta.json      # 文档元数据
-├── requirements.txt            # 项目依赖
-└── README.md                   # 本文档
+│   ├── rules/                      # 规则文档目录
+│   │   ├── 计算机学院综合测评实施细则.docx
+│   │   └── 学科竞赛名称列表.xlsx
+│   ├── chroma_db/                  # 向量数据库
+│   └── document_meta.json          # 文档元数据
+├── scripts/
+│   ├── vectorize_documents.py      # 文档向量化脚本
+│   ├── verify_vector_db.py         # 向量库验证脚本
+│   └── diagnose_rag.py             # RAG诊断脚本
+├── static/
+│   ├── api_test.html               # API测试页面
+│   └── interactive_api_docs.html   # 交互式文档
+├── tests/
+│   ├── test_rag_accuracy.py        # RAG准确率测试
+│   ├── test_api.py                 # API测试
+│   └── conftest.py                 # 测试配置
+├── rag_client/
+│   └── paddle_ocrrag_client.py     # Python客户端
+├── requirements.txt                # 项目依赖
+├── pytest.ini                      # Pytest配置
+└── README.md                       # 本文档
 ```
 
 ---
@@ -952,8 +758,8 @@ PaddleOCRRAG/
 
 **🌟 如果这个项目对你有帮助，请给个 Star！ 🌟**
 
-**最后更新**: 2026-03-01  
-**版本**: v2.3.0  
+**最后更新**: 2026-03-03  
+**版本**: v2.4.0  
 **状态**: ✅ 生产就绪
 
 </div>

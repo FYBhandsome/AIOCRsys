@@ -48,8 +48,8 @@ class VectorDBConfig(BaseModel):
     embedding_model: str = "all-MiniLM-L6-v2"
     embedding_device: str = "cpu"
     hf_endpoint: str = "https://hf-mirror.com"
-    chunk_size: int = 500
-    chunk_overlap: int = 50
+    chunk_size: int = 1000
+    chunk_overlap: int = 150
 
 
 class RAGConfig(BaseModel):
@@ -143,8 +143,8 @@ class ConfigManager:
                 embedding_model=os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2"),
                 embedding_device=os.getenv("EMBEDDING_DEVICE", "cpu"),
                 hf_endpoint=os.getenv("HF_ENDPOINT", "https://hf-mirror.com"),
-                chunk_size=500,
-                chunk_overlap=50
+                chunk_size=1000,
+                chunk_overlap=150
             ),
             rag=RAGConfig(
                 top_k=int(os.getenv("TOP_K", "2")),
@@ -229,6 +229,13 @@ class ConfigManager:
         """重置配置为默认值"""
         self.config = self._create_default_config()
         return self.config.dict()
+    
+    def reset_llm_config(self) -> Dict[str, Any]:
+        """重置LLM配置为默认值"""
+        default_config = self._create_default_config()
+        self.config.llm = default_config.llm
+        self._save_config(self.config)
+        return self.config.llm.dict()
     
     def validate_llm_config(self) -> Dict[str, Any]:
         """验证LLM配置"""

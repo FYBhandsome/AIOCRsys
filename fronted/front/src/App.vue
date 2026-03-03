@@ -2,18 +2,25 @@
 import { onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { SwitchButton, Fold, Expand } from '@element-plus/icons-vue'
 import AIAssistant from './components/AIAssistant.vue'
 import RoleSwitcher from './components/RoleSwitcher.vue'
-import { useUserStore } from './store'
+import Sidebar from './components/Sidebar.vue'
+import { useUserStore, useAppStore } from './store'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+const appStore = useAppStore()
 
 const isLoginPage = computed(() => {
   const publicPages = ['/login', '/register', '/reset-password', '/forgot-password']
   return publicPages.includes(route.path)
 })
+
+const isSidebarCollapsed = computed(() => appStore.sidebarCollapsed)
+
+const isMobile = computed(() => window.innerWidth <= 768)
 
 onMounted(() => {
   userStore.checkAuth()
@@ -42,6 +49,10 @@ const getRoleText = (role) => {
   }
   return texts[role] || '用户'
 }
+
+const toggleMobileSidebar = () => {
+  appStore.toggleSidebar()
+}
 </script>
 
 <template>
@@ -53,13 +64,21 @@ const getRoleText = (role) => {
     <el-container class="layout-container">
       <el-header class="app-header">
         <div class="header-content">
-          <div class="logo-section">
-            <div class="logo-icon">
-              <span class="logo-emoji">🎓</span>
-            </div>
-            <div class="logo-text">
-              <h1 class="logo-title">综测计算助手</h1>
-              <span class="logo-subtitle">智能综测评分系统</span>
+          <div class="header-left">
+            <button class="hamburger-btn" @click="toggleMobileSidebar">
+              <el-icon :size="20">
+                <component :is="isSidebarCollapsed ? 'Expand' : 'Fold'" />
+              </el-icon>
+            </button>
+            
+            <div class="logo-section">
+              <div class="logo-icon">
+                <span class="logo-emoji">🎓</span>
+              </div>
+              <div class="logo-text">
+                <h1 class="logo-title">综测计算助手</h1>
+                <span class="logo-subtitle">智能综测评分系统</span>
+              </div>
             </div>
           </div>
           
@@ -96,6 +115,9 @@ const getRoleText = (role) => {
       </el-header>
       
       <el-container class="content-container">
+        <el-aside :width="isSidebarCollapsed ? '64px' : '220px'" class="sidebar-aside">
+          <Sidebar />
+        </el-aside>
         <el-main class="main-content">
           <router-view v-slot="{ Component }">
             <transition name="fade-slide" mode="out-in">
@@ -147,6 +169,30 @@ const getRoleText = (role) => {
   padding: 0 var(--spacing-8);
   position: relative;
   z-index: 2;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-4);
+}
+
+.hamburger-btn {
+  display: none;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.hamburger-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
 }
 
 .header-decoration {
@@ -324,6 +370,13 @@ const getRoleText = (role) => {
   min-height: calc(100vh - 72px);
 }
 
+.sidebar-aside {
+  background: var(--bg-elevated, #fff);
+  transition: width var(--transition-normal, 0.3s ease);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
 .main-content {
   background: var(--bg-canvas);
   padding: 0;
@@ -367,6 +420,10 @@ const getRoleText = (role) => {
     padding: 0 var(--spacing-4);
   }
   
+  .hamburger-btn {
+    display: flex;
+  }
+  
   .logo-icon {
     width: 40px;
     height: 40px;
@@ -395,6 +452,21 @@ const getRoleText = (role) => {
   
   .content-container {
     min-height: calc(100vh - 64px);
+  }
+  
+  .sidebar-aside {
+    position: fixed;
+    left: 0;
+    top: 64px;
+    height: calc(100vh - 64px);
+    z-index: var(--z-sticky, 100);
+    width: 220px !important;
+    transform: translateX(0);
+    transition: transform var(--transition-normal, 0.3s ease);
+  }
+  
+  .sidebar-aside:has(.sidebar.is-collapsed) {
+    transform: translateX(-100%);
   }
 }
 

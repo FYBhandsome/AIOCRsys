@@ -208,3 +208,37 @@ async def update_llm_config(request: LLMConfigUpdateRequest):
     except Exception as e:
         logger.error(f"LLM配置更新失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"LLM配置更新失败: {str(e)}")
+
+
+@router.post("/llm/config/reset")
+async def reset_llm_config():
+    """重置LLM配置为默认值"""
+    try:
+        system_service = container.get_system_service()
+        result = system_service.config_manager.reset_llm_config()
+        
+        return ApiResponse(
+            success=True,
+            data=result,
+            message="LLM配置已重置为默认值"
+        )
+    except Exception as e:
+        logger.error(f"重置LLM配置失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"重置LLM配置失败: {str(e)}")
+
+
+@router.get("/llm/config/validate")
+async def validate_llm_config():
+    """验证LLM配置"""
+    try:
+        system_service = container.get_system_service()
+        result = system_service.config_manager.validate_llm_config()
+        
+        return ApiResponse(
+            success=True,
+            data=result,
+            message="LLM配置验证成功"
+        )
+    except Exception as e:
+        logger.error(f"验证LLM配置失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"验证LLM配置失败: {str(e)}")

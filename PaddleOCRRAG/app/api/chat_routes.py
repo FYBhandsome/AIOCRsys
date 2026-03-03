@@ -22,7 +22,7 @@ async def chat(request: ChatRequest):
     with RequestContext(request_id=request_id):
         logger.info(
             f"收到聊天请求",
-            extra={'params': {'message': request.message[:50] if request.message else ''}}
+            extra={'params': {'message': request.message[:50] if request.message else '', 'use_rag': request.use_rag}}
         )
         
         try:
@@ -46,12 +46,13 @@ async def chat(request: ChatRequest):
                 question=request.message,
                 history=history,
                 use_cache=True,
-                use_optimized=False
+                use_optimized=False,
+                use_rag=request.use_rag
             )
             
             logger.info(
                 f"聊天请求处理成功",
-                extra={'params': {'request_id': request_id}}
+                extra={'params': {'request_id': request_id, 'used_rag': result.get('used_rag', False)}}
             )
             
             return ApiResponse(
@@ -72,7 +73,7 @@ async def chat_stream(request: ChatRequest):
     with RequestContext(request_id=request_id):
         logger.info(
             f"收到流式聊天请求",
-            extra={'params': {'message': request.message[:50] if request.message else ''}}
+            extra={'params': {'message': request.message[:50] if request.message else '', 'use_rag': request.use_rag}}
         )
         
         try:
@@ -81,7 +82,8 @@ async def chat_stream(request: ChatRequest):
             return StreamingResponse(
                 chat_service.chat_stream(
                     question=request.message,
-                    history=request.chat_history
+                    history=request.chat_history,
+                    use_rag=request.use_rag
                 ),
                 media_type="text/event-stream",
                 headers={
@@ -104,7 +106,7 @@ async def chat_async(request: ChatRequest):
     with RequestContext(request_id=request_id):
         logger.info(
             f"收到异步聊天请求",
-            extra={'params': {'message': request.message[:50] if request.message else ''}}
+            extra={'params': {'message': request.message[:50] if request.message else '', 'use_rag': request.use_rag}}
         )
         
         try:
@@ -113,7 +115,8 @@ async def chat_async(request: ChatRequest):
             result = await chat_service.chat_async(
                 question=request.message,
                 history=request.chat_history,
-                use_cache=True
+                use_cache=True,
+                use_rag=request.use_rag
             )
             
             logger.info(f"异步聊天请求处理成功")
@@ -136,7 +139,7 @@ async def chat_stream_async(request: ChatRequest):
     with RequestContext(request_id=request_id):
         logger.info(
             f"收到异步流式聊天请求",
-            extra={'params': {'message': request.message[:50] if request.message else ''}}
+            extra={'params': {'message': request.message[:50] if request.message else '', 'use_rag': request.use_rag}}
         )
         
         try:
@@ -145,7 +148,8 @@ async def chat_stream_async(request: ChatRequest):
             async def generate():
                 async for chunk in chat_service.chat_stream_async(
                     question=request.message,
-                    history=request.chat_history
+                    history=request.chat_history,
+                    use_rag=request.use_rag
                 ):
                     yield chunk
             

@@ -13,6 +13,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from conftest import TEST_USERS, API_PREFIX
+from config import settings
 
 logger = logging.getLogger("test_logger")
 
@@ -228,8 +229,12 @@ class TestAuthMe:
         
         test_logger.info(f"响应状态码: {response.status_code}")
         
-        assert response.status_code in [401, 403], "无令牌应返回401或403"
-        test_logger.info("无令牌测试通过")
+        if settings.DISABLE_AUTH:
+            assert response.status_code == 200, "开发模式下无令牌应返回200（使用默认用户）"
+            test_logger.info("开发模式：无令牌测试通过（认证已禁用）")
+        else:
+            assert response.status_code in [401, 403], "无令牌应返回401或403"
+            test_logger.info("无令牌测试通过")
     
     @pytest.mark.auth
     @pytest.mark.asyncio
@@ -242,8 +247,12 @@ class TestAuthMe:
         
         test_logger.info(f"响应状态码: {response.status_code}")
         
-        assert response.status_code in [401, 403, 422], "无效令牌应返回错误"
-        test_logger.info("无效令牌测试通过")
+        if settings.DISABLE_AUTH:
+            assert response.status_code == 200, "开发模式下无效令牌应返回200（使用默认用户）"
+            test_logger.info("开发模式：无效令牌测试通过（认证已禁用）")
+        else:
+            assert response.status_code in [401, 403, 422], "无效令牌应返回错误"
+            test_logger.info("无效令牌测试通过")
 
 
 class TestPasswordReset:

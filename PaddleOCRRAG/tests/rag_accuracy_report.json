@@ -1,0 +1,106 @@
+{
+  "test_time": "2026-03-03T18:22:26.466242",
+  "summary": {
+    "total_tests": 7,
+    "passed": 7,
+    "failed": 0,
+    "pass_rate": "100.0%"
+  },
+  "accuracy_issues": [],
+  "optimization_suggestions": [],
+  "performance_stats": {
+    "docx_read": {
+      "count": 1,
+      "avg_ms": 149.11913871765137,
+      "max_ms": 149.11913871765137,
+      "min_ms": 149.11913871765137
+    },
+    "xlsx_read": {
+      "count": 1,
+      "avg_ms": 521.8267440795898,
+      "max_ms": 521.8267440795898,
+      "min_ms": 521.8267440795898
+    },
+    "rag_init": {
+      "count": 1,
+      "avg_ms": 3009.6969604492188,
+      "max_ms": 3009.6969604492188,
+      "min_ms": 3009.6969604492188
+    },
+    "rag_search": {
+      "count": 1,
+      "avg_ms": 391.4763927459717,
+      "max_ms": 391.4763927459717,
+      "min_ms": 391.4763927459717
+    },
+    "category_aware_search": {
+      "count": 1,
+      "avg_ms": 414.5348072052002,
+      "max_ms": 414.5348072052002,
+      "min_ms": 414.5348072052002
+    }
+  },
+  "test_results": [
+    {
+      "test_name": "读取docx文档",
+      "success": true,
+      "message": "读取91个段落",
+      "duration_ms": 149.11913871765137,
+      "details": {},
+      "timestamp": "2026-03-03T18:22:14.251815"
+    },
+    {
+      "test_name": "读取xlsx文档",
+      "success": true,
+      "message": "读取172条记录",
+      "duration_ms": 521.8267440795898,
+      "details": {},
+      "timestamp": "2026-03-03T18:22:14.779860"
+    },
+    {
+      "test_name": "初始化RAG系统",
+      "success": true,
+      "message": "初始化完成",
+      "duration_ms": 3009.6969604492188,
+      "details": {},
+      "timestamp": "2026-03-03T18:22:17.792727"
+    },
+    {
+      "test_name": "竞赛类别验证",
+      "success": true,
+      "message": "准确率: 100.0%",
+      "duration_ms": 5.7830810546875,
+      "details": {},
+      "timestamp": "2026-03-03T18:22:17.901485"
+    },
+    {
+      "test_name": "分数规则验证",
+      "success": true,
+      "message": "平均准确率: 100.0%",
+      "duration_ms": 2948.7218856811523,
+      "details": {},
+      "timestamp": "2026-03-03T18:22:20.850207"
+    },
+    {
+      "test_name": "综合测评规则验证",
+      "success": true,
+      "message": "覆盖率: 100.0%",
+      "duration_ms": 3208.0905437469482,
+      "details": {},
+      "timestamp": "2026-03-03T18:22:24.059816"
+    },
+    {
+      "test_name": "源文档对比",
+      "success": true,
+      "message": "匹配率: 100.0%",
+      "duration_ms": 1593.4836864471436,
+      "details": {},
+      "timestamp": "2026-03-03T18:22:25.654316"
+    }
+  ],
+  "document_stats": {
+    "docx_paragraphs": 91,
+    "docx_chars": 3245,
+    "competition_records": 172
+  }
+}

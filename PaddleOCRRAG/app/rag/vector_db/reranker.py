@@ -1,6 +1,7 @@
 """
 类别感知重排器
 对检索结果进行二次排序，提升类别匹配度
+优化重排序权重配置
 """
 import time
 from typing import Dict, List, Any, Optional, Tuple
@@ -36,17 +37,18 @@ class CategoryReranker:
     """类别感知重排器"""
     
     SCORE_WEIGHTS = {
-        "similarity": 0.4,
-        "category_match": 0.3,
-        "keyword_match": 0.2,
-        "source_authority": 0.1
+        "similarity": 0.35,
+        "category_match": 0.35,
+        "keyword_match": 0.20,
+        "source_authority": 0.10
     }
     
     CATEGORY_BONUS = {
-        "main_match": 0.15,
-        "sub_match": 0.15,
-        "type_match": 0.10,
-        "level_match": 0.10
+        "main_match": 0.20,
+        "sub_match": 0.20,
+        "type_match": 0.15,
+        "level_match": 0.15,
+        "category_match": 0.10
     }
     
     SOURCE_AUTHORITY = {
@@ -54,6 +56,8 @@ class CategoryReranker:
         "学科竞赛名称列表": 0.9,
         "其他": 0.7
     }
+    
+    SIMILARITY_THRESHOLD = 0.7
     
     def __init__(self):
         logger.debug("[CategoryReranker.__init__] 初始化类别感知重排器")
@@ -211,6 +215,15 @@ class CategoryReranker:
             score += self.CATEGORY_BONUS["level_match"]
             matches.append("level")
         
+        doc_category = metadata.get("category", "")
+        if intent.competition_type:
+            expected_category = "A类" if intent.competition_type == "A" else (
+                "B类" if intent.competition_type == "B" else "C类"
+            )
+            if doc_category == expected_category:
+                score += self.CATEGORY_BONUS["category_match"]
+                matches.append("category")
+        
         if matches:
             logger.debug(f"[_calculate_category_score] 匹配: {matches}, 得分: {score:.2f}")
         
@@ -242,6 +255,12 @@ class CategoryReranker:
         
         doc_lower = document.lower()
         query_lower = query.lower()
+        
+        formula_keywords = ["综合测评", "计算公式", "占比", "M=", "品德行为分", "学习成绩分", "素质拓展分"]
+        query_has_formula_kw = any(kw in query_lower for kw in formula_keywords)
+        doc_has_formula_kw = any(kw in doc_lower for kw in formula_keywords)
+        if query_has_formula_kw and doc_has_formula_kw:
+            score += 0.5
         
         important_pairs = [
             ("一等奖", "一等奖"),

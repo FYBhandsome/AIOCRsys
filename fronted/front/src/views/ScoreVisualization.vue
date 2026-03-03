@@ -228,6 +228,10 @@ import {
 import * as echarts from 'echarts'
 import { teacherAPI } from '@/services/api'
 
+const distributionChart = ref(null)
+const rankingChart = ref(null)
+const trendChart = ref(null)
+
 let distributionChartInstance = null
 let trendChartInstance = null
 let rankingChartInstance = null

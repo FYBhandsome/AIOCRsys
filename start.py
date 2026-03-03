@@ -34,6 +34,7 @@ import socket
 import subprocess
 import threading
 import warnings
+import argparse
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, List, Dict, Tuple, Any
@@ -510,7 +511,7 @@ class ServiceLauncher:
         
         return None, cwd, False
     
-    def start_service(self, service_id: str, config: dict, port: int) -> Optional[subprocess.Popen]:
+    def start_service(self, service_id: str, config: dict, port: int, dev_mode: bool = False) -> Optional[subprocess.Popen]:
         """
         启动服务
         
@@ -518,6 +519,7 @@ class ServiceLauncher:
             service_id: 服务标识
             config: 服务配置
             port: 服务端口
+            dev_mode: 是否为开发模式
             
         Returns:
             Optional[subprocess.Popen]: 进程对象或None
@@ -540,6 +542,12 @@ class ServiceLauncher:
             env = os.environ.copy()
             env['PYTHONUNBUFFERED'] = '1'
             env['PYTHONIOENCODING'] = 'utf-8'
+            
+            if dev_mode:
+                env['DEV_MODE'] = 'true'
+                env['DISABLE_AUTH'] = 'true'
+            
+            env['DISABLE_MODEL_SOURCE_CHECK'] = 'True'
             
             process = subprocess.Popen(
                 cmd,
@@ -618,8 +626,23 @@ class StartupManager:
         - 显示启动状态
     """
     
-    def __init__(self):
-        """初始化启动管理器"""
+    def __init__(self, dev_mode: bool = False, no_frontend: bool = False, no_rag: bool = False):
+        """初始化启动管理器
+        
+        Args:
+            dev_mode: 开发模式，禁用认证
+            no_frontend: 不启动前端
+            no_rag: 不启动RAG服务
+        """
+        self.dev_mode = dev_mode
+        self.no_frontend = no_frontend
+        self.no_rag = no_rag
+        
+        if self.no_frontend:
+            SERVICES_CONFIG['frontend']['enabled'] = False
+        if self.no_rag:
+            SERVICES_CONFIG['rag']['enabled'] = False
+        
         self.logger = ServiceLogger(LOG_DIR)
         self.port_manager = PortManager(self.logger)
         self.health_checker = HealthChecker(self.logger)
@@ -639,6 +662,23 @@ class StartupManager:
             self.console.print(Panel(banner, style="bold blue"))
         else:
             print(banner)
+        
+        if self.dev_mode:
+            dev_banner = """
+    ╔════════════════════════════════════════════════════════════╗
+    ║  ⚠️  开发测试模式已启用 - 认证已禁用  ⚠️                   ║
+    ║  请勿在生产环境中使用此模式！                              ║
+    ╚════════════════════════════════════════════════════════════╝
+    """
+            if RICH_AVAILABLE and self.console:
+                self.console.print(Panel(dev_banner, style="bold yellow on red"))
+            else:
+                print(dev_banner)
+        
+        if self.no_frontend:
+            print("\n  [提示] 前端服务已禁用 (--no-frontend)")
+        if self.no_rag:
+            print("  [提示] RAG服务已禁用 (--no-rag)")
     
     def check_environment(self) -> bool:
         """
@@ -713,7 +753,7 @@ class StartupManager:
                 service_id, service_name, default_port, port
             )
         
-        process = self.launcher.start_service(service_id, config, port)
+        process = self.launcher.start_service(service_id, config, port, self.dev_mode)
         
         if process is None:
             return None
@@ -1044,9 +1084,46 @@ class StartupManager:
 # 主入口
 # ============================================================================
 
+def parse_args():
+    """解析命令行参数"""
+    parser = argparse.ArgumentParser(
+        description='综测计算助手 - 服务启动脚本 v5.0',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog='''
+使用示例:
+  python start.py                  # 正常启动所有服务
+  python start.py --dev            # 开发测试模式（禁用认证）
+  python start.py --no-frontend    # 不启动前端
+  python start.py --no-rag         # 不启动RAG服务
+  python start.py --dev --no-rag   # 开发模式且不启动RAG
+        '''
+    )
+    parser.add_argument(
+        '--dev',
+        action='store_true',
+        help='开发测试模式（禁用认证，设置 DEV_MODE=true 和 DISABLE_AUTH=true）'
+    )
+    parser.add_argument(
+        '--no-frontend',
+        action='store_true',
+        help='不启动前端服务'
+    )
+    parser.add_argument(
+        '--no-rag',
+        action='store_true',
+        help='不启动RAG服务'
+    )
+    return parser.parse_args()
+
+
 def main():
     """主函数"""
-    manager = StartupManager()
+    args = parse_args()
+    manager = StartupManager(
+        dev_mode=args.dev,
+        no_frontend=args.no_frontend,
+        no_rag=args.no_rag
+    )
     manager.run()
 
 

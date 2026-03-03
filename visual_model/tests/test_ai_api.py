@@ -10,6 +10,7 @@ import json
 from httpx import AsyncClient
 
 from conftest import API_PREFIX
+from config import settings
 
 logger = logging.getLogger("test_logger")
 
@@ -106,8 +107,12 @@ class TestAIChat:
         
         test_logger.info(f"响应状态码: {response.status_code}")
         
-        assert response.status_code in [401, 403, 404], "无认证应返回401或403"
-        test_logger.info("无认证测试通过")
+        if settings.DISABLE_AUTH:
+            assert response.status_code in [200, 404], "开发模式下无认证应返回200或404"
+            test_logger.info("开发模式：无认证测试通过（认证已禁用）")
+        else:
+            assert response.status_code in [401, 403, 404], "无认证应返回401或403"
+            test_logger.info("无认证测试通过")
 
 
 class TestAIAssistantMessage:

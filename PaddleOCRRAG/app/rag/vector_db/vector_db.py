@@ -1,6 +1,7 @@
 """
 规则向量数据库实现 - 基于BaseVectorDB的具体实现
 支持类别感知检索和重排
+优化检索算法：相似度阈值过滤、重排序权重优化
 """
 import time
 from app.rag.vector_db.base_vector_db import BaseVectorDB
@@ -13,6 +14,10 @@ from app.rag.vector_db.reranker import get_category_reranker, RerankedResult
 from app.core.logger import get_logger, rag_logger
 
 logger = get_logger(__name__)
+
+
+DEFAULT_TOP_K = 5
+DEFAULT_SIMILARITY_THRESHOLD = 0.65
 
 
 class RuleVectorDB(BaseVectorDB):
@@ -201,14 +206,21 @@ class RuleVectorDB(BaseVectorDB):
             "distances": distances
         }
     
-    def search_relevant(self, query: str, top_k: int = None, metadata_filter: Optional[Dict] = None):
+    def search_relevant(
+        self,
+        query: str,
+        top_k: int = None,
+        metadata_filter: Optional[Dict] = None,
+        similarity_threshold: float = None
+    ):
         """
         检索相关规则
         
         Args:
             query: 查询文本
-            top_k: 返回的结果数量
+            top_k: 返回的结果数量（默认5）
             metadata_filter: 元数据过滤条件，例如 {"type": "competition"} 或 {"category": "A类"}
+            similarity_threshold: 相似度阈值（默认0.7），低于此阈值的结果将被过滤
             
         Returns:
             检索结果，包含文档、元数据和距离
@@ -216,29 +228,43 @@ class RuleVectorDB(BaseVectorDB):
         start_time = time.time()
         
         if top_k is None:
-            top_k = settings.TOP_K
+            top_k = DEFAULT_TOP_K
+        
+        if similarity_threshold is None:
+            similarity_threshold = DEFAULT_SIMILARITY_THRESHOLD
         
         logger.info(
-            f"[search_relevant] 开始检索: query='{query[:50]}{'...' if len(query) > 50 else ''}', top_k={top_k}"
+            f"[search_relevant] 开始检索: query='{query[:50]}{'...' if len(query) > 50 else ''}', "
+            f"top_k={top_k}, threshold={similarity_threshold}"
         )
         logger.debug(f"[search_relevant] 元数据过滤器: {metadata_filter}")
         
         try:
-            query_params = self._build_query_params(query, top_k, metadata_filter)
+            query_params = self._build_query_params(query, top_k * 2, metadata_filter)
             logger.debug(f"[search_relevant] 查询参数构建完成")
             
             results = self.collection.query(**query_params)
             
-            result_count = len(results.get('documents', [[]])[0]) if results else 0
+            processed_results = self._process_query_results(results)
+            
+            filtered_results = self._filter_by_similarity(
+                processed_results,
+                similarity_threshold
+            )
+            
+            final_results = self._limit_results(filtered_results, top_k)
+            
+            result_count = len(final_results.get('documents', []))
             duration_ms = int((time.time() - start_time) * 1000)
             
             logger.info(
-                f"[search_relevant] 检索完成: 返回{result_count}条结果",
+                f"[search_relevant] 检索完成: 返回{result_count}条结果（阈值过滤后）",
                 extra={
                     'duration_ms': duration_ms,
                     'params': {
                         'query_length': len(query),
                         'top_k': top_k,
+                        'similarity_threshold': similarity_threshold,
                         'result_count': result_count,
                         'has_filter': metadata_filter is not None
                     }
@@ -247,7 +273,7 @@ class RuleVectorDB(BaseVectorDB):
             
             rag_logger.log_retrieval(query, metadata_filter or {}, result_count, duration_ms)
             
-            return self._process_query_results(results)
+            return final_results
         except Exception as e:
             duration_ms = int((time.time() - start_time) * 1000)
             logger.error(
@@ -260,6 +286,71 @@ class RuleVectorDB(BaseVectorDB):
                 "metadatas": [],
                 "distances": []
             }
+    
+    def _filter_by_similarity(
+        self,
+        results: Dict[str, Any],
+        threshold: float
+    ) -> Dict[str, Any]:
+        """根据相似度阈值过滤结果
+        
+        Args:
+            results: 检索结果
+            threshold: 相似度阈值（0-1）
+            
+        Returns:
+            过滤后的结果
+        """
+        documents = results.get("documents", [])
+        metadatas = results.get("metadatas", [])
+        distances = results.get("distances", [])
+        
+        if not documents:
+            return results
+        
+        filtered_docs = []
+        filtered_metas = []
+        filtered_dists = []
+        
+        for doc, meta, dist in zip(documents, metadatas, distances):
+            similarity = 1 / (1 + dist)
+            
+            if similarity >= threshold:
+                filtered_docs.append(doc)
+                filtered_metas.append(meta)
+                filtered_dists.append(dist)
+            else:
+                logger.debug(f"[_filter_by_similarity] 过滤低相似度结果: similarity={similarity:.3f}")
+        
+        logger.debug(
+            f"[_filter_by_similarity] 过滤完成: {len(documents)} -> {len(filtered_docs)}条"
+        )
+        
+        return {
+            "documents": filtered_docs,
+            "metadatas": filtered_metas,
+            "distances": filtered_dists
+        }
+    
+    def _limit_results(
+        self,
+        results: Dict[str, Any],
+        top_k: int
+    ) -> Dict[str, Any]:
+        """限制结果数量
+        
+        Args:
+            results: 检索结果
+            top_k: 最大返回数量
+            
+        Returns:
+            限制后的结果
+        """
+        return {
+            "documents": results.get("documents", [])[:top_k],
+            "metadatas": results.get("metadatas", [])[:top_k],
+            "distances": results.get("distances", [])[:top_k]
+        }
     
     def search_competition_category(self, competition_name: str, top_k: int = 5):
         """
@@ -415,9 +506,10 @@ class RuleVectorDB(BaseVectorDB):
     def search_with_category_awareness(
         self,
         query: str,
-        top_k: int = 5,
+        top_k: int = DEFAULT_TOP_K,
         use_rerank: bool = True,
-        intent: IntentResult = None
+        intent: IntentResult = None,
+        similarity_threshold: float = DEFAULT_SIMILARITY_THRESHOLD
     ) -> Tuple[List[RerankedResult], IntentResult]:
         """
         类别感知检索（核心方法）
@@ -426,9 +518,10 @@ class RuleVectorDB(BaseVectorDB):
         
         Args:
             query: 用户查询
-            top_k: 返回结果数量
+            top_k: 返回结果数量（默认5）
             use_rerank: 是否使用重排
             intent: 预先识别的意图（可选）
+            similarity_threshold: 相似度阈值（默认0.7）
             
         Returns:
             (重排结果列表, 意图识别结果)
@@ -456,7 +549,8 @@ class RuleVectorDB(BaseVectorDB):
         results = self.search_relevant(
             query=enhanced_query,
             top_k=top_k * 2,
-            metadata_filter=metadata_filter
+            metadata_filter=metadata_filter,
+            similarity_threshold=similarity_threshold
         )
         
         if use_rerank:
@@ -476,7 +570,8 @@ class RuleVectorDB(BaseVectorDB):
                     'sub_category': intent.sub_category,
                     'competition_type': intent.competition_type,
                     'result_count': len(reranked),
-                    'use_rerank': use_rerank
+                    'use_rerank': use_rerank,
+                    'similarity_threshold': similarity_threshold
                 }
             }
         )

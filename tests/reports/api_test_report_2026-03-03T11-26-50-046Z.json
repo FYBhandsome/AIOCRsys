@@ -1,0 +1,381 @@
+{
+  "summary": {
+    "total": 52,
+    "passed": 0,
+    "failed": 51,
+    "skipped": 1,
+    "passRate": "0.00%",
+    "duration": "0.23s",
+    "startTime": "2026-03-03T11:26:49.790Z",
+    "endTime": "2026-03-03T11:26:50.024Z"
+  },
+  "details": {
+    "passed": [],
+    "failed": [
+      {
+        "name": "Visual Model 健康检查",
+        "url": "http://localhost:8001/api/v1/health",
+        "error": "fetch failed",
+        "duration": 82,
+        "method": "GET"
+      },
+      {
+        "name": "RAG 健康检查",
+        "url": "http://localhost:8010/health",
+        "error": "fetch failed",
+        "duration": 3,
+        "method": "GET"
+      },
+      {
+        "name": "RAG 系统健康检查",
+        "url": "http://localhost:8010/api/v1/system/health",
+        "error": "fetch failed",
+        "duration": 3,
+        "method": "GET"
+      },
+      {
+        "name": "管理员登录",
+        "url": "http://localhost:8001/api/v1/auth/login",
+        "error": "fetch failed",
+        "duration": 7,
+        "method": "POST"
+      },
+      {
+        "name": "用户登出",
+        "url": "http://localhost:8001/api/v1/auth/logout",
+        "error": "fetch failed",
+        "duration": 4,
+        "method": "POST"
+      },
+      {
+        "name": "学生登录",
+        "url": "http://localhost:8001/api/v1/auth/login",
+        "error": "fetch failed",
+        "duration": 4,
+        "method": "POST"
+      },
+      {
+        "name": "教师登录",
+        "url": "http://localhost:8001/api/v1/auth/login",
+        "error": "fetch failed",
+        "duration": 4,
+        "method": "POST"
+      },
+      {
+        "name": "获取成绩摘要",
+        "url": "http://localhost:8001/api/v1/student/scores/summary",
+        "error": "fetch failed",
+        "duration": 3,
+        "method": "GET"
+      },
+      {
+        "name": "获取成绩详情",
+        "url": "http://localhost:8001/api/v1/student/scores/detail",
+        "error": "fetch failed",
+        "duration": 3,
+        "method": "GET"
+      },
+      {
+        "name": "获取上传历史",
+        "url": "http://localhost:8001/api/v1/student/uploads",
+        "error": "fetch failed",
+        "duration": 4,
+        "method": "GET"
+      },
+      {
+        "name": "获取证书列表",
+        "url": "http://localhost:8001/api/v1/student/certificates",
+        "error": "fetch failed",
+        "duration": 3,
+        "method": "GET"
+      },
+      {
+        "name": "获取综合分析",
+        "url": "http://localhost:8001/api/v1/student/comprehensive/analysis",
+        "error": "fetch failed",
+        "duration": 3,
+        "method": "GET"
+      },
+      {
+        "name": "获取成绩趋势",
+        "url": "http://localhost:8001/api/v1/student/scores/trend",
+        "error": "fetch failed",
+        "duration": 2,
+        "method": "GET"
+      },
+      {
+        "name": "获取班级列表",
+        "url": "http://localhost:8001/api/v1/teacher/classes",
+        "error": "fetch failed",
+        "duration": 2,
+        "method": "GET"
+      },
+      {
+        "name": "获取学生列表",
+        "url": "http://localhost:8001/api/v1/teacher/students",
+        "error": "fetch failed",
+        "duration": 2,
+        "method": "GET"
+      },
+      {
+        "name": "成绩分析",
+        "url": "http://localhost:8001/api/v1/teacher/scores/analysis",
+        "error": "fetch failed",
+        "duration": 2,
+        "method": "GET"
+      },
+      {
+        "name": "班级统计",
+        "url": "http://localhost:8001/api/v1/teacher/classes/stats",
+        "error": "fetch failed",
+        "duration": 2,
+        "method": "GET"
+      },
+      {
+        "name": "班级排名",
+        "url": "http://localhost:8001/api/v1/teacher/classes/ranking",
+        "error": "fetch failed",
+        "duration": 2,
+        "method": "GET"
+      },
+      {
+        "name": "获取用户列表",
+        "url": "http://localhost:8001/api/v1/admin/users",
+        "error": "fetch failed",
+        "duration": 3,
+        "method": "GET"
+      },
+      {
+        "name": "获取规则文档列表",
+        "url": "http://localhost:8001/api/v1/admin/rules/list",
+        "error": "fetch failed",
+        "duration": 3,
+        "method": "GET"
+      },
+      {
+        "name": "获取系统设置",
+        "url": "http://localhost:8001/api/v1/admin/settings",
+        "error": "fetch failed",
+        "duration": 3,
+        "method": "GET"
+      },
+      {
+        "name": "获取AI配置",
+        "url": "http://localhost:8001/api/v1/admin/ai/config",
+        "error": "fetch failed",
+        "duration": 2,
+        "method": "GET"
+      },
+      {
+        "name": "获取Prompt配置",
+        "url": "http://localhost:8001/api/v1/admin/prompts",
+        "error": "fetch failed",
+        "duration": 2,
+        "method": "GET"
+      },
+      {
+        "name": "获取向量数据库统计",
+        "url": "http://localhost:8001/api/v1/admin/vector-db/stats",
+        "error": "fetch failed",
+        "duration": 2,
+        "method": "GET"
+      },
+      {
+        "name": "获取RAG统计",
+        "url": "http://localhost:8001/api/v1/admin/rag/stats",
+        "error": "fetch failed",
+        "duration": 1,
+        "method": "GET"
+      },
+      {
+        "name": "RAG健康检查",
+        "url": "http://localhost:8001/api/v1/admin/rag/health",
+        "error": "fetch failed",
+        "duration": 2,
+        "method": "GET"
+      },
+      {
+        "name": "获取综测配置列表",
+        "url": "http://localhost:8001/api/v1/admin/comprehensive-score-config",
+        "error": "fetch failed",
+        "duration": 2,
+        "method": "GET"
+      },
+      {
+        "name": "获取默认综测配置",
+        "url": "http://localhost:8001/api/v1/admin/comprehensive-score-config/default",
+        "error": "fetch failed",
+        "duration": 2,
+        "method": "GET"
+      },
+      {
+        "name": "获取可用学业成绩字段",
+        "url": "http://localhost:8001/api/v1/admin/comprehensive-score-config/fields",
+        "error": "fetch failed",
+        "duration": 2,
+        "method": "GET"
+      },
+      {
+        "name": "获取文件分类",
+        "url": "http://localhost:8001/api/v1/file/categories",
+        "error": "fetch failed",
+        "duration": 2,
+        "method": "GET"
+      },
+      {
+        "name": "获取文件列表",
+        "url": "http://localhost:8001/api/v1/file/list",
+        "error": "fetch failed",
+        "duration": 3,
+        "method": "GET"
+      },
+      {
+        "name": "获取下载历史",
+        "url": "http://localhost:8001/api/v1/file/download-history",
+        "error": "fetch failed",
+        "duration": 3,
+        "method": "GET"
+      },
+      {
+        "name": "发送聊天消息",
+        "url": "http://localhost:8010/api/v1/chat",
+        "error": "fetch failed",
+        "duration": 3,
+        "method": "POST"
+      },
+      {
+        "name": "获取聊天缓存统计",
+        "url": "http://localhost:8010/api/v1/chat/cache/stats",
+        "error": "fetch failed",
+        "duration": 2,
+        "method": "GET"
+      },
+      {
+        "name": "获取文档列表",
+        "url": "http://localhost:8010/api/v1/documents",
+        "error": "fetch failed",
+        "duration": 3,
+        "method": "GET"
+      },
+      {
+        "name": "文档分析概览",
+        "url": "http://localhost:8010/api/v1/documents/analyze/overview",
+        "error": "fetch failed",
+        "duration": 1,
+        "method": "GET"
+      },
+      {
+        "name": "获取文档规则",
+        "url": "http://localhost:8010/api/v1/documents/analyze/rules",
+        "error": "fetch failed",
+        "duration": 1,
+        "method": "GET"
+      },
+      {
+        "name": "获取综测比例数据",
+        "url": "http://localhost:8010/api/v1/documents/analyze/ratios",
+        "error": "fetch failed",
+        "duration": 2,
+        "method": "GET"
+      },
+      {
+        "name": "获取文档分析说明",
+        "url": "http://localhost:8010/api/v1/documents/analyze/description",
+        "error": "fetch failed",
+        "duration": 2,
+        "method": "GET"
+      },
+      {
+        "name": "获取系统信息",
+        "url": "http://localhost:8010/api/v1/system/info",
+        "error": "fetch failed",
+        "duration": 2,
+        "method": "GET"
+      },
+      {
+        "name": "获取系统配置",
+        "url": "http://localhost:8010/api/v1/system/config",
+        "error": "fetch failed",
+        "duration": 2,
+        "method": "GET"
+      },
+      {
+        "name": "获取LLM配置",
+        "url": "http://localhost:8010/api/v1/system/llm/config",
+        "error": "fetch failed",
+        "duration": 2,
+        "method": "GET"
+      },
+      {
+        "name": "获取模型信息",
+        "url": "http://localhost:8010/api/v1/system/model-info",
+        "error": "fetch failed",
+        "duration": 2,
+        "method": "GET"
+      },
+      {
+        "name": "获取向量数据库统计",
+        "url": "http://localhost:8010/api/v1/system/vector_db/stats",
+        "error": "fetch failed",
+        "duration": 2,
+        "method": "GET"
+      },
+      {
+        "name": "向量数据库统计",
+        "url": "http://localhost:8010/api/v1/vector-db/stats",
+        "error": "fetch failed",
+        "duration": 2,
+        "method": "GET"
+      },
+      {
+        "name": "向量数据库健康检查",
+        "url": "http://localhost:8010/api/v1/vector-db/health",
+        "error": "fetch failed",
+        "duration": 3,
+        "method": "GET"
+      },
+      {
+        "name": "向量数据库集合列表",
+        "url": "http://localhost:8010/api/v1/vector-db/collections",
+        "error": "fetch failed",
+        "duration": 2,
+        "method": "GET"
+      },
+      {
+        "name": "获取Prompt列表",
+        "url": "http://localhost:8010/api/v1/prompts",
+        "error": "fetch failed",
+        "duration": 2,
+        "method": "GET"
+      },
+      {
+        "name": "获取缓存统计",
+        "url": "http://localhost:8010/api/v1/cache/stats",
+        "error": "fetch failed",
+        "duration": 2,
+        "method": "GET"
+      },
+      {
+        "name": "获取日志统计",
+        "url": "http://localhost:8010/api/v1/logs/stats",
+        "error": "fetch failed",
+        "duration": 2,
+        "method": "GET"
+      },
+      {
+        "name": "证书计算",
+        "url": "http://localhost:8010/api/v1/certificate/calculate",
+        "error": "fetch failed",
+        "duration": 3,
+        "method": "POST"
+      }
+    ],
+    "skipped": [
+      {
+        "name": "获取当前用户信息",
+        "url": "http://localhost:8001/api/v1/auth/me",
+        "reason": "需要认证Token"
+      }
+    ]
+  }
+}

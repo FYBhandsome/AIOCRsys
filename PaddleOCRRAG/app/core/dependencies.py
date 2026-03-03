@@ -102,6 +102,12 @@ class DependencyContainer:
         from app.services.system_service import SystemService
         return self._get_or_create_instance('system_service', SystemService)
     
+    @lru_cache(maxsize=1)
+    def get_vector_db(self):
+        """获取向量数据库实例"""
+        from app.rag.vector_db.vector_db import get_vector_db
+        return get_vector_db()
+    
     def get_initialization_status(self, instance_name: str) -> Optional[bool]:
         """
         获取组件初始化状态
