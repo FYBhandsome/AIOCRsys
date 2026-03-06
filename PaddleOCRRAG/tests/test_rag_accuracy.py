@@ -29,6 +29,7 @@ XLSX_PATH = r"D:\PaddleOCR\PaddleOCRRAG\data\rules\05、学科竞赛名称列表
 @dataclass
 class TestResult:
     """测试结果数据类"""
+    __test__ = False
     test_name: str
     success: bool
     message: str

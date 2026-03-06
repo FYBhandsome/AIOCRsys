@@ -6,6 +6,7 @@
 """
 import json
 import os
+import asyncio
 import hashlib
 import uuid
 from datetime import datetime
@@ -176,6 +177,15 @@ class CertificateStorageService:
                 "success_count": success_count,
                 "failed_count": failed_count
             })
+            
+            # 异步触发OCR处理
+            try:
+                from app.services.certificate_ocr_processing_service import get_certificate_ocr_processing_service
+                ocr_processing_service = get_certificate_ocr_processing_service()
+                asyncio.create_task(ocr_processing_service.process_certificate(certificate))
+                logger.info(f"已触发OCR处理: certificate_id={certificate.id}")
+            except Exception as e:
+                logger.warning(f"触发OCR处理失败: {e}", exc_info=True)
             
             return {
                 "success": True,

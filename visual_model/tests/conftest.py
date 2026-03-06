@@ -176,17 +176,26 @@ def event_loop() -> Generator:
 
 
 @pytest.fixture(scope="session")
-async def initialize_db():
+def temp_db_path(tmp_path_factory):
+    """创建临时数据库文件路径"""
+    tmp_path = tmp_path_factory.mktemp("test_db")
+    return str(tmp_path / "test_database.db")
+
+
+@pytest.fixture
+async def initialize_db(temp_db_path):
     """初始化测试数据库"""
-    logger.info("初始化测试数据库...")
+    logger.info(f"初始化测试数据库: {temp_db_path}")
+    
+    temp_db_url = f"sqlite:///{temp_db_path}"
     
     await Tortoise.init(
-        db_url=settings.DATABASE_URL,
+        db_url=temp_db_url,
         modules={"models": ["app.models.tortoise_models"]}
     )
     await Tortoise.generate_schemas()
     
-    from app.models.tortoise_models import User
+    from app.models.tortoise_models import User, Student
     from app.core.security import get_password_hash
     
     test_users_data = [
@@ -209,6 +218,17 @@ async def initialize_db():
             )
             logger.info(f"创建测试用户: {user_data['username']}")
     
+    test_students_data = [
+        {"id": "202300502101", "name": "张三", "college": "计算机学院", "major": "计算机科学与技术", "class_name": "计算机2301", "grade": "2023"},
+        {"id": "202300502128", "name": "测试学生", "college": "计算机学院", "major": "计算机科学与技术", "class_name": "计算机2301", "grade": "2023"},
+    ]
+    
+    for student_data in test_students_data:
+        existing = await Student.filter(id=student_data["id"]).first()
+        if not existing:
+            await Student.create(**student_data)
+            logger.info(f"创建测试学生: {student_data['id']}")
+    
     logger.info("测试数据库初始化完成")
     
     yield
@@ -217,7 +237,7 @@ async def initialize_db():
     await Tortoise.close_connections()
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 async def app(initialize_db):
     """创建测试应用实例"""
     from app.core.app_factory import create_app
@@ -419,6 +439,9 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "api: API响应规范测试"
     )
+    config.addinivalue_line(
+        "markers", "ocr: OCR识别相关测试"
+    )
 
 
 class TestResult:
@@ -502,6 +525,76 @@ def sample_image_bytes():
     img.save(buffer, format='JPEG')
     buffer.seek(0)
     return buffer.read()
+
+
+@pytest.fixture
+async def certificate_test_cleanup():
+    """测试证书数据清理fixture"""
+    from app.models.tortoise_models import Certificate, CertificateImage, CertificateBatch
+    
+    created_certificate_ids = []
+    created_image_ids = []
+    created_batch_ids = []
+    test_file_paths = []
+    
+    yield {
+        "created_certificate_ids": created_certificate_ids,
+        "created_image_ids": created_image_ids,
+        "created_batch_ids": created_batch_ids,
+        "test_file_paths": test_file_paths
+    }
+    
+    logger.info("开始清理证书测试数据...")
+    
+    try:
+        if created_image_ids:
+            await CertificateImage.filter(id__in=created_image_ids).delete()
+            logger.info(f"已删除 {len(created_image_ids)} 条证书图片记录")
+        
+        if created_certificate_ids:
+            await Certificate.filter(id__in=created_certificate_ids).delete()
+            logger.info(f"已删除 {len(created_certificate_ids)} 条证书记录")
+        
+        if created_batch_ids:
+            await CertificateBatch.filter(id__in=created_batch_ids).delete()
+            logger.info(f"已删除 {len(created_batch_ids)} 条批次记录")
+        
+        import os
+        for file_path in test_file_paths:
+            if os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                    logger.info(f"已删除测试文件: {file_path}")
+                except Exception as e:
+                    logger.warning(f"删除测试文件失败: {file_path}, 错误: {e}")
+    except Exception as e:
+        logger.error(f"清理测试数据时出错: {e}")
+    
+    logger.info("证书测试数据清理完成")
+
+
+@pytest.fixture
+def test_photo_dir():
+    """测试照片目录"""
+    from pathlib import Path
+    test_dir = Path(__file__).parent.parent / "testphoto" / "test"
+    return str(test_dir)
+
+
+@pytest.fixture
+def get_test_photos(test_photo_dir):
+    """获取测试照片文件路径"""
+    from pathlib import Path
+    import glob
+    
+    def _get_photos(ext=None, count=None):
+        pattern = f"*.{ext}" if ext else "*.*"
+        photo_paths = glob.glob(str(Path(test_photo_dir) / pattern))
+        if count and len(photo_paths) > count:
+            return photo_paths[:count]
+        return photo_paths
+    
+    return _get_photos
 
 
 def pytest_collection_modifyitems(config, items):

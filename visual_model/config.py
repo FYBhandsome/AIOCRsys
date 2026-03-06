@@ -220,7 +220,7 @@ class Settings(BaseSettings):
     
     # RAG系统配置
     RAG_BASE_URL: str = Field(
-        default="http://localhost:8010",
+        default="http://localhost:8000",
         description="RAG系统基础URL"
     )
     RAG_ENABLED: bool = Field(

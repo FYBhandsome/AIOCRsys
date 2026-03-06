@@ -89,24 +89,24 @@ export const API_ENDPOINTS = {
     RAG_HEALTH: '/v1/admin/rag/health'
   },
   RAG: {
-    CHAT: '/api/v1/chat',
-    CHAT_STREAM: '/api/v1/chat/stream',
-    CHAT_ASYNC: '/api/v1/chat/async',
-    CHAT_STREAM_ASYNC: '/api/v1/chat/stream/async',
-    CHAT_HISTORY: '/api/v1/ai/history',
-    CHAT_HISTORY_CLEAR: '/api/v1/ai/history',
-    DOCUMENTS: '/api/v1/documents',
-    SYSTEM_INFO: '/api/v1/system/info',
-    SYSTEM_HEALTH: '/api/v1/system/health',
-    LLM_CONFIG: '/api/v1/system/llm/config',
-    LLM_TEST: '/api/v1/system/llm/test',
-    VECTOR_DB_STATS: '/api/v1/vector-db/stats',
-    VECTOR_DB_CLEAR: '/api/v1/vector-db/clear',
-    VECTOR_DB_RESET: '/api/v1/vector-db/reset',
-    VECTOR_DB_REINDEX: '/api/v1/vector-db/reindex',
-    VECTOR_DB_COLLECTIONS: '/api/v1/vector-db/collections',
-    VECTOR_DB_HEALTH: '/api/v1/vector-db/health',
-    PROMPTS: '/api/v1/prompts'
+    CHAT: '/chat',
+    CHAT_STREAM: '/chat/stream',
+    CHAT_ASYNC: '/chat/async',
+    CHAT_STREAM_ASYNC: '/chat/stream/async',
+    CHAT_HISTORY: '/ai/history',
+    CHAT_HISTORY_CLEAR: '/ai/history',
+    DOCUMENTS: '/documents',
+    SYSTEM_INFO: '/system/info',
+    SYSTEM_HEALTH: '/system/health',
+    LLM_CONFIG: '/system/llm/config',
+    LLM_TEST: '/system/llm/test',
+    VECTOR_DB_STATS: '/vector-db/stats',
+    VECTOR_DB_CLEAR: '/vector-db/clear',
+    VECTOR_DB_RESET: '/vector-db/reset',
+    VECTOR_DB_REINDEX: '/vector-db/reindex',
+    VECTOR_DB_COLLECTIONS: '/vector-db/collections',
+    VECTOR_DB_HEALTH: '/vector-db/health',
+    PROMPTS: '/prompts'
   }
 }
 

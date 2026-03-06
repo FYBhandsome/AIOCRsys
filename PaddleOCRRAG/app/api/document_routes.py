@@ -1,14 +1,15 @@
 """
-文档管理相关API路由
+文档管理相关API路由 - 使用统一响应格式
 """
 import logging
 from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, BackgroundTasks, Depends
 from fastapi.responses import JSONResponse
-from app.models import ApiResponse, DocumentStatusUpdate
+from app.models import DocumentStatusUpdate
 from app.core.dependencies import DependencyContainer
 from app.services.document_analyzer_service import get_document_analyzer_service
+from app.core.api_response import ResponseBuilder, ResponseCode
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/documents", tags=["文档管理"])
@@ -37,13 +38,12 @@ async def upload_document(
             description=description
         )
         
-        return ApiResponse(
-            success=True,
+        return ResponseBuilder.success(
             data=result,
             message="文档上传成功"
         )
     except Exception as e:
-        logger.error(f"文档上传失败: {str(e)}")
+        logger.error(f"文档上传失败: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"文档上传失败: {str(e)}")
 
 
@@ -54,13 +54,12 @@ async def list_documents(category: Optional[str] = None, tags: Optional[str] = N
         document_service = container.get_document_service()
         result = document_service.list_documents(category=category, tags=tags)
         
-        return ApiResponse(
-            success=True,
+        return ResponseBuilder.success(
             data=result,
             message="获取文档列表成功"
         )
     except Exception as e:
-        logger.error(f"获取文档列表失败: {str(e)}")
+        logger.error(f"获取文档列表失败: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"获取文档列表失败: {str(e)}")
 
 
@@ -74,15 +73,14 @@ async def get_document(document_id: str):
         if document is None:
             raise HTTPException(status_code=404, detail="文档不存在")
         
-        return ApiResponse(
-            success=True,
+        return ResponseBuilder.success(
             data=document,
             message="获取文档详情成功"
         )
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"获取文档详情失败: {str(e)}")
+        logger.error(f"获取文档详情失败: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"获取文档详情失败: {str(e)}")
 
 
@@ -96,8 +94,7 @@ async def delete_document(document_id: str):
         if not success:
             raise HTTPException(status_code=404, detail="文档不存在")
         
-        return ApiResponse(
-            success=True,
+        return ResponseBuilder.success(
             data={
                 "document_id": document_id,
                 "deleted_at": datetime.now().isoformat()
@@ -107,7 +104,7 @@ async def delete_document(document_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"文档删除失败: {str(e)}")
+        logger.error(f"文档删除失败: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"文档删除失败: {str(e)}")
 
 
@@ -121,8 +118,7 @@ async def enable_document(document_id: str):
         if not success:
             raise HTTPException(status_code=404, detail="文档不存在")
         
-        return ApiResponse(
-            success=True,
+        return ResponseBuilder.success(
             data={
                 "document_id": document_id,
                 "enabled": True,
@@ -133,7 +129,7 @@ async def enable_document(document_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"文档启用失败: {str(e)}")
+        logger.error(f"文档启用失败: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"文档启用失败: {str(e)}")
 
 
@@ -147,8 +143,7 @@ async def disable_document(document_id: str):
         if not success:
             raise HTTPException(status_code=404, detail="文档不存在")
         
-        return ApiResponse(
-            success=True,
+        return ResponseBuilder.success(
             data={
                 "document_id": document_id,
                 "enabled": False,
@@ -159,7 +154,7 @@ async def disable_document(document_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"文档停用失败: {str(e)}")
+        logger.error(f"文档停用失败: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"文档停用失败: {str(e)}")
 
 
@@ -170,15 +165,14 @@ async def get_document_processing_status(document_id: str):
         document_service = container.get_document_service()
         result = document_service.get_document_processing_status(document_id)
         
-        return ApiResponse(
-            success=True,
+        return ResponseBuilder.success(
             data=result,
             message="获取文档处理状态成功"
         )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        logger.error(f"获取文档处理状态失败: {str(e)}")
+        logger.error(f"获取文档处理状态失败: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"获取文档处理状态失败: {str(e)}")
 
 
@@ -206,15 +200,9 @@ async def analyze_document(file_path: Optional[str] = None):
         if not result.get("success"):
             error_msg = result.get("error", "文档分析失败")
             logger.error(f"[analyze_document] 文档分析失败: {error_msg}")
-            return ApiResponse(
-                success=False,
-                data={
-                    "rules": [],
-                    "ratios": {},
-                    "analysis": "",
-                    "error": error_msg
-                },
-                message=f"文档分析失败: {error_msg}"
+            return ResponseBuilder.error(
+                message=f"文档分析失败: {error_msg}",
+                code=ResponseCode.BUSINESS_ERROR
             )
         
         logger.info(
@@ -222,8 +210,7 @@ async def analyze_document(file_path: Optional[str] = None):
             f"has_formula={result.get('ratios', {}).get('formula') is not None}"
         )
         
-        return ApiResponse(
-            success=True,
+        return ResponseBuilder.success(
             data={
                 "rules": result.get("rules", []),
                 "ratios": result.get("ratios", {}),
@@ -236,15 +223,9 @@ async def analyze_document(file_path: Optional[str] = None):
     except Exception as e:
         error_msg = f"文档分析异常: {str(e)}"
         logger.error(f"[analyze_document] {error_msg}", exc_info=True)
-        return ApiResponse(
-            success=False,
-            data={
-                "rules": [],
-                "ratios": {},
-                "analysis": "",
-                "error": error_msg
-            },
-            message=error_msg
+        return ResponseBuilder.error(
+            message=error_msg,
+            code=ResponseCode.INTERNAL_ERROR
         )
 
 
@@ -262,8 +243,7 @@ async def analyze_document_overview(file_path: Optional[str] = None):
         if not result.get("success"):
             raise HTTPException(status_code=500, detail=result.get("error", "文档分析失败"))
         
-        return ApiResponse(
-            success=True,
+        return ResponseBuilder.success(
             data={
                 "rules": result.get("rules", []),
                 "ratios": result.get("ratios", {}),
@@ -275,7 +255,7 @@ async def analyze_document_overview(file_path: Optional[str] = None):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"文档分析失败: {str(e)}")
+        logger.error(f"文档分析失败: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"文档分析失败: {str(e)}")
 
 
@@ -293,8 +273,7 @@ async def get_document_rules(query: Optional[str] = None, top_k: int = 10):
         if not result.get("success"):
             raise HTTPException(status_code=500, detail=result.get("error", "规则检索失败"))
         
-        return ApiResponse(
-            success=True,
+        return ResponseBuilder.success(
             data={
                 "rules": result.get("rules", []),
                 "total": result.get("total", 0),
@@ -305,7 +284,7 @@ async def get_document_rules(query: Optional[str] = None, top_k: int = 10):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"规则检索失败: {str(e)}")
+        logger.error(f"规则检索失败: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"规则检索失败: {str(e)}")
 
 
@@ -324,8 +303,7 @@ async def get_document_ratios():
         if not result.get("success"):
             raise HTTPException(status_code=500, detail=result.get("error", "比例数据提取失败"))
         
-        return ApiResponse(
-            success=True,
+        return ResponseBuilder.success(
             data={
                 "formula": result.get("formula"),
                 "ratios": result.get("ratios", {}),
@@ -336,7 +314,7 @@ async def get_document_ratios():
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"比例数据获取失败: {str(e)}")
+        logger.error(f"比例数据获取失败: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"比例数据获取失败: {str(e)}")
 
 
@@ -351,8 +329,7 @@ async def get_document_analysis_description(max_length: int = 100):
         analyzer_service = get_document_analyzer_service()
         analysis = analyzer_service.generate_analysis_description(max_length=max_length)
         
-        return ApiResponse(
-            success=True,
+        return ResponseBuilder.success(
             data={
                 "analysis": analysis,
                 "length": len(analysis)
@@ -360,5 +337,5 @@ async def get_document_analysis_description(max_length: int = 100):
             message="分析说明获取成功"
         )
     except Exception as e:
-        logger.error(f"分析说明获取失败: {str(e)}")
+        logger.error(f"分析说明获取失败: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"分析说明获取失败: {str(e)}")

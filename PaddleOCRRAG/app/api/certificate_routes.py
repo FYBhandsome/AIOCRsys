@@ -1,12 +1,13 @@
 """
-证书相关API路由
+证书相关API路由 - 使用统一响应格式
 """
 import logging
 from datetime import datetime
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import JSONResponse
-from app.models import CertificateRequest, ApiResponse
+from app.models import CertificateRequest
 from app.core.dependencies import DependencyContainer
+from app.core.api_response import ResponseBuilder, ResponseCode
 
 # 创建依赖注入容器实例
 container = DependencyContainer()
@@ -27,13 +28,12 @@ async def calculate_certificate_points(request: CertificateRequest):
             student_info=request.student_info
         )
         
-        return ApiResponse(
-            success=True,
+        return ResponseBuilder.success(
             data=result,
             message="证书加分计算成功"
         )
     except Exception as e:
-        logger.error(f"证书加分计算失败: {str(e)}")
+        logger.error(f"证书加分计算失败: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"证书加分计算失败: {str(e)}")
 
 
@@ -50,11 +50,10 @@ async def analyze_certificate(request: CertificateRequest):
             issue_date=""
         )
         
-        return ApiResponse(
-            success=True,
+        return ResponseBuilder.success(
             data=result,
             message="证书分析成功"
         )
     except Exception as e:
-        logger.error(f"证书分析失败: {str(e)}")
+        logger.error(f"证书分析失败: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"证书分析失败: {str(e)}")

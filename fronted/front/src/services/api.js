@@ -958,6 +958,6 @@ export const fileManagementAPI = {
     api.get('/v1/file/categories')
 }
 
-export { createRetryConfig }
+export { createRetryConfig, ragApi }
 
 export default api

@@ -51,9 +51,9 @@ def test_init():
     except Exception as e:
         print(f"\n错误: {e}")
         traceback.print_exc()
-        return False
+        assert False, f"测试失败: {e}"
     
-    return True
+    assert result, "初始化结果应该为True"
 
 if __name__ == "__main__":
     test_init()

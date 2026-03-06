@@ -23,7 +23,7 @@ class RAGClient:
         self.base_url = base_url or getattr(settings, 'RAG_BASE_URL', 'http://localhost:8000')
         self.api_prefix = "/api/v1"
         self.timeout = 30.0
-        logger.info(f"RAG客户端初始化: {self.base_url}")
+        logger.info(f"RAG客户端初始化: {self.base_url}{self.api_prefix}")
     
     async def calculate_score(
         self,

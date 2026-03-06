@@ -33,7 +33,7 @@ export default defineConfig({
         }
       },
       '/rag-api': {
-        target: 'http://localhost:8010',
+        target: 'http://localhost:8000',
         changeOrigin: true,
         secure: false,
         ws: true,

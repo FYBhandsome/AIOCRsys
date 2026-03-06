@@ -2,8 +2,8 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useUserStore } from '@/store'
 import { ElMessage } from 'element-plus'
 
-// 开发模式配置：禁用认证（与后端保持一致）
-const DISABLE_AUTH = import.meta.env.DEV && true  // 开发测试阶段禁用认证
+// 开发模式配置：允许访问登录注册页面
+const DISABLE_AUTH = false  // 开发模式不禁用认证，允许手动登录
 
 // 路由懒加载
 const Login = () => import('../views/Login.vue')
@@ -56,6 +56,24 @@ const routes = [
         name: 'StudentDashboard',
         component: StudentDashboard,
         meta: { title: '学生主页', roles: ['student'] }
+      },
+      {
+        path: 'upload',
+        name: 'StudentUpload',
+        component: MaterialUpload,
+        meta: { title: '材料上传', roles: ['student'] }
+      },
+      {
+        path: 'analysis',
+        name: 'StudentAnalysis',
+        component: Analysis,
+        meta: { title: '材料分析', roles: ['student'] }
+      },
+      {
+        path: 'results',
+        name: 'StudentResults',
+        component: ResultList,
+        meta: { title: '结果列表', roles: ['student'] }
       }
     ]
   },
@@ -71,10 +89,22 @@ const routes = [
         meta: { title: '教师主页', roles: ['teacher'] }
       },
       {
+        path: 'upload',
+        name: 'TeacherScoreUpload',
+        component: ScoreUpload,
+        meta: { title: '成绩上传', roles: ['teacher'] }
+      },
+      {
         path: 'students',
         name: 'StudentList',
         component: StudentList,
         meta: { title: '学生列表', roles: ['teacher'] }
+      },
+      {
+        path: 'analysis',
+        name: 'TeacherScoreAnalysis',
+        component: ScoreAnalysis,
+        meta: { title: '成绩分析', roles: ['teacher'] }
       },
       {
         path: 'visualization',
@@ -87,6 +117,12 @@ const routes = [
         name: 'ClassRanking',
         component: ClassRanking,
         meta: { title: '班级排名', roles: ['teacher'] }
+      },
+      {
+        path: 'results',
+        name: 'TeacherResults',
+        component: ResultList,
+        meta: { title: '结果列表', roles: ['teacher'] }
       }
     ]
   },
@@ -100,6 +136,18 @@ const routes = [
         name: 'AdminDashboard',
         component: AdminDashboard,
         meta: { title: '管理员主页', roles: ['admin'] }
+      },
+      {
+        path: 'upload',
+        name: 'AdminRuleUpload',
+        component: RuleUpload,
+        meta: { title: '规则上传', roles: ['admin'] }
+      },
+      {
+        path: 'rules',
+        name: 'AdminRules',
+        redirect: '/admin/upload',
+        meta: { title: '规则列表', roles: ['admin'] }
       },
       {
         path: 'database',
@@ -201,10 +249,17 @@ router.beforeEach((to, from, next) => {
   // 设置页面标题
   document.title = to.meta.title ? `${to.meta.title} - 综测系统` : '综测系统'
   
-  // 🔓 开发模式：禁用认证
-  if (DISABLE_AUTH) {
-    // 自动设置为管理员用户（可以访问所有页面）
-    if (!isAuthenticated) {
+  // 🔓 开发模式：允许访问登录页面，同时保留自动登录选项
+  if (import.meta.env.DEV) {
+    // 如果访问登录页面或忘记密码页面，直接允许访问
+    if (to.path === '/login' || to.path === '/forgot-password') {
+      next()
+      return
+    }
+    
+    // 如果未认证且不是访问登录页面，提供自动登录选项
+    if (!isAuthenticated && to.path !== '/login' && to.path !== '/forgot-password') {
+      // 自动设置为管理员用户（可以访问所有页面）
       userStore.login({
         id: 'dev_admin',
         username: 'dev_admin',
@@ -212,12 +267,12 @@ router.beforeEach((to, from, next) => {
         role: 'admin',
         roleName: '管理员'
       }, 'dev-token')
-    }
-    
-    // 跳过登录页，直接进入主页
-    if (to.path === '/login' || to.path === '/') {
-      next('/admin/dashboard')
-      return
+      
+      // 如果是根路径，重定向到管理员主页
+      if (to.path === '/') {
+        next('/admin/dashboard')
+        return
+      }
     }
     
     next()

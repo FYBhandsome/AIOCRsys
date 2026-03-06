@@ -1,12 +1,13 @@
 """
-聊天相关API路由
+聊天相关API路由 - 使用统一响应格式
 """
 from datetime import datetime
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
-from app.models import ChatRequest, ApiResponse
+from app.models import ChatRequest
 from app.core.dependencies import DependencyContainer
 from app.core.logger import get_logger, set_request_id, RequestContext, performance_monitor
+from app.core.api_response import ResponseBuilder, ResponseCode
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/chat", tags=["AI对话"])
@@ -55,10 +56,10 @@ async def chat(request: ChatRequest):
                 extra={'params': {'request_id': request_id, 'used_rag': result.get('used_rag', False)}}
             )
             
-            return ApiResponse(
-                success=True,
+            return ResponseBuilder.success(
                 data=result,
-                message="对话处理成功"
+                message="对话处理成功",
+                request_id=request_id
             )
         except Exception as e:
             logger.error(f"对话处理失败: {str(e)}", exc_info=True)
@@ -121,10 +122,10 @@ async def chat_async(request: ChatRequest):
             
             logger.info(f"异步聊天请求处理成功")
             
-            return ApiResponse(
-                success=True,
+            return ResponseBuilder.success(
                 data=result,
-                message="异步对话处理成功"
+                message="异步对话处理成功",
+                request_id=request_id
             )
         except Exception as e:
             logger.error(f"异步对话处理失败: {str(e)}", exc_info=True)
@@ -176,8 +177,7 @@ async def get_cache_stats():
         chat_service = container.get_chat_service()
         stats = chat_service.get_cache_stats()
         
-        return ApiResponse(
-            success=True,
+        return ResponseBuilder.success(
             data=stats,
             message="获取缓存统计成功"
         )
@@ -194,8 +194,7 @@ async def clear_cache():
         chat_service = container.get_chat_service()
         chat_service.clear_cache()
         
-        return ApiResponse(
-            success=True,
+        return ResponseBuilder.success(
             data={"cleared_at": datetime.now().isoformat()},
             message="缓存已清空"
         )

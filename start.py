@@ -120,8 +120,8 @@ SERVICES_CONFIG = {
     },
     "rag": {
         "name": "RAG 服务",
-        "default_port": 8010,
-        "fallback_ports": [8011, 8012, 8013, 8014, 8000],
+        "default_port": 8000,
+        "fallback_ports": [8010, 8011, 8012, 8013, 8014],
         "cwd": RAG_DIR,
         "python": CONDA_PYTHON,
         "script_template": "-m uvicorn app.main:app --host 127.0.0.1 --port {port}",

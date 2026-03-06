@@ -254,6 +254,66 @@ async def get_certificate_statistics(student_id: str):
     })
 
 
+@router.post("/{certificate_id}/ocr/trigger")
+async def trigger_certificate_ocr(certificate_id: int):
+    """
+    手动触发证书OCR处理
+    
+    Args:
+        certificate_id: 证书ID
+    
+    Returns:
+        处理结果
+    """
+    try:
+        certificate = await Certificate.get_or_none(id=certificate_id)
+        if not certificate:
+            raise HTTPException(status_code=404, detail="证书不存在")
+        
+        from app.services.certificate_ocr_processing_service import get_certificate_ocr_processing_service
+        ocr_processing_service = get_certificate_ocr_processing_service()
+        
+        result = await ocr_processing_service.process_certificate(certificate)
+        
+        return JSONResponse(content=result)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"触发OCR处理失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"触发OCR处理失败: {str(e)}")
+
+
+@router.post("/image/{image_id}/ocr/trigger")
+async def trigger_image_ocr(image_id: int):
+    """
+    手动触发单张图片的OCR处理
+    
+    Args:
+        image_id: 图片ID
+    
+    Returns:
+        处理结果
+    """
+    try:
+        image = await CertificateImage.get_or_none(id=image_id)
+        if not image:
+            raise HTTPException(status_code=404, detail="图片不存在")
+        
+        from app.services.certificate_ocr_processing_service import get_certificate_ocr_processing_service
+        ocr_processing_service = get_certificate_ocr_processing_service()
+        
+        result = await ocr_processing_service.process_certificate_image(image)
+        
+        return JSONResponse(content=result)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"触发图片OCR处理失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"触发图片OCR处理失败: {str(e)}")
+
+
 @router.post("/batch-status")
 async def batch_update_status(
     certificate_ids: List[int],

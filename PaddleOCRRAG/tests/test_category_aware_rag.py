@@ -44,7 +44,10 @@ def test_category_keywords():
     for cert_type, info in CERTIFICATE_SCORES.items():
         print(f"  {info['name']}: {info['score']}分 (类别: {info['category']})")
     
-    return True
+    assert CATEGORY_KEYWORDS is not None
+    assert COMPETITION_TYPE_KEYWORDS is not None
+    assert SCORE_LIMITS is not None
+    assert CERTIFICATE_SCORES is not None
 
 
 def test_competition_mapper():
@@ -83,7 +86,9 @@ def test_competition_mapper():
             print(f"  需人工审核: {info.requires_manual_review}")
     
     print(f"\n总共加载 {len(mapper.get_all_competitions())} 条竞赛记录")
-    return True
+    
+    assert mapper is not None
+    assert len(mapper.get_all_competitions()) > 0
 
 
 def test_intent_recognizer():
@@ -126,7 +131,7 @@ def test_intent_recognizer():
         print(f"  需人工审核: {intent.requires_manual_review}")
         print(f"  匹配关键词: {intent.matched_keywords}")
     
-    return True
+    assert recognizer is not None
 
 
 def test_query_enhancer():
@@ -162,7 +167,8 @@ def test_query_enhancer():
         print(f"  元数据过滤器: {context['metadata_filter']}")
         print(f"  需人工审核: {context['requires_manual_review']}")
     
-    return True
+    assert enhancer is not None
+    assert context is not None
 
 
 @pytest.mark.skip_if_no_langchain
@@ -197,7 +203,8 @@ def test_enhanced_loader():
         print(f"    文本: {chunk.text[:100]}...")
         print(f"    元数据: {chunk.metadata}")
     
-    return True
+    assert loader is not None
+    assert len(loader.get_chunks()) > 0
 
 
 def test_reranker():
@@ -266,7 +273,8 @@ def test_reranker():
         print(f"    重排分数: {result.reranked_score:.3f}")
         print(f"    分数明细: {result.score_breakdown}")
     
-    return True
+    assert reranker is not None
+    assert len(reranked) > 0
 
 
 def run_all_tests():
