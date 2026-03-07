@@ -314,16 +314,6 @@ def create_app() -> FastAPI:
             "debug": settings.DEBUG
         }
     
-    @app.get("/api/v1/health", tags=["系统"])
-    async def api_health_check():
-        """API健康检查端点（前端兼容）"""
-        return {
-            "status": "healthy",
-            "service": "Visual Model Backend",
-            "version": settings.PROJECT_VERSION,
-            "debug": settings.DEBUG
-        }
-    
     @app.get("/api/stats", tags=["系统"])
     async def get_stats():
         """获取系统统计信息"""

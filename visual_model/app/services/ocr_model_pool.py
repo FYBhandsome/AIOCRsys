@@ -337,6 +337,10 @@ class OCRModelPool:
         Returns:
             模型实例或None
         """
+        if not PADDLE_OCR_AVAILABLE:
+            logger.warning("PaddleOCR未安装，无法获取OCR模型实例")
+            return None
+            
         self._stats["total_requests"] += 1
         start_time = time.time()
         

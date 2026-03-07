@@ -12,7 +12,7 @@ import json
 import os
 import uuid
 import subprocess
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Tuple, List, Optional, Dict, Any
 
 from cryptography.hazmat.primitives import hashes, serialization
@@ -675,7 +675,7 @@ class LicenseService:
         
         return {
             "mac_addresses": get_mac_addresses(),
-            "current_time": datetime.utcnow().isoformat(),
+            "current_time": datetime.now(timezone.utc).isoformat(),
             "network_status": network_status,
             "public_key_available": public_key_available,
             "key_source": key_source,
@@ -787,7 +787,7 @@ class LicenseService:
             persistent_data = {
                 "license": license_str,
                 "token": token,
-                "saved_at": datetime.utcnow().isoformat(),
+                "saved_at": datetime.now(timezone.utc).isoformat(),
                 "payload": payload
             }
             
@@ -870,7 +870,7 @@ class LicenseService:
                 "verification_file_exists": verification_file_exists,
                 "verification_file_size": verification_file_size,
                 "verification_records_count": verification_records_count,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             }
         except Exception as e:
             return {"error": f"获取存储信息失败: {str(e)}"}

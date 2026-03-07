@@ -4,7 +4,7 @@
 授权验证API路由 - FastAPI版本
 """
 from fastapi import APIRouter, HTTPException, status
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.models.license import (
     LicenseVerifyRequest,
@@ -191,14 +191,14 @@ async def get_network_status():
         return NetworkStatusResponse(
             network_status=network_status,
             recommended_mode="offline" if not network_status["connected"] else "online",
-            timestamp=datetime.utcnow().isoformat()
+            timestamp=datetime.now(timezone.utc).isoformat()
         )
     except Exception as e:
         logger.error(f"获取网络状态失败: {str(e)}", exc_info=True)
         return NetworkStatusResponse(
             network_status={"connected": False, "error": str(e)},
             recommended_mode="offline",
-            timestamp=datetime.utcnow().isoformat()
+            timestamp=datetime.now(timezone.utc).isoformat()
         )
 
 

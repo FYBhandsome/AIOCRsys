@@ -69,7 +69,7 @@ async def register(user_create: UserCreate):
         if user_create.email and settings.EMAIL_ENABLED:
             verification_token = generate_reset_token()
             user.reset_token = verification_token
-            user.reset_token_expires = datetime.utcnow() + timedelta(days=1)
+            user.reset_token_expires = datetime.now(timezone.utc) + timedelta(days=1)
             await user.save()
             
             verification_link = f"{settings.FRONTEND_URL}/verify-email?token={verification_token}"
@@ -127,7 +127,7 @@ async def login(user_login: UserLogin):
                 detail="账号已被禁用，请联系管理员"
             )
         
-        user.last_login = datetime.utcnow()
+        user.last_login = datetime.now(timezone.utc)
         await user.save()
         
         user_data = {
@@ -287,7 +287,7 @@ async def confirm_password_reset(confirm: PasswordResetConfirm):
                 detail="请先获取验证码"
             )
         
-        if not user.code_expires_at or user.code_expires_at <= datetime.utcnow():
+        if not user.code_expires_at or user.code_expires_at <= datetime.now(timezone.utc):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="验证码已过期，请重新获取"

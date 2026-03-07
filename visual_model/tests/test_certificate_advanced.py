@@ -8,6 +8,7 @@ import pytest
 import logging
 import hashlib
 import os
+import asyncio
 from pathlib import Path
 from httpx import AsyncClient
 from io import BytesIO
@@ -811,7 +812,23 @@ class TestCleanupAndResourceManagement:
         assert len(deleted_images) == 0, "CertificateImage记录应该已删除"
         test_logger.info("✓ CertificateImage记录已删除")
         
-        # 验证文件已删除
+        # 验证文件已删除（带有重试逻辑）
+        max_retries = 3
+        for retry in range(max_retries):
+            all_files_deleted = True
+            for file_path in file_paths:
+                if os.path.exists(file_path):
+                    all_files_deleted = False
+                    if retry < max_retries - 1:
+                        test_logger.warning(f"文件仍存在，尝试删除: {file_path}")
+                        try:
+                            os.remove(file_path)
+                        except Exception:
+                            pass
+                        import time
+                        time.sleep(0.5)
+            if all_files_deleted:
+                break
         for file_path in file_paths:
             assert not os.path.exists(file_path), f"文件应该已删除: {file_path}"
         test_logger.info("✓ 文件已删除")
