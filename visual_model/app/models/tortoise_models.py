@@ -69,35 +69,36 @@ class User(Model):
     password = fields.CharField(max_length=255, description="密码（加密存储）")
     role = fields.CharField(max_length=20, default="student", description="角色：student, teacher, admin")
     
-    # 学生相关信息
     student_id = fields.CharField(max_length=50, null=True, unique=True, description="学号")
     real_name = fields.CharField(max_length=100, null=True, description="真实姓名")
     class_id = fields.CharField(max_length=50, null=True, description="班级ID")
     
-    # 账户状态
     is_active = fields.BooleanField(default=True, description="是否激活")
     is_email_verified = fields.BooleanField(default=False, description="邮箱是否验证")
     
-    # 密码重置
     reset_token = fields.CharField(max_length=255, null=True, description="密码重置令牌")
     reset_token_expires = fields.DatetimeField(null=True, description="重置令牌过期时间")
     
-    # 邮箱验证码（用于密码重置等）
     verification_code = fields.CharField(max_length=10, null=True, description="验证码")
     code_expires_at = fields.DatetimeField(null=True, description="验证码过期时间")
     
-    # 登录信息
     last_login = fields.DatetimeField(null=True, description="最后登录时间")
     
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
     
-    # 其他信息可以存储在 JSON 字段中
     extra_info = fields.JSONField(null=True, description="其他信息")
     
     class Meta:
         table = "users"
         table_description = "用户信息表"
+        indexes = [
+            ("class_id",),
+            ("role",),
+            ("student_id",),
+            ("is_active",),
+            ("class_id", "role"),
+        ]
     
     def __str__(self):
         return f"User({self.username}, {self.role})"
@@ -112,26 +113,30 @@ class Student(Model):
     class_name = fields.CharField(max_length=50, description="班级")
     grade = fields.CharField(max_length=20, description="年级")
     
-    # 综测相关
     total_score = fields.FloatField(default=0.0, description="综测总成绩")
     
-    # 宿舍相关
     dormitory_number = fields.CharField(max_length=50, null=True, description="宿舍编号")
     dormitory_score = fields.FloatField(null=True, description="宿舍成绩")
     
-    # 体测成绩
     physical_test_score = fields.FloatField(null=True, description="体测成绩")
     
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
     
-    # 关联关系
     academic_scores: fields.ReverseRelation["AcademicScore"]
     comprehensive_scores: fields.ReverseRelation["ComprehensiveScore"]
     
     class Meta:
         table = "students"
         table_description = "学生信息表"
+        indexes = [
+            ("class_name",),
+            ("grade",),
+            ("major",),
+            ("college",),
+            ("class_name", "grade"),
+            ("name",),
+        ]
     
     def __str__(self):
         return f"{self.name}({self.id})"
@@ -141,14 +146,12 @@ class AcademicScore(Model):
     """学业成绩模型（课程成绩）"""
     id = fields.IntField(pk=True)
     
-    # 基本信息（冗余字段，方便查询）
     student_name = fields.CharField(max_length=100, description="姓名")
     college = fields.CharField(max_length=100, null=True, description="学院")
     grade = fields.CharField(max_length=20, null=True, description="年级")
     major = fields.CharField(max_length=100, null=True, description="专业")
     class_name = fields.CharField(max_length=50, null=True, description="班级")
     
-    # 成绩信息
     total_score = fields.FloatField(default=0.0, description="总分")
     total_required_credits = fields.FloatField(default=0.0, description="总应获得学分")
     course_count = fields.IntField(default=0, description="门数")
@@ -156,16 +159,13 @@ class AcademicScore(Model):
     earned_credits = fields.FloatField(default=0.0, description="获得学分")
     failed_credits = fields.FloatField(default=0.0, description="不及格学分")
     
-    # 通过率和平均分
     pass_rate = fields.FloatField(default=0.0, description="通过率（%）")
     arithmetic_average = fields.FloatField(default=0.0, description="算术平均分")
     arithmetic_average_rank = fields.IntField(null=True, description="算术平均分排名")
     
-    # 学分加权平均分
     weighted_average = fields.FloatField(default=0.0, description="学分加权平均分")
     weighted_average_rank = fields.IntField(null=True, description="学分加权平均分排名")
     
-    # 绩点相关
     average_gpa = fields.FloatField(default=0.0, description="平均绩点")
     average_gpa_rank = fields.IntField(null=True, description="平均绩点排名")
     average_credit_gpa = fields.FloatField(default=0.0, description="平均学分绩点")
@@ -173,25 +173,20 @@ class AcademicScore(Model):
     credit_gpa_sum = fields.FloatField(default=0.0, description="学分绩点和")
     credit_gpa_sum_rank = fields.IntField(null=True, description="学分绩点和排名")
     
-    # 其他统计
     failed_course_count = fields.IntField(default=0, description="不及格门次")
     
-    # 学期信息
     semester = fields.CharField(max_length=20, null=True, description="学期，如：2024-1")
     academic_year = fields.CharField(max_length=20, null=True, description="学年，如：2024-2025")
     
-    # 来源追踪
     source_file = fields.CharField(max_length=255, null=True, description="来源文件名")
     source_type = fields.CharField(max_length=20, default="score_sheet", description="来源类型")
     
-    # 备注和详细信息
     remarks = fields.TextField(null=True, description="备注")
     details = fields.JSONField(null=True, description="详细课程成绩信息")
     
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
     
-    # 关联关系
     student: fields.ForeignKeyRelation[Student] = fields.ForeignKeyField(
         "models.Student", related_name="academic_scores", null=True
     )
@@ -199,8 +194,17 @@ class AcademicScore(Model):
     class Meta:
         table = "academic_scores"
         table_description = "学业成绩表"
-        # 确保同一学生在同一学期只有一条记录
         unique_together = (("student_id", "semester", "academic_year"),)
+        indexes = [
+            ("student_id",),
+            ("class_name",),
+            ("academic_year",),
+            ("semester",),
+            ("academic_year", "semester"),
+            ("class_name", "academic_year"),
+            ("weighted_average",),
+            ("average_gpa",),
+        ]
     
     def __str__(self):
         return f"AcademicScore({self.student_id}, {self.student_name}, {self.semester})"
@@ -375,6 +379,7 @@ class Certificate(Model):
     id = fields.IntField(pk=True)
     
     student_id = fields.CharField(max_length=50, description="学生ID（学号）")
+    filename = fields.CharField(max_length=255, null=True, description="原始文件名")
     
     certificate_no = fields.CharField(max_length=100, null=True, description="证书编号")
     certificate_type = fields.CharField(max_length=50, null=True, description="证书类型：四级、六级、竞赛、活动、荣誉等")

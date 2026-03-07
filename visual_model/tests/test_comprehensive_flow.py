@@ -23,13 +23,13 @@ from tortoise import Tortoise
 
 from config import settings
 
-# 测试数据路径
+pytestmark = pytest.mark.asyncio(loop_scope="function")
+
 TEST_DATA_DIR = Path("D:/PaddleOCR/visual_model/data")
-TEST_PHOTO_DIR = Path("D:/PaddleOCR/visual_model/testphoto")
+TEST_PHOTO_DIR = Path("D:/PaddleOCR/visual_model/testphoto/test")
 SCORE_SHEET_FILE = TEST_DATA_DIR / "学生成绩单.xlsx"
 COMPREHENSIVE_TABLE_FILE = TEST_DATA_DIR / "230521班综合测评计算表格.xlsx"
 
-# 测试用户数据
 TEST_USERS = {
     "admin": {
         "username": "admin",
@@ -50,7 +50,6 @@ TEST_USERS = {
     }
 }
 
-# 预期计算结果
 EXPECTED_RESULTS = {
     "weight_config": {
         "a_weight": 20.0,
@@ -66,65 +65,64 @@ EXPECTED_RESULTS = {
 }
 
 
+@pytest.fixture(scope="function")
+async def setup_db():
+    """初始化测试数据库"""
+    if Tortoise._inited:
+        await Tortoise.close_connections()
+    
+    await Tortoise.init(
+        db_url=settings.DATABASE_URL,
+        modules={"models": ["app.models.tortoise_models"]}
+    )
+    await Tortoise.generate_schemas()
+    yield
+    await Tortoise.close_connections()
+
+
+@pytest.fixture(scope="function")
+async def app(setup_db):
+    """创建测试应用"""
+    from app.core.app_factory import create_app
+    test_app = create_app()
+    yield test_app
+
+
+@pytest.fixture(scope="function")
+async def client(app):
+    """创建测试客户端"""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test", timeout=120.0) as ac:
+        yield ac
+
+
+@pytest.fixture(scope="function")
+async def admin_token(client):
+    """获取管理员令牌"""
+    response = await client.post(f"{settings.API_V1_STR}/auth/login", json={
+        "username": TEST_USERS["admin"]["username"],
+        "password": TEST_USERS["admin"]["password"]
+    })
+    if response.status_code == 200:
+        return response.json().get("access_token", "")
+    return "test_admin_token"
+
+
+@pytest.fixture(scope="function")
+async def student_token(client):
+    """获取学生令牌"""
+    response = await client.post(f"{settings.API_V1_STR}/auth/login", json={
+        "username": TEST_USERS["student"]["username"],
+        "password": TEST_USERS["student"]["password"]
+    })
+    if response.status_code == 200:
+        return response.json().get("access_token", "")
+    return "test_student_token"
+
+
 class TestComprehensiveFlow:
     """综测核心业务流程测试"""
     
-    @pytest.fixture(scope="class")
-    def event_loop(self):
-        loop = asyncio.get_event_loop_policy().new_event_loop()
-        yield loop
-        loop.close()
-    
-    @pytest.fixture(scope="class")
-    async def setup_db(self):
-        """初始化测试数据库"""
-        await Tortoise.init(
-            db_url=settings.DATABASE_URL,
-            modules={"models": ["app.models.tortoise_models"]}
-        )
-        await Tortoise.generate_schemas()
-        yield
-        await Tortoise.close_connections()
-    
-    @pytest.fixture(scope="class")
-    async def app(self, setup_db):
-        """创建测试应用"""
-        from app.core.app_factory import create_app
-        test_app = create_app()
-        yield test_app
-    
-    @pytest.fixture
-    async def client(self, app):
-        """创建测试客户端"""
-        transport = ASGITransport(app=app)
-        async with AsyncClient(transport=transport, base_url="http://test", timeout=120.0) as ac:
-            yield ac
-    
-    @pytest.fixture
-    async def admin_token(self, client):
-        """获取管理员令牌"""
-        response = await client.post(f"{settings.API_V1_STR}/auth/login", json={
-            "username": TEST_USERS["admin"]["username"],
-            "password": TEST_USERS["admin"]["password"]
-        })
-        if response.status_code == 200:
-            return response.json().get("access_token", "")
-        return "test_admin_token"
-    
-    @pytest.fixture
-    async def student_token(self, client):
-        """获取学生令牌"""
-        response = await client.post(f"{settings.API_V1_STR}/auth/login", json={
-            "username": TEST_USERS["student"]["username"],
-            "password": TEST_USERS["student"]["password"]
-        })
-        if response.status_code == 200:
-            return response.json().get("access_token", "")
-        return "test_student_token"
-    
-    # ==================== 测试用例 ====================
-    
-    @pytest.mark.asyncio
     async def test_01_upload_score_sheet(self, client, admin_token):
         """测试1: 上传学生成绩单"""
         print("\n=== 测试1: 上传学生成绩单 ===")
@@ -162,7 +160,6 @@ class TestComprehensiveFlow:
         else:
             print(f"上传失败: {response.text}")
     
-    @pytest.mark.asyncio
     async def test_02_upload_comprehensive_table(self, client, admin_token):
         """测试2: 上传综测计算表格"""
         print("\n=== 测试2: 上传综测计算表格 ===")
@@ -197,7 +194,6 @@ class TestComprehensiveFlow:
             result = response.json()
             print(f"导入结果: {json.dumps(result, ensure_ascii=False)[:500]}")
     
-    @pytest.mark.asyncio
     async def test_03_upload_certificate_photos(self, client, student_token):
         """测试3: 上传证书照片"""
         print("\n=== 测试3: 上传证书照片 ===")
@@ -237,7 +233,6 @@ class TestComprehensiveFlow:
             
             print(f"上传 {photo_path.name}: 状态码 {response.status_code}")
     
-    @pytest.mark.asyncio
     async def test_04_calculate_comprehensive_score(self, client, admin_token):
         """测试4: 计算综测成绩"""
         print("\n=== 测试4: 计算综测成绩 ===")
@@ -256,7 +251,6 @@ class TestComprehensiveFlow:
             result = response.json()
             print(f"计算结果: {json.dumps(result, ensure_ascii=False)[:500]}")
     
-    @pytest.mark.asyncio
     async def test_05_get_student_scores(self, client, student_token):
         """测试5: 获取学生成绩"""
         print("\n=== 测试5: 获取学生成绩 ===")
@@ -275,7 +269,6 @@ class TestComprehensiveFlow:
             result = response.json()
             print(f"学生成绩: {json.dumps(result, ensure_ascii=False)[:500]}")
     
-    @pytest.mark.asyncio
     async def test_06_get_class_ranking(self, client, admin_token):
         """测试6: 获取班级排名"""
         print("\n=== 测试6: 获取班级排名 ===")
@@ -297,20 +290,24 @@ class TestComprehensiveFlow:
             if rankings:
                 print(f"前3名: {json.dumps(rankings[:3], ensure_ascii=False)}")
     
-    @pytest.mark.asyncio
     async def test_07_download_result_file(self, client, admin_token):
         """测试7: 下载综测结果文件"""
         print("\n=== 测试7: 下载综测结果文件 ===")
         
+        if not SCORE_SHEET_FILE.exists():
+            pytest.skip(f"测试文件不存在: {SCORE_SHEET_FILE}")
+        
         headers = {"Authorization": f"Bearer {admin_token}"}
+        
+        with open(SCORE_SHEET_FILE, 'rb') as f:
+            file_content = f.read()
         
         response = await client.post(
             f"{settings.API_V1_STR}/field-mapping/process",
             files={
-                "source_file": ("学生成绩单.xlsx", BytesIO(open(SCORE_SHEET_FILE, 'rb').read()), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                "source_file": ("学生成绩单.xlsx", BytesIO(file_content), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
             },
             data={
-                "template_file": open(COMPREHENSIVE_TABLE_FILE, 'rb').read(),
                 "academic_year": "2024-2025",
                 "semester": "1"
             },
@@ -319,7 +316,6 @@ class TestComprehensiveFlow:
         
         print(f"响应状态码: {response.status_code}")
     
-    @pytest.mark.asyncio
     async def test_08_verify_weight_calculation(self, client, admin_token):
         """测试8: 验证权重计算准确性"""
         print("\n=== 测试8: 验证权重计算准确性 ===")
@@ -345,7 +341,6 @@ class TestComprehensiveFlow:
                 
                 assert abs(total_weight - 100.0) < 0.01, "权重总和应为100%"
     
-    @pytest.mark.asyncio
     async def test_09_error_handling_invalid_file(self, client, admin_token):
         """测试9: 异常处理 - 无效文件格式"""
         print("\n=== 测试9: 异常处理 - 无效文件格式 ===")
@@ -371,7 +366,6 @@ class TestComprehensiveFlow:
         print(f"响应状态码: {response.status_code}")
         assert response.status_code in [400, 500], "无效文件应返回错误"
     
-    @pytest.mark.asyncio
     async def test_10_permission_check(self, client):
         """测试10: 权限检查 - 未授权访问"""
         print("\n=== 测试10: 权限检查 - 未授权访问 ===")
@@ -391,7 +385,6 @@ def run_tests():
         __file__,
         "-v",
         "--tb=short",
-        "--asyncio-mode=auto",
         "-s"
     ])
 

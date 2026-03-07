@@ -11,6 +11,7 @@ import pytest
 import logging
 import tempfile
 import shutil
+import gc
 from typing import AsyncGenerator, Generator, Dict, Any
 from datetime import datetime
 from httpx import AsyncClient, ASGITransport
@@ -241,8 +242,13 @@ async def initialize_db(temp_db_path):
 async def app(initialize_db):
     """创建测试应用实例"""
     from app.core.app_factory import create_app
+    
     test_app = create_app()
-    yield test_app
+    
+    from app.core.app_factory import lifespan
+    
+    async with lifespan(test_app):
+        yield test_app
 
 
 @pytest.fixture
@@ -602,3 +608,190 @@ def pytest_collection_modifyitems(config, items):
     for item in items:
         if "asyncio" in str(item.fspath):
             item.add_marker(pytest.mark.asyncio)
+
+
+@pytest.fixture
+def ocr_resource_manager():
+    """OCR资源管理fixture
+    
+    提供测试前预热、测试间清理、资源使用统计功能。
+    """
+    from app.core.resource_monitor import get_resource_monitor
+    from app.services.ocr_model_pool import get_ocr_model_pool
+    
+    monitor = get_resource_monitor()
+    model_pool = get_ocr_model_pool()
+    
+    initial_snapshot = monitor.take_snapshot()
+    logger.info(f"测试前资源状态: 内存={initial_snapshot.memory_rss_mb:.1f}MB, "
+               f"线程={initial_snapshot.thread_count}")
+    
+    yield {
+        "monitor": monitor,
+        "model_pool": model_pool,
+        "initial_memory_mb": initial_snapshot.memory_rss_mb,
+        "initial_threads": initial_snapshot.thread_count
+    }
+    
+    gc.collect()
+    
+    final_snapshot = monitor.take_snapshot()
+    memory_diff = final_snapshot.memory_rss_mb - initial_snapshot.memory_rss_mb
+    thread_diff = final_snapshot.thread_count - initial_snapshot.thread_count
+    
+    logger.info(f"测试后资源状态: 内存={final_snapshot.memory_rss_mb:.1f}MB, "
+               f"线程={final_snapshot.thread_count}")
+    logger.info(f"资源变化: 内存{memory_diff:+.1f}MB, 线程{thread_diff:+d}")
+    
+    if memory_diff > 100:
+        logger.warning(f"检测到可能的内存泄漏: {memory_diff:.1f}MB")
+    
+    if thread_diff > 5:
+        logger.warning(f"检测到可能的线程泄漏: {thread_diff}个线程")
+
+
+@pytest.fixture
+async def ocr_test_cleanup():
+    """OCR测试清理fixture，在测试间添加延迟和资源检查"""
+    yield
+    
+    await asyncio.sleep(1)
+    
+    gc.collect()
+    
+    logger.debug("OCR测试清理完成")
+
+
+@pytest.fixture(scope="function", autouse=True)
+async def auto_ocr_resource_cleanup(request):
+    """自动为OCR测试添加资源清理"""
+    if hasattr(request.node, 'iter_markers') and any(marker.name == 'ocr' for marker in request.node.iter_markers()):
+        from app.core.resource_monitor import get_resource_monitor
+        
+        monitor = get_resource_monitor()
+        before = monitor.take_snapshot()
+        
+        yield
+        
+        await asyncio.sleep(1)
+        gc.collect()
+        
+        after = monitor.take_snapshot()
+        memory_diff = after.memory_rss_mb - before.memory_rss_mb
+        
+        logger.info(f"OCR测试资源变化: 内存{memory_diff:+.1f}MB")
+        
+        if memory_diff > 50:
+            logger.warning(f"OCR测试可能有内存泄漏: {memory_diff:.1f}MB")
+    else:
+        yield
+
+
+@pytest.fixture(scope="function", autouse=True)
+def reset_ocr_model_pool_fixture(request):
+    """自动为OCR测试重置模型池"""
+    is_ocr_test = False
+    if hasattr(request.node, 'iter_markers'):
+        for marker in request.node.iter_markers():
+            if marker.name == 'ocr':
+                is_ocr_test = True
+                break
+    
+    if is_ocr_test:
+        from app.services.ocr_model_pool import reset_ocr_model_pool
+        from app.core.executor_manager import reset_executor
+        reset_ocr_model_pool()
+        reset_executor()
+        try:
+            logger.info("OCR模型池和执行器已重置")
+        except ValueError:
+            pass
+    
+    yield
+    
+    if is_ocr_test:
+        from app.services.ocr_model_pool import reset_ocr_model_pool
+        from app.core.executor_manager import reset_executor
+        reset_ocr_model_pool()
+        reset_executor()
+        try:
+            logger.info("OCR模型池和执行器已清理")
+        except ValueError:
+            pass
+
+
+@pytest.fixture(scope="session", autouse=True)
+def manage_logging_handlers():
+    """管理日志处理器，防止测试结束后的日志错误"""
+    import logging
+    
+    root_logger = logging.getLogger()
+    original_handlers = list(root_logger.handlers)
+    
+    yield
+    
+    for handler in root_logger.handlers[:]:
+        try:
+            handler.flush()
+            if hasattr(handler, 'stream') and handler.stream:
+                try:
+                    handler.stream.flush()
+                except (ValueError, OSError):
+                    pass
+        except (ValueError, OSError):
+            pass
+
+
+@pytest.fixture
+def resource_report_generator():
+    """资源报告生成器fixture"""
+    from app.utils.resource_report import ResourceReportGenerator
+    
+    return ResourceReportGenerator()
+
+
+@pytest.fixture
+def check_resource_leak():
+    """资源泄漏检查fixture"""
+    from app.core.resource_monitor import get_resource_monitor
+    
+    monitor = get_resource_monitor()
+    
+    class ResourceLeakChecker:
+        def __init__(self):
+            self.snapshots = []
+        
+        def snapshot(self, label: str = ""):
+            """记录当前资源快照"""
+            snap = monitor.take_snapshot()
+            self.snapshots.append({
+                "label": label,
+                "memory_mb": snap.memory_rss_mb,
+                "threads": snap.thread_count,
+                "timestamp": snap.timestamp
+            })
+            return snap
+        
+        def check(self, threshold_memory_mb: float = 50, threshold_threads: int = 5):
+            """检查是否有资源泄漏"""
+            if len(self.snapshots) < 2:
+                return {"leak_detected": False, "message": "快照数量不足"}
+            
+            first = self.snapshots[0]
+            last = self.snapshots[-1]
+            
+            memory_diff = last["memory_mb"] - first["memory_mb"]
+            thread_diff = last["threads"] - first["threads"]
+            
+            leak_detected = memory_diff > threshold_memory_mb or thread_diff > threshold_threads
+            
+            return {
+                "leak_detected": leak_detected,
+                "memory_diff_mb": memory_diff,
+                "thread_diff": thread_diff,
+                "threshold_memory_mb": threshold_memory_mb,
+                "threshold_threads": threshold_threads,
+                "snapshots": self.snapshots
+            }
+    
+    return ResourceLeakChecker()

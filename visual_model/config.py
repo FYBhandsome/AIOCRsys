@@ -122,7 +122,6 @@ class Settings(BaseSettings):
     )
     OCR_LANG: str = Field(default="ch", description="OCR识别语言")
     
-    # OCR 图像预处理参数
     OCR_MAX_IMAGE_SIZE: int = Field(
         default=1600,
         ge=100,
@@ -142,10 +141,64 @@ class Settings(BaseSettings):
         description="检测框阈值"
     )
     OCR_REC_BATCH_NUM: int = Field(
-        default=6,
+        default=4,
         ge=1,
         le=32,
-        description="识别批次大小"
+        description="识别批次大小（优化后减少内存占用）"
+    )
+    
+    OCR_ENABLE_MKLDNN: bool = Field(
+        default=False,
+        description="是否启用MKL-DNN加速（CPU优化）- 注意: 新版PaddleOCR可能不支持此参数"
+    )
+    
+    OCR_CPU_THREADS: int = Field(
+        default=4,
+        ge=1,
+        le=16,
+        description="CPU推理线程数"
+    )
+    
+    OCR_DET_LIMIT_SIDE_LEN: int = Field(
+        default=960,
+        ge=480,
+        le=1920,
+        description="检测边长限制（减少内存占用）"
+    )
+    
+    OCR_MODEL_POOL_SIZE: int = Field(
+        default=1,
+        ge=1,
+        le=4,
+        description="OCR模型池大小"
+    )
+    
+    OCR_RESOURCE_MONITOR_INTERVAL: float = Field(
+        default=5.0,
+        ge=1.0,
+        le=60.0,
+        description="资源监控间隔（秒）"
+    )
+    
+    OCR_MEMORY_ALERT_THRESHOLD: float = Field(
+        default=80.0,
+        ge=50.0,
+        le=100.0,
+        description="内存使用告警阈值（百分比）"
+    )
+    
+    OCR_CPU_ALERT_THRESHOLD: float = Field(
+        default=90.0,
+        ge=50.0,
+        le=100.0,
+        description="CPU使用告警阈值（百分比）"
+    )
+    
+    OCR_THREAD_ALERT_THRESHOLD: int = Field(
+        default=50,
+        ge=10,
+        le=200,
+        description="线程数量告警阈值"
     )
     
     BACKEND_CORS_ORIGINS: List[str] = Field(
@@ -202,7 +255,6 @@ class Settings(BaseSettings):
             raise ValueError(f"日志级别必须是 {allowed} 之一")
         return v_upper
     
-    # JWT认证配置
     JWT_SECRET_KEY: str = Field(
         default="your-secret-key-change-in-production",
         description="JWT密钥"
@@ -218,7 +270,6 @@ class Settings(BaseSettings):
         description="JWT过期时间（小时）"
     )
     
-    # RAG系统配置
     RAG_BASE_URL: str = Field(
         default="http://localhost:8000",
         description="RAG系统基础URL"
@@ -228,7 +279,6 @@ class Settings(BaseSettings):
         description="是否启用RAG系统集成"
     )
     
-    # 邮件服务配置
     SMTP_SERVER: str = Field(
         default="smtp.qq.com",
         description="SMTP服务器地址"
@@ -256,7 +306,6 @@ class Settings(BaseSettings):
         description="是否启用邮件服务"
     )
     
-    # 前端URL配置（用于生成邮件中的链接）
     FRONTEND_URL: str = Field(
         default="http://localhost:5173",
         description="前端应用URL"
@@ -265,11 +314,9 @@ class Settings(BaseSettings):
     def __init__(self, **kwargs):
         """初始化配置，确保必要的目录存在"""
         super().__init__(**kwargs)
-        # 确保必要的目录存在
         self.UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
         self.LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
         (BASE_DIR / "data").mkdir(parents=True, exist_ok=True)
-        # 确保新增目录存在
         Path(self.TEMP_DIR).mkdir(parents=True, exist_ok=True)
         Path(self.RESULT_DIR).mkdir(parents=True, exist_ok=True)
 
@@ -284,8 +331,19 @@ class Settings(BaseSettings):
         return str(UNIFIED_LOG_DIR)
 
 
-# 创建全局配置实例
+TORTOISE_ORM = {
+    "connections": {
+        "default": f"sqlite:///{BASE_DIR / 'data' / 'database.db'}"
+    },
+    "apps": {
+        "models": {
+            "models": ["app.models.tortoise_models", "aerich.models"],
+            "default_connection": "default",
+        },
+    },
+}
+
+
 settings = Settings()
 
-# 向后兼容性
 DATABASE_URL = settings.DATABASE_URL

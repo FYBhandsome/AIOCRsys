@@ -1,0 +1,132 @@
+{
+  "test_name": "API Performance Benchmark",
+  "start_time": "2026-03-07T18:04:07.400160",
+  "end_time": "2026-03-07T18:04:16.509506",
+  "duration_seconds": 9.11,
+  "api_results": [
+    {
+      "endpoint": "POST /api/v1/auth/login",
+      "iterations": 3,
+      "success_count": 0,
+      "success_rate": 0.0,
+      "response_time": {
+        "min_ms": 9.75,
+        "max_ms": 154.01,
+        "avg_ms": 76.94,
+        "p50_ms": 67.06,
+        "p95_ms": 154.01
+      },
+      "memory": {
+        "avg_delta_mb": 0.25,
+        "max_delta_mb": 0.72
+      },
+      "cpu": {
+        "avg_percent": 0.0,
+        "max_percent": 0.0
+      }
+    },
+    {
+      "endpoint": "GET /api/v1/student/scores/summary",
+      "iterations": 3,
+      "success_count": 3,
+      "success_rate": 100.0,
+      "response_time": {
+        "min_ms": 8.23,
+        "max_ms": 30.84,
+        "avg_ms": 16.64,
+        "p50_ms": 10.85,
+        "p95_ms": 30.84
+      },
+      "memory": {
+        "avg_delta_mb": 0.01,
+        "max_delta_mb": 0.01
+      },
+      "cpu": {
+        "avg_percent": 4.73,
+        "max_percent": 14.2
+      }
+    },
+    {
+      "endpoint": "POST /api/v1/certificate/upload",
+      "iterations": 3,
+      "success_count": 0,
+      "success_rate": 0.0,
+      "response_time": {
+        "min_ms": 17.77,
+        "max_ms": 176.92,
+        "avg_ms": 72.6,
+        "p50_ms": 23.11,
+        "p95_ms": 176.92
+      },
+      "memory": {
+        "avg_delta_mb": 0.01,
+        "max_delta_mb": 0.01
+      },
+      "cpu": {
+        "avg_percent": 4.77,
+        "max_percent": 14.3
+      }
+    },
+    {
+      "endpoint": "POST /api/v1/comprehensive-score/calculate/student/test_student?academic_year=2024-2025&semester=1",
+      "iterations": 3,
+      "success_count": 0,
+      "success_rate": 0.0,
+      "response_time": {
+        "min_ms": 7.99,
+        "max_ms": 19.84,
+        "avg_ms": 12.27,
+        "p50_ms": 8.98,
+        "p95_ms": 19.84
+      },
+      "memory": {
+        "avg_delta_mb": 0.01,
+        "max_delta_mb": 0.02
+      },
+      "cpu": {
+        "avg_percent": 0.0,
+        "max_percent": 0.0
+      }
+    }
+  ],
+  "resource_summary": {
+    "psutil_available": true,
+    "total_requests": 12,
+    "successful_requests": 3,
+    "failed_requests": 9,
+    "memory": {
+      "avg_before_mb": 56.35,
+      "avg_after_mb": 56.42,
+      "total_delta_mb": 0.84
+    },
+    "cpu": {
+      "avg_percent": 2.38,
+      "max_percent": 14.3
+    }
+  },
+  "performance_metrics": {
+    "total_test_duration_seconds": 9.11,
+    "requests_per_second": 1.32,
+    "avg_response_time_ms": 44.61,
+    "overall_success_rate": 25.0
+  },
+  "recommendations": [
+    "[POST /api/v1/auth/login] 成功率为 0.0%，建议检查错误处理和异常情况",
+    "[POST /api/v1/certificate/upload] 成功率为 0.0%，建议检查错误处理和异常情况",
+    "[POST /api/v1/comprehensive-score/calculate/student/test_student?academic_year=2024-2025&semester=1] 成功率为 0.0%，建议检查错误处理和异常情况"
+  ],
+  "environment": {
+    "base_url": "http://127.0.0.1:8001",
+    "iterations": 3,
+    "timeout_seconds": 30.0,
+    "system": {
+      "psutil_available": true,
+      "platform": "win32",
+      "cpu_count": 16,
+      "cpu_freq_mhz": 3201.0,
+      "total_memory_gb": 13.69,
+      "available_memory_gb": 1.59,
+      "memory_percent": 88.4
+    }
+  }
+}

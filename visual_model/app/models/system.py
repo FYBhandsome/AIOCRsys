@@ -1,59 +1,60 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-系统设置相关数据模型
+系统相关模型
 """
+from tortoise.models import Model
+from tortoise import fields
 from datetime import datetime
-from typing import List, Optional
-from pydantic import BaseModel, Field
+from typing import Optional
 
 
-# ============================================================================
-# 系统设置相关模型
-# ============================================================================
-
-class SystemSettingsBase(BaseModel):
-    """系统设置基础模型"""
-    system_name: str = Field(default="综测系统", description="系统名称")
-    max_upload_size: int = Field(default=10485760, description="最大上传文件大小（字节）")
-    allowed_file_types: List[str] = Field(
-        default=[".pdf", ".docx", ".doc", ".txt", ".md", ".jpg", ".png"],
-        description="允许上传的文件类型"
-    )
-    ai_model: str = Field(default="gpt-3.5-turbo", description="AI模型")
-    ai_temperature: float = Field(default=0.7, description="AI温度参数")
-    ai_max_tokens: int = Field(default=1000, description="AI最大token数")
-    ai_system_prompt: str = Field(
-        default="你是一个综测系统助手，请根据提供的信息回答问题。",
-        description="AI系统提示"
-    )
-
-
-class SystemSettingsCreate(SystemSettingsBase):
-    """创建系统设置模型"""
-    pass
-
-
-class SystemSettingsUpdate(SystemSettingsBase):
-    """更新系统设置模型"""
-    system_name: Optional[str] = None
-    max_upload_size: Optional[int] = None
-    allowed_file_types: Optional[List[str]] = None
-    ai_model: Optional[str] = None
-    ai_temperature: Optional[float] = None
-    ai_max_tokens: Optional[int] = None
-    ai_system_prompt: Optional[str] = None
-
-
-class SystemSettings(SystemSettingsBase):
+class SystemSetting(Model):
     """系统设置模型"""
-    id: str = Field(description="设置ID")
-    updated_at: datetime = Field(default_factory=datetime.now, description="更新时间")
+    id = fields.IntField(pk=True)
+    
+    setting_key = fields.CharField(max_length=100, unique=True, description="设置键")
+    setting_value = fields.TextField(description="设置值(JSON)")
+    setting_type = fields.CharField(max_length=20, default="string", description="设置类型: string, number, boolean, json")
+    
+    description = fields.CharField(max_length=255, null=True, description="设置描述")
+    category = fields.CharField(max_length=50, default="general", description="设置分类")
+    
+    is_public = fields.BooleanField(default=False, description="是否公开(非管理员可见)")
+    is_editable = fields.BooleanField(default=True, description="是否可编辑")
+    
+    created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
+    updated_by = fields.CharField(max_length=50, null=True, description="最后更新人")
+    
+    class Meta:
+        table = "system_settings"
+        table_description = "系统设置表"
+        indexes = [("setting_key",), ("category",)]
+    
+    def __str__(self):
+        return f"SystemSetting({self.setting_key})"
 
-    class Config:
-        from_attributes = True
 
-
-class SystemSettingsResponse(SystemSettings):
-    """系统设置响应模型"""
-    pass
+class ChatHistory(Model):
+    """对话历史模型"""
+    id = fields.IntField(pk=True)
+    
+    user_id = fields.CharField(max_length=50, description="用户ID")
+    session_id = fields.CharField(max_length=100, description="会话ID")
+    
+    role = fields.CharField(max_length=20, description="角色: user, assistant")
+    content = fields.TextField(description="消息内容")
+    
+    message_type = fields.CharField(max_length=20, default="text", description="消息类型: text, image, file")
+    metadata = fields.JSONField(null=True, description="元数据")
+    
+    created_at = fields.DatetimeField(auto_now_add=True)
+    
+    class Meta:
+        table = "chat_histories"
+        table_description = "对话历史表"
+        indexes = [("user_id",), ("session_id",), ("created_at",)]
+    
+    def __str__(self):
+        return f"ChatHistory({self.user_id}, {self.role})"

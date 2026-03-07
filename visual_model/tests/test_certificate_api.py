@@ -32,16 +32,47 @@ async def wait_for_ocr_completion(certificate_id: int, max_wait: int = 30, inter
     
     waited = 0
     while waited < max_wait:
-        images = await CertificateImage.filter(certificate_id=certificate_id).all()
-        if images and all(img.ocr_processed for img in images):
-            logger.info(f"OCR处理完成，等待时间: {waited:.1f}秒")
-            return True
+        try:
+            images = await CertificateImage.filter(certificate_id=certificate_id).all()
+            if images and all(img.ocr_processed for img in images):
+                logger.info(f"OCR处理完成，等待时间: {waited:.1f}秒")
+                return True
+        except Exception as e:
+            logger.warning(f"查询OCR状态时出错: {e}")
         
         await asyncio.sleep(interval)
         waited += interval
     
     logger.warning(f"OCR处理超时，已等待 {waited:.1f} 秒")
     return False
+
+
+@pytest.fixture(scope="function")
+async def ocr_test_cleanup():
+    """OCR测试清理fixture，在测试间添加延迟"""
+    yield
+    await asyncio.sleep(3)
+    logger.info("OCR测试清理完成")
+
+
+@pytest.fixture(scope="function")
+async def reset_ocr_pool():
+    """重置OCR模型池fixture"""
+    from app.services.ocr_model_pool import reset_ocr_model_pool
+    reset_ocr_model_pool()
+    yield
+    reset_ocr_model_pool()
+
+
+@pytest.fixture(scope="function", autouse=True)
+async def auto_ocr_test_cleanup(request):
+    """自动为OCR测试添加清理"""
+    if hasattr(request.node, 'iter_markers') and any(marker.name == 'ocr' for marker in request.node.iter_markers()):
+        yield
+        await asyncio.sleep(3)
+        logger.info("OCR测试清理完成")
+    else:
+        yield
 
 
 class TestSinglePhotoUpload:

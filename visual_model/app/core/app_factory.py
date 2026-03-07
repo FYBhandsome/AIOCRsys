@@ -37,6 +37,8 @@ from app.core.api_response import ResponseCode
 from app.api import api_router
 from config import settings
 from app.services.ocr_service import get_ocr_service
+from app.core.resource_monitor import get_resource_monitor
+from app.services.ocr_model_pool import get_ocr_model_pool
 
 
 def init_logging():
@@ -61,6 +63,16 @@ async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     app_logger.info("应用启动中...")
     
+    resource_monitor = get_resource_monitor()
+    resource_monitor.configure(
+        memory_percent_threshold=getattr(settings, 'OCR_MEMORY_ALERT_THRESHOLD', 80.0),
+        cpu_percent_threshold=getattr(settings, 'OCR_CPU_ALERT_THRESHOLD', 90.0),
+        thread_count_threshold=getattr(settings, 'OCR_THREAD_ALERT_THRESHOLD', 50)
+    )
+    monitor_interval = getattr(settings, 'OCR_RESOURCE_MONITOR_INTERVAL', 5.0)
+    resource_monitor.start_monitoring(interval=monitor_interval)
+    app_logger.info("资源监控已启动")
+    
     db_manager = get_db_connection_manager()
     await db_manager.init_connection()
     app_logger.info("数据库连接初始化完成")
@@ -69,16 +81,32 @@ async def lifespan(app: FastAPI):
     app_logger.info("线程池执行器初始化完成")
     
     try:
-        get_ocr_service().warm_up()
+        ocr_service = get_ocr_service()
+        ocr_service.warm_up()
         app_logger.info("OCR引擎预热完成")
+        
+        model_pool = get_ocr_model_pool()
+        pool_status = model_pool.get_status()
+        app_logger.info(f"OCR模型池状态: {pool_status}")
     except Exception as e:
         app_logger.warning(f"OCR引擎预热失败: {e}", exc_info=True)
+    
+    initial_snapshot = resource_monitor.take_snapshot()
+    app_logger.info(f"初始资源状态: 内存={initial_snapshot.memory_rss_mb:.1f}MB, "
+                   f"线程={initial_snapshot.thread_count}")
     
     app_logger.info("应用启动完成")
     
     yield
     
     app_logger.info("应用关闭中...")
+    
+    resource_monitor.stop_monitoring()
+    app_logger.info("资源监控已停止")
+    
+    model_pool = get_ocr_model_pool()
+    model_pool.cleanup()
+    app_logger.info("OCR模型池已清理")
     
     await executor_manager.aclose()
     app_logger.info("线程池执行器已关闭")
