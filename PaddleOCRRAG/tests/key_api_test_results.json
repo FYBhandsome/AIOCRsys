@@ -1,0 +1,109 @@
+{
+  "test_time": "2026-03-08T16:59:58.783652",
+  "base_url": "http://localhost:8010",
+  "results": [
+    {
+      "test_name": "系统健康检查",
+      "endpoint": "/api/v1/system/health",
+      "method": "GET",
+      "status_code": 200,
+      "success": true,
+      "response_time_ms": 2216.86,
+      "message": "返回200 OK",
+      "timestamp": "2026-03-08T16:59:45.577404",
+      "data": {
+        "success": true,
+        "data": {
+          "healthy": true,
+          "components": {
+            "document_processor": true,
+            "vector_store": true,
+            "knowledge_base": true,
+            "prompt_manager": true,
+            "llm_manager": true
+          },
+          "checked_at": "2026-03-08T16:59:45.575828"
+        },
+        "message": "系统健康"
+      }
+    },
+    {
+      "test_name": "聊天API",
+      "endpoint": "/api/v1/chat",
+      "method": "POST",
+      "status_code": 200,
+      "success": true,
+      "response_time_ms": 10730.27,
+      "message": "返回200 OK",
+      "timestamp": "2026-03-08T16:59:56.307675",
+      "data": {
+        "code": "200",
+        "message": "对话处理成功",
+        "data": {
+          "question": "你好，请介绍一下综测加分规则",
+          "answer": "您好！以下是关于**综测加分规则**的详细介绍，结合您提供的参考信息，整理如下：\n\n---\n\n### 一、综测加分规则概述\n\n综测（综合素质测评）加分规则主要依据学生在各类竞赛、项目参与、创新创业活动、社会实践等领域的表现，根据不同的类别和级别，给予相应的加分。\n\n---\n\n### 二、加分规则分类\n\n#### **1. B类加分（国家级竞赛）**\n\n- **国际环保公益设计大赛**  \n  - **主类：C**  \n  - **子类：C1**  \n  - **竞赛类型：B**  \n  - **级别：国家级**  \n  - **奖项：一等奖**  \n  - **加分：25分**\n\n- **新加坡金沙艺术设计大赛**  \n  - **主类：C**  \n  - **子类：C1**  \n  - **竞赛类型：B**  \n  - **级别：国家级**  \n  - **奖项：一等奖**  \n  - **加分：25分**\n\n- **微信小程序应用开发赛**  \n  - **主类：C**  \n  - **子类：C1**  \n  - **竞赛类型：B**  \n  - **级别：国家级**  \n  - **奖项：一等奖**  \n  - **加分：25分**\n\n- **全国高等院校英语能力大赛（国赛）**  \n  - **主类：C**  \n  - **子类：C1**  \n  - **竞赛类型：B**  \n  - **级别：国家级**  \n  - **奖项：一等奖**  \n  - **加分：25分**\n\n---\n\n#### **2. C类加分（创新创业类项目）**\n\n- **主类：C**  \n- **子类：C4**  \n- **加分规则：**\n\n  - **（一）参加创新创业类展会、年会或资金扶持资助项目的成员（团体）**  \n    - **视等级**：每人加 **15—20分**  \n    - **省级**：每人加 **10—14分**  \n    - **市级**：每人加 **5—9分**  \n    - **校级**：每人加 **2—4分**\n\n  - **（二）入驻廊坊华航e创空间项目满一学期的成员**  \n    - 每成员加 **3—5分**\n\n  - **（三）测评学期内办理营业执照或纳税证明的团队法人**  \n    - 加 **2—3分**\n\n---\n\n### 三、总结\n\n| 类别 | 加分标准 |\n|------|-----------|\n| B类（国家级竞赛） | 一等奖：25分 |\n| C类（创新创业类项目） | 依据项目级别和参与情况，分档加分 |\n\n---\n\n### 四、注意事项\n\n- **加分规则**根据具体竞赛的级别、类型及获奖情况而定，需结合实际参赛情况判断。\n- **加分有效期**：通常为学期内，部分项目可能有时间限制。\n- **加分方式**：一般为**累计加分**，可叠加使用。\n\n---\n\n如果您有具体的竞赛名称或项目信息，我可以进一步为您详细说明该类项目的加分标准。欢迎随时提问！",
+          "timestamp": "2026-03-08T16:59:56.306108",
+          "cached": false,
+          "used_rag": true,
+          "context_length": 420
+        },
+        "errors": null,
+        "timestamp": "2026-03-08T16:59:56.306108",
+        "request_id": "req_7f63ad2ffba1"
+      }
+    },
+    {
+      "test_name": "证书加分计算",
+      "endpoint": "/api/v1/certificate/calculate",
+      "method": "POST",
+      "status_code": 200,
+      "success": true,
+      "response_time_ms": 2409.03,
+      "message": "返回200 OK",
+      "timestamp": "2026-03-08T16:59:58.718275",
+      "data": {
+        "code": "200",
+        "message": "证书加分计算成功",
+        "data": {
+          "category": "A类",
+          "score": 20.0,
+          "rules": [
+            {
+              "rule": "类别: A类",
+              "content": "【主类:C｜子类:C1｜竞赛类型:A｜级别:省部级】‘学创杯’全国大学生创业综合模拟大赛（省赛) 一等奖加20分"
+            }
+          ],
+          "confidence": 1.0,
+          "explanation": "根据证书内容‘获得全国大学生数学建模竞赛省级一等奖’，匹配规则1（A类，竞赛类型为A，级别为省部级），并符合‘学创杯’全国大学生创业综合模拟大赛（省赛）一等奖的加分规则，因此加20分。",
+          "certificate_text": "获得全国大学生数学建模竞赛省级一等奖",
+          "calculated_at": "2026-03-08T16:59:58.716715",
+          "used_rag": true
+        },
+        "errors": null,
+        "timestamp": "2026-03-08T16:59:58.716715",
+        "request_id": null
+      }
+    },
+    {
+      "test_name": "文档列表",
+      "endpoint": "/api/v1/documents",
+      "method": "GET",
+      "status_code": 200,
+      "success": true,
+      "response_time_ms": 62.22,
+      "message": "返回200 (符合预期)",
+      "timestamp": "2026-03-08T16:59:58.780497",
+      "data": {
+        "code": "200",
+        "message": "获取文档列表成功",
+        "data": {
+          "documents": [],
+          "total": 0
+        },
+        "errors": null,
+        "timestamp": "2026-03-08T16:59:58.778951",
+        "request_id": null
+      }
+    }
+  ]
+}

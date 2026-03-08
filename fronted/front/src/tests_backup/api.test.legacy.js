@@ -8,7 +8,7 @@ import { authAPI, studentAPI, teacherAPI, adminAPI, ragAPI } from '@/services/ap
 // 测试配置
 const TEST_CONFIG = {
   baseUrl: 'http://localhost:8001',
-  ragUrl: 'http://localhost:8000',
+  ragUrl: 'http://localhost:8010',
   timeout: 30000
 }
 

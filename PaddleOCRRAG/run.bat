@@ -10,9 +10,9 @@ python --version
 echo.
 
 echo 正在启动服务...
-echo 访问 http://localhost:8000/docs 查看API文档
+echo 访问 http://localhost:8010/docs 查看API文档
 echo 按 Ctrl+C 停止服务
 echo.
 
-uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+uvicorn app.main:app --host 127.0.0.1 --port 8010 --reload
 

@@ -11,7 +11,7 @@ except Exception as e:
 
 print('检查RAG服务...')
 try:
-    r = requests.get('http://localhost:8000/health', timeout=3)
+    r = requests.get('http://localhost:8010/health', timeout=3)
     print(f'RAG: {r.status_code} - {r.text}')
 except Exception as e:
     print(f'RAG不可用: {e}')

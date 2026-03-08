@@ -136,7 +136,7 @@ app.add_middleware(
         "http://127.0.0.1:5176",
         "http://127.0.0.1:5177",
         "http://127.0.0.1:5178",
-        "http://localhost:8000",
+        "http://localhost:8010",
         "http://localhost:8001",
         "http://localhost:8002",
         "http://localhost:8003",
@@ -152,7 +152,7 @@ app.add_middleware(
         "http://localhost:5176",
         "http://localhost:5177",
         "http://localhost:5178",
-        "http://127.0.0.1:8000",
+        "http://127.0.0.1:8010",
         "http://127.0.0.1:9000",
     ],
     allow_credentials=True,
@@ -214,8 +214,8 @@ async def startup_event():
     """应用启动事件"""
     logger.info("=" * 60)
     logger.info("FastAPI应用启动完成")
-    logger.info(f"服务地址: http://127.0.0.1:8000")
-    logger.info(f"API文档: http://127.0.0.1:8000/docs")
+    logger.info(f"服务地址: http://127.0.0.1:8010")
+    logger.info(f"API文档: http://127.0.0.1:8010/docs")
     logger.info("=" * 60)
 
 @app.on_event("shutdown")
@@ -230,7 +230,7 @@ if __name__ == "__main__":
     uvicorn.run(
         "app.main:app",
         host="127.0.0.1",
-        port=8000,
+        port=8010,
         reload=True,
         log_level="info"
     )

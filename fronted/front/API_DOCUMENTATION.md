@@ -297,7 +297,7 @@
   - `academic_year`: 学年 (可选)
   - `semester`: 学期 (可选)
 - **响应格式**: JSON
-- **超时时间**: 180000ms
+- **超时时间**: 180100ms
 
 ### 获取综合成绩列表
 - **接口路径**: `/v1/teacher/comprehensive/list`
@@ -801,7 +801,7 @@
   - `semester`: 学期 (可选)
   - `class_id`: 班级ID (可选)
 - **响应格式**: Blob
-- **超时时间**: 180000ms
+- **超时时间**: 180100ms
 
 ### 处理 OCR
 - **接口路径**: `/v1/excel-fill/process-ocr`
@@ -871,7 +871,7 @@
   - `semester`: 学期 (可选)
   - `output_dir`: 输出目录 (可选)
 - **响应格式**: JSON
-- **超时时间**: 180000ms
+- **超时时间**: 180100ms
 
 ### 处理并下载
 - **接口路径**: `/v1/field-mapping/download`
@@ -882,7 +882,7 @@
   - `academic_year`: 学年 (可选)
   - `semester`: 学期 (可选)
 - **响应格式**: Blob
-- **超时时间**: 180000ms
+- **超时时间**: 180100ms
 
 ### 获取源字段
 - **接口路径**: `/v1/field-mapping/source-fields`
@@ -1049,7 +1049,7 @@
   - `owner_id`: 所有者ID
   - `owner_type`: 所有者类型 (可选)
 - **响应格式**: JSON
-- **超时时间**: 180000ms
+- **超时时间**: 180100ms
 
 ### 初始化分片上传
 - **接口路径**: `/v1/file/chunk/init`

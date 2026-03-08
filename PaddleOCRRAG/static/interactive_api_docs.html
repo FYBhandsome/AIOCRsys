@@ -253,25 +253,25 @@ cd PaddleOCRRAG
 pip install -r requirements.txt
 
 # 启动服务
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload</code></pre>
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8010 --reload</code></pre>
                         </div>
                         
                         <h4>2. 验证服务</h4>
                         <div class="code-block">
                             <pre><code># 健康检查
-curl http://localhost:8000/api/v1/system/health</code></pre>
+curl http://localhost:8010/api/v1/system/health</code></pre>
                         </div>
                         
                         <h4>3. 第一个API调用</h4>
                         <div class="code-block">
                             <pre><code># 测试LLM连接
-curl -X POST http://localhost:8000/api/v1/llm/test</code></pre>
+curl -X POST http://localhost:8010/api/v1/llm/test</code></pre>
                         </div>
                         
                         <h4>4. 使用JavaScript调用API</h4>
                         <div class="code-block">
                             <pre><code>// 使用fetch API调用
-fetch('http://localhost:8000/api/v1/llm/test', {
+fetch('http://localhost:8010/api/v1/llm/test', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json'
@@ -296,7 +296,7 @@ fetch('http://localhost:8000/api/v1/llm/test', {
                         
                         <h4>请求示例</h4>
                         <div class="code-block">
-                            <pre><code>curl -X GET http://localhost:8000/api/v1/system/health</code></pre>
+                            <pre><code>curl -X GET http://localhost:8010/api/v1/system/health</code></pre>
                         </div>
                         
                         <h4>响应示例</h4>
@@ -321,7 +321,7 @@ fetch('http://localhost:8000/api/v1/llm/test', {
                         
                         <h4>请求示例</h4>
                         <div class="code-block">
-                            <pre><code>curl -X POST http://localhost:8000/api/v1/llm/test \
+                            <pre><code>curl -X POST http://localhost:8010/api/v1/llm/test \
   -H "Content-Type: application/json"</code></pre>
                         </div>
                         
@@ -397,7 +397,7 @@ fetch('http://localhost:8000/api/v1/llm/test', {
                         
                         <h4>请求示例</h4>
                         <div class="code-block">
-                            <pre><code>curl -X POST http://localhost:8000/api/v1/certificate/calculate \
+                            <pre><code>curl -X POST http://localhost:8010/api/v1/certificate/calculate \
   -H "Content-Type: application/json" \
   -d '{
     "student_id": "20230001",
@@ -434,7 +434,7 @@ fetch('http://localhost:8000/api/v1/llm/test', {
                         
                         <h4>请求示例</h4>
                         <div class="code-block">
-                            <pre><code>curl -X POST http://localhost:8000/api/v1/certificate/analyze \
+                            <pre><code>curl -X POST http://localhost:8010/api/v1/certificate/analyze \
   -H "Content-Type: application/json" \
   -d '{
     "student_id": "20230001",
@@ -500,7 +500,7 @@ fetch('http://localhost:8000/api/v1/llm/test', {
                         
                         <h4>请求示例</h4>
                         <div class="code-block">
-                            <pre><code>curl -X POST http://localhost:8000/api/v1/chat \
+                            <pre><code>curl -X POST http://localhost:8010/api/v1/chat \
   -H "Content-Type: application/json" \
   -d '{
     "question": "你好，我想了解英语四级证书的加分规则",
@@ -562,7 +562,7 @@ fetch('http://localhost:8000/api/v1/llm/test', {
                         
                         <h4>请求示例</h4>
                         <div class="code-block">
-                            <pre><code>curl -X GET "http://localhost:8000/api/v1/documents?page=1&size=10"</code></pre>
+                            <pre><code>curl -X GET "http://localhost:8010/api/v1/documents?page=1&size=10"</code></pre>
                         </div>
                         
                         <h4>响应示例</h4>
@@ -642,7 +642,7 @@ fetch('http://localhost:8000/api/v1/llm/test', {
                         
                         <h4>JavaScript错误处理示例</h4>
                         <div class="code-block">
-                            <pre><code>fetch('http://localhost:8000/api/v1/certificate/calculate', {
+                            <pre><code>fetch('http://localhost:8010/api/v1/certificate/calculate', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json'

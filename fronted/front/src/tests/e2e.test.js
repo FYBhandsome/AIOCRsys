@@ -3,7 +3,7 @@ import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 const E2E_CONFIG = {
   baseUrl: 'http://localhost:5173',
   apiBaseUrl: 'http://localhost:8001',
-  ragApiUrl: 'http://localhost:8000',
+  ragApiUrl: 'http://localhost:8010',
   timeout: 60000,
   testUsername: 'dev_admin',
   testPassword: 'dev123456'

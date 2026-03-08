@@ -23,14 +23,14 @@
 
 ```bash
 # 启动PaddleOCRRAG服务
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8010 --reload
 ```
 
 ### 2. 验证服务
 
 ```bash
 # 检查服务健康状态
-curl -X GET "http://localhost:8000/api/v1/health"
+curl -X GET "http://localhost:8010/api/v1/health"
 ```
 
 ### 3. 基本API调用
@@ -39,7 +39,7 @@ curl -X GET "http://localhost:8000/api/v1/health"
 import requests
 
 # API基础URL
-BASE_URL = "http://localhost:8000"
+BASE_URL = "http://localhost:8010"
 
 # 健康检查
 response = requests.get(f"{BASE_URL}/api/v1/health")
@@ -81,7 +81,7 @@ import requests
 
 def check_health():
     """检查系统健康状态"""
-    response = requests.get("http://localhost:8000/api/v1/health")
+    response = requests.get("http://localhost:8010/api/v1/health")
     
     if response.status_code == 200:
         data = response.json()
@@ -105,7 +105,7 @@ import requests
 def test_llm_connection():
     """测试LLM连接"""
     response = requests.post(
-        "http://localhost:8000/api/v1/llm/test",
+        "http://localhost:8010/api/v1/llm/test",
         headers={"Content-Type": "application/json"}
     )
     
@@ -140,7 +140,7 @@ def upload_document(file_path, description=""):
         print(f"文件不存在: {file_path}")
         return None
     
-    url = "http://localhost:8000/api/v1/documents/upload"
+    url = "http://localhost:8010/api/v1/documents/upload"
     
     with open(file_path, 'rb') as f:
         files = {'file': (os.path.basename(file_path), f)}
@@ -175,7 +175,7 @@ import requests
 
 def get_documents_list(skip=0, limit=100, status=None):
     """获取文档列表"""
-    url = "http://localhost:8000/api/v1/documents"
+    url = "http://localhost:8010/api/v1/documents"
     params = {"skip": skip, "limit": limit}
     
     if status:
@@ -212,7 +212,7 @@ import requests
 
 def update_document_status(doc_id, status):
     """更新文档状态"""
-    url = f"http://localhost:8000/api/v1/documents/{doc_id}/status"
+    url = f"http://localhost:8010/api/v1/documents/{doc_id}/status"
     data = {"status": status}
     
     response = requests.patch(url, json=data)
@@ -242,7 +242,7 @@ import requests
 
 def calculate_certificate_score(certificate_text, student_info=None):
     """计算证书加分"""
-    url = "http://localhost:8000/api/v1/calculate-score"
+    url = "http://localhost:8010/api/v1/calculate-score"
     
     data = {"certificate_text": certificate_text}
     if student_info:
@@ -285,7 +285,7 @@ import json
 
 def batch_calculate_scores(certificates_list):
     """批量计算证书加分"""
-    url = "http://localhost:8000/api/v1/calculate-score/batch"
+    url = "http://localhost:8010/api/v1/calculate-score/batch"
     
     data = {"certificates": certificates_list}
     
@@ -330,7 +330,7 @@ import requests
 
 def chat_with_ai(question, use_rag=True, conversation_history=None):
     """与AI进行对话"""
-    url = "http://localhost:8000/api/v1/chat"
+    url = "http://localhost:8010/api/v1/chat"
     
     data = {
         "question": question,
@@ -378,7 +378,7 @@ import requests
 
 def multi_turn_chat():
     """多轮对话示例"""
-    url = "http://localhost:8000/api/v1/chat"
+    url = "http://localhost:8010/api/v1/chat"
     conversation_history = []
     
     print("开始多轮对话 (输入'quit'退出)")
@@ -426,7 +426,7 @@ import requests
 
 def get_llm_config():
     """获取LLM配置"""
-    response = requests.get("http://localhost:8000/api/v1/llm-config")
+    response = requests.get("http://localhost:8010/api/v1/llm-config")
     
     if response.status_code == 200:
         result = response.json()
@@ -459,7 +459,7 @@ import requests
 
 def update_llm_config(config_data):
     """更新LLM配置"""
-    url = "http://localhost:8000/api/v1/llm-config"
+    url = "http://localhost:8010/api/v1/llm-config"
     
     response = requests.put(url, json=config_data)
     
@@ -541,7 +541,7 @@ def handle_api_response(response):
         return None
 
 # 使用示例
-response = requests.get("http://localhost:8000/api/v1/health")
+response = requests.get("http://localhost:8010/api/v1/health")
 data = handle_api_response(response)
 ```
 
@@ -589,7 +589,7 @@ def api_request_with_retry(url, method="GET", data=None, max_retries=3, retry_de
     return None  # 所有重试都失败
 
 # 使用示例
-response = api_request_with_retry("http://localhost:8000/api/v1/health")
+response = api_request_with_retry("http://localhost:8010/api/v1/health")
 ```
 
 ### 2. 异步请求
@@ -622,7 +622,7 @@ async def async_api_request(session, url, method="GET", data=None):
 
 async def batch_calculate_scores_async(certificates):
     """异步批量计算证书加分"""
-    base_url = "http://localhost:8000"
+    base_url = "http://localhost:8010"
     url = f"{base_url}/api/v1/calculate-score"
     
     async with aiohttp.ClientSession() as session:
@@ -685,7 +685,7 @@ def cache_response(ttl=300):  # 默认缓存5分钟
 @cache_response(ttl=600)  # 缓存10分钟
 def get_documents_list_cached(skip=0, limit=100):
     """带缓存的获取文档列表"""
-    url = "http://localhost:8000/api/v1/documents"
+    url = "http://localhost:8010/api/v1/documents"
     params = {"skip": skip, "limit": limit}
     
     response = requests.get(url, params=params)
@@ -739,7 +739,7 @@ def rate_limit(calls_per_second=1):
 @rate_limit(calls_per_second=2)  # 限制每秒最多2次调用
 def calculate_certificate_score_limited(certificate_text):
     """带限流的证书加分计算"""
-    url = "http://localhost:8000/api/v1/calculate-score"
+    url = "http://localhost:8010/api/v1/calculate-score"
     data = {"certificate_text": certificate_text}
     
     response = requests.post(url, json=data)
@@ -769,7 +769,7 @@ import requests
 
 def upload_large_file(file_path, chunk_size=1024*1024):  # 1MB chunks
     """分块上传大文件"""
-    url = "http://localhost:8000/api/v1/documents/upload"
+    url = "http://localhost:8010/api/v1/documents/upload"
     
     with open(file_path, 'rb') as f:
         # 使用流式上传
@@ -796,7 +796,7 @@ import time
 
 def submit_background_task(task_type, data):
     """提交后台任务"""
-    url = f"http://localhost:8000/api/v1/tasks/{task_type}"
+    url = f"http://localhost:8010/api/v1/tasks/{task_type}"
     
     response = requests.post(url, json=data)
     
@@ -811,7 +811,7 @@ def submit_background_task(task_type, data):
 
 def check_task_status(task_id):
     """检查任务状态"""
-    url = f"http://localhost:8000/api/v1/tasks/{task_id}"
+    url = f"http://localhost:8010/api/v1/tasks/{task_id}"
     
     response = requests.get(url)
     

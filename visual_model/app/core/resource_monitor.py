@@ -83,6 +83,7 @@ class AlertConfig:
     gpu_memory_percent_threshold: float = 80.0
     memory_growth_threshold_mb_per_min: float = 50.0
     leak_detection_window_seconds: float = 300.0
+    startup_grace_period_seconds: float = 300.0
 
 
 @dataclass
@@ -164,7 +165,8 @@ class ResourceMonitor:
                   thread_count_threshold: int = 50,
                   gpu_memory_percent_threshold: float = 80.0,
                   memory_growth_threshold_mb_per_min: float = 50.0,
-                  leak_detection_window_seconds: float = 300.0) -> None:
+                  leak_detection_window_seconds: float = 300.0,
+                  startup_grace_period_seconds: float = 300.0) -> None:
         """配置告警阈值
         
         Args:
@@ -174,6 +176,7 @@ class ResourceMonitor:
             gpu_memory_percent_threshold: GPU显存使用率告警阈值
             memory_growth_threshold_mb_per_min: 内存增长速率告警阈值 (MB/分钟)
             leak_detection_window_seconds: 内存泄漏检测时间窗口（秒）
+            startup_grace_period_seconds: 启动期豁免时间（秒）
         """
         self._alert_config = AlertConfig(
             memory_percent_threshold=memory_percent_threshold,
@@ -181,11 +184,13 @@ class ResourceMonitor:
             thread_count_threshold=thread_count_threshold,
             gpu_memory_percent_threshold=gpu_memory_percent_threshold,
             memory_growth_threshold_mb_per_min=memory_growth_threshold_mb_per_min,
-            leak_detection_window_seconds=leak_detection_window_seconds
+            leak_detection_window_seconds=leak_detection_window_seconds,
+            startup_grace_period_seconds=startup_grace_period_seconds
         )
         logger.info(f"资源监控告警配置: 内存={memory_percent_threshold}%, CPU={cpu_percent_threshold}%, "
                    f"线程={thread_count_threshold}, GPU={gpu_memory_percent_threshold}%, "
-                   f"内存增长阈值={memory_growth_threshold_mb_per_min}MB/min")
+                   f"内存增长阈值={memory_growth_threshold_mb_per_min}MB/min, "
+                   f"启动豁免期={startup_grace_period_seconds}秒")
     
     def add_alert_callback(self, callback: Callable[[ResourceAlert], None]) -> None:
         """添加告警回调函数"""
@@ -241,6 +246,10 @@ class ResourceMonitor:
         if len(history) < 2:
             return
         
+        uptime_seconds = (datetime.now() - self._start_time).total_seconds()
+        if uptime_seconds < self._alert_config.startup_grace_period_seconds:
+            return
+        
         window_seconds = self._alert_config.leak_detection_window_seconds
         now = datetime.now()
         
@@ -284,11 +293,6 @@ class ResourceMonitor:
             self._memory_trend.growth_rate_mb_per_min > 
             self._alert_config.memory_growth_threshold_mb_per_min
         )
-        
-        if self._memory_trend.potential_leak:
-            logger.warning(
-                f"检测到潜在内存泄漏: 增长速率 {self._memory_trend.growth_rate_mb_per_min:.2f} MB/min"
-            )
     
     def _check_alerts(self, snapshot: ResourceSnapshot) -> None:
         """检查是否触发告警"""

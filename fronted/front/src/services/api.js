@@ -383,7 +383,7 @@ export const teacherAPI = {
     
     return api.post(API_ENDPOINTS.TEACHER.UPLOAD_COMPREHENSIVE, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
-      timeout: 180000,
+      timeout: 180100,
       showLoading: false,
       ...createRetryConfig({}, 2, 3000)
     })
@@ -656,7 +656,7 @@ export const excelFillAPI = {
     
     return api.post('/v1/excel-fill/from-template', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
-      timeout: 180000,
+      timeout: 180100,
       responseType: 'blob'
     })
   },
@@ -711,7 +711,7 @@ export const fieldMappingAPI = {
     
     return api.post('/v1/field-mapping/process', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
-      timeout: 180000
+      timeout: 180100
     })
   },
   
@@ -724,7 +724,7 @@ export const fieldMappingAPI = {
     
     return api.post('/v1/field-mapping/download', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
-      timeout: 180000,
+      timeout: 180100,
       responseType: 'blob'
     })
   },
@@ -872,7 +872,7 @@ export const fileManagementAPI = {
     
     return api.post('/v1/file/upload-multiple', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
-      timeout: 180000
+      timeout: 180100
     })
   },
   

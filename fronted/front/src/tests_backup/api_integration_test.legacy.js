@@ -3,7 +3,7 @@
  * 测试所有API端点的请求和响应
  */
 
-const BASE_URL = 'http://localhost:8000/api';
+const BASE_URL = 'http://localhost:8010/api';
 const RAG_URL = 'http://localhost:8001/api/v1/api';
 
 let authToken = null;

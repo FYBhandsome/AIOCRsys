@@ -12,8 +12,8 @@ for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":8001" ^| findstr "LISTENING
     echo Stopping PID: %%a (Port 8001)
     taskkill /F /PID %%a 2>nul
 )
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":8000" ^| findstr "LISTENING" 2^>nul') do (
-    echo Stopping PID: %%a (Port 8000)
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":8010" ^| findstr "LISTENING" 2^>nul') do (
+    echo Stopping PID: %%a (Port 8010)
     taskkill /F /PID %%a 2>nul
 )
 for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":5173" ^| findstr "LISTENING" 2^>nul') do (

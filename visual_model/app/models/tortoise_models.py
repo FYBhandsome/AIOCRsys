@@ -47,8 +47,16 @@ class Class(Model):
 class ClassStudent(Model):
     """班级学生关联模型"""
     id = fields.IntField(pk=True)
-    class_id = fields.CharField(max_length=50, description="班级ID")
-    student_id = fields.CharField(max_length=50, description="学号")
+    class_id = fields.ForeignKeyField(
+        "models.Class", 
+        related_name="students", 
+        description="班级"
+    )
+    student = fields.ForeignKeyField(
+        "models.Student", 
+        related_name="classes", 
+        description="学生"
+    )
     
     created_at = fields.DatetimeField(auto_now_add=True)
     
@@ -266,7 +274,6 @@ class ComprehensiveScore(Model):
     """综测类别总成绩模型"""
     id = fields.IntField(pk=True)
     
-    student_id = fields.CharField(max_length=50, description="学号")
     student_name = fields.CharField(max_length=100, null=True, description="姓名")
     class_name = fields.CharField(max_length=50, null=True, description="班级")
     major = fields.CharField(max_length=100, null=True, description="专业")
@@ -278,9 +285,11 @@ class ComprehensiveScore(Model):
     a3_score = fields.FloatField(default=0.0, description="A3类成绩")
     a_weighted_score = fields.FloatField(default=0.0, description="A类加权成绩(20%)")
     
-    # B类材料成绩（学习成绩）
+    # B类材料成绩（学习成绩)
     b_raw_score = fields.FloatField(default=0.0, description="B类原始成绩")
     b_weighted_score = fields.FloatField(default=0.0, description="B类加权成绩(70%)")
+    b_total_score = fields.FloatField(default=0.0, description="B类总成绩（兼容字段）")
+    b_total_score = fields.FloatField(default=0.0, description="B类总成绩（学业成绩）")
     
     # C类材料成绩（素质拓展）
     c_total_score = fields.FloatField(default=0.0, description="C类材料总成绩")
@@ -300,6 +309,9 @@ class ComprehensiveScore(Model):
     
     # 配置关联
     config_id = fields.IntField(null=True, description="使用的配置ID")
+    
+    # 学生关联
+    student = fields.ForeignKeyField("models.Student", related_name="comprehensive_scores", description="关联学生")
     
     # 来源追踪
     source_file = fields.CharField(max_length=255, null=True, description="来源文件名")
@@ -441,8 +453,16 @@ class CertificateImage(Model):
     """证书图片模型 - 存储证书的多张图片"""
     id = fields.IntField(pk=True)
     
-    certificate_id = fields.IntField(description="关联证书ID")
-    student_id = fields.CharField(max_length=50, description="学生ID（冗余字段，便于查询）")
+    certificate = fields.ForeignKeyField(
+        "models.Certificate", 
+        related_name="images", 
+        description="关联证书"
+    )
+    student = fields.ForeignKeyField(
+        "models.Student", 
+        related_name="certificate_images", 
+        description="学生"
+    )
     
     file_id = fields.CharField(max_length=50, null=True, description="文件管理ID")
     filename = fields.CharField(max_length=255, description="原始文件名")

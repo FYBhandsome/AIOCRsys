@@ -64,7 +64,7 @@ def start_services(args):
         print("  ./start.sh")
     
     print("\n服务启动中...")
-    print("  - RAG后端: http://localhost:8000")
+    print("  - RAG后端: http://localhost:8010")
     print("  - Visual Model后端: http://localhost:8001")
     print("  - 前端: http://localhost:5173")
 
@@ -93,7 +93,7 @@ def check_status(args):
     print("=" * 60)
     
     services = [
-        ("RAG后端", "http://localhost:8000/api/v1/system/health"),
+        ("RAG后端", "http://localhost:8010/api/v1/system/health"),
         ("Visual Model后端", "http://localhost:8001/health"),
         ("前端", "http://localhost:5173")
     ]

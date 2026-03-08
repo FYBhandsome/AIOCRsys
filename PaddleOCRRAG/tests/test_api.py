@@ -26,7 +26,7 @@ from typing import Dict, Any, List, Optional
 class RAGAPITester:
     """RAG系统API测试器"""
     
-    def __init__(self, base_url: str = "http://localhost:8000"):
+    def __init__(self, base_url: str = "http://localhost:8010"):
         self.base_url = base_url
         self.api_prefix = "/api/v1"
         self.session = requests.Session()
@@ -533,7 +533,7 @@ def main():
     parser = argparse.ArgumentParser(description="RAG系统API测试")
     parser.add_argument("--quick", action="store_true", help="快速测试模式")
     parser.add_argument("--save", action="store_true", help="保存测试结果")
-    parser.add_argument("--url", default="http://localhost:8000", help="服务地址")
+    parser.add_argument("--url", default="http://localhost:8010", help="服务地址")
     
     args = parser.parse_args()
     

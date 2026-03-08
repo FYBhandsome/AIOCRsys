@@ -7,7 +7,7 @@ PaddleOCRRAG API 客户端SDK
 使用示例:
     from paddle_ocrrag_client import PaddleOCRRAGClient
     
-    client = PaddleOCRRAGClient(base_url="http://localhost:8000")
+    client = PaddleOCRRAGClient(base_url="http://localhost:8010")
     
     # 健康检查
     health = client.health.check()
@@ -33,7 +33,7 @@ import hashlib
 class PaddleOCRRAGClient:
     """PaddleOCRRAG API客户端"""
     
-    def __init__(self, base_url: str = "http://localhost:8000", api_key: Optional[str] = None, timeout: int = 30):
+    def __init__(self, base_url: str = "http://localhost:8010", api_key: Optional[str] = None, timeout: int = 30):
         """
         初始化客户端
         
@@ -525,7 +525,7 @@ def generate_cache_key(*args) -> str:
 
 if __name__ == "__main__":
     # 创建客户端
-    client = PaddleOCRRAGClient(base_url="http://localhost:8000")
+    client = PaddleOCRRAGClient(base_url="http://localhost:8010")
     
     try:
         # 健康检查

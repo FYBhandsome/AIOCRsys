@@ -19,10 +19,141 @@ logger = get_logger(__name__)
 api_logger = APILogMiddleware("RAGService")
 
 
+class FieldMapping:
+    JSON_TO_DB = {
+        'student_id': 'student_id',
+        'student_name': 'student_name',
+        'class_name': 'class_name',
+        'major': 'major',
+        'a1_score': 'a1_score',
+        'a2_score': 'a2_score',
+        'a3_score': 'a3_score',
+        'a_total_score': 'a_total_score',
+        'a_weighted_score': 'a_weighted_score',
+        'b_raw_score': 'b_raw_score',
+        'b_weighted_score': 'b_weighted_score',
+        'c1_score': 'c1_score',
+        'c2_score': 'c2_score',
+        'c3_score': 'c3_score',
+        'c4_score': 'c4_score',
+        'c_total_score': 'c_total_score',
+        'c_weighted_score': 'c_weighted_score',
+        'total_score': 'total_score',
+        'ranking': 'ranking',
+        'semester': 'semester',
+        'academic_year': 'academic_year'
+    }
+    
+    JSON_TO_EXCEL = {
+        'student_name': '姓名',
+        'student_id': '学号',
+        'class_name': '班级',
+        'major': '专业',
+        'a1_score': 'A1—基础分',
+        'a2_score': 'A2—附加分',
+        'a3_score': 'A3—扣分项',
+        'a_total_score': '思想道德素质(A)总分',
+        'b_raw_score': '学习成绩',
+        'c1_score': 'C1—科技竞赛项目',
+        'c2_score': 'C2—体育竞技项目',
+        'c3_score': 'C3—文化类竞赛项目',
+        'c4_score': 'C4—创新创业实践项目',
+        'c_total_score': '素质拓展(C)总分',
+        'total_score': '综合测评总成绩8%',
+        'ranking': '排名'
+    }
+    
+    REQUIRED_FIELDS = [
+        'student_id', 'student_name', 'class_name', 'major',
+        'a1_score', 'a2_score', 'a3_score', 'a_total_score',
+        'b_raw_score', 'c1_score', 'c2_score', 'c3_score', 'c4_score',
+        'c_total_score', 'total_score'
+    ]
+
+
+class DataValidator:
+    @staticmethod
+    def validate_comprehensive_score(data: Dict[str, Any]) -> tuple[bool, list[str], Dict[str, Any]]:
+        errors = []
+        cleaned_data = {}
+        
+        for field in FieldMapping.REQUIRED_FIELDS:
+            if field not in data or data[field] is None:
+                if field in ['ranking', 'semester', 'academic_year']:
+                    continue
+                errors.append(f"缺少必需字段: {field}")
+        
+        type_converters = {
+            'student_id': str,
+            'student_name': str,
+            'class_name': str,
+            'major': str,
+            'a1_score': float,
+            'a2_score': float,
+            'a3_score': float,
+            'a_total_score': float,
+            'a_weighted_score': float,
+            'b_raw_score': float,
+            'b_weighted_score': float,
+            'c1_score': float,
+            'c2_score': float,
+            'c3_score': float,
+            'c4_score': float,
+            'c_total_score': float,
+            'c_weighted_score': float,
+            'total_score': float,
+            'ranking': int,
+            'semester': str,
+            'academic_year': str
+        }
+        
+        for field, value in data.items():
+            if field in type_converters and value is not None:
+                try:
+                    if value == '':
+                        cleaned_data[field] = None
+                    else:
+                        cleaned_data[field] = type_converters[field](value)
+                except (ValueError, TypeError):
+                    logger.warning(f"字段 {field} 类型转换失败，值: {value}，使用默认值")
+                    if type_converters[field] in [float, int]:
+                        cleaned_data[field] = 0.0 if type_converters[field] == float else 0
+                    else:
+                        cleaned_data[field] = ''
+            else:
+                cleaned_data[field] = value
+        
+        for score_field in ['a1_score', 'a2_score', 'a3_score', 'a_total_score',
+                           'b_raw_score', 'c1_score', 'c2_score', 'c3_score', 'c4_score',
+                           'c_total_score', 'total_score']:
+            if score_field in cleaned_data and cleaned_data[score_field] is not None:
+                if cleaned_data[score_field] < 0:
+                    logger.warning(f"字段 {score_field} 为负数，重置为0")
+                    cleaned_data[score_field] = 0.0
+        
+        return len(errors) == 0, errors, cleaned_data
+    
+    @staticmethod
+    def convert_to_db_format(data: Dict[str, Any]) -> Dict[str, Any]:
+        db_data = {}
+        for json_field, db_field in FieldMapping.JSON_TO_DB.items():
+            if json_field in data:
+                db_data[db_field] = data[json_field]
+        return db_data
+    
+    @staticmethod
+    def convert_to_excel_format(data: Dict[str, Any]) -> Dict[str, Any]:
+        excel_data = {}
+        for json_field, excel_column in FieldMapping.JSON_TO_EXCEL.items():
+            if json_field in data:
+                excel_data[excel_column] = data[json_field]
+        return excel_data
+
+
 class RAGComprehensiveService:
     """综测计算RAG检索服务"""
     
-    def __init__(self, rag_base_url: str = "http://localhost:8000"):
+    def __init__(self, rag_base_url: str = "http://localhost:8010"):
         """初始化服务
         
         Args:

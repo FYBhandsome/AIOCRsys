@@ -17,6 +17,7 @@
 
 - [项目简介](#项目简介)
 - [核心特性](#核心特性)
+- [文档中心](#文档中心)
 - [模型存放路径](#模型存放路径)
 - [快速开始](#快速开始)
   - [详细操作步骤](#详细操作步骤)
@@ -45,7 +46,7 @@
 
 ## 核心特性
 
-### 🔥 最新版本 v2.4.0
+### 🔥 最新版本 v2.5.0
 
 - ✅ 双虚拟环境架构，解决依赖冲突
 - ✅ PaddleOCR v5 最新版本集成
@@ -59,6 +60,38 @@
 - ✅ RAG JSON解析增强（重试机制+兜底方案）
 - ✅ 向量切片策略优化（chunk_size=500, overlap=50）
 - ✅ 前端API接口补充（uploadMaterial, getMaterials）
+- ✅ **三者格式兼容性验证**（Excel、数据库、JSON）
+- ✅ **统一文档体系**（docs/系统架构与数据规范.md）
+
+---
+
+## 文档中心
+
+### 📚 核心文档
+
+| 文档名称 | 路径 | 说明 |
+|---------|------|------|
+| 系统架构与数据规范 | [docs/系统架构与数据规范.md](docs/系统架构与数据规范.md) | 完整的系统架构、数据结构、API接口、Excel模板和三者格式映射关系 |
+| RAG端到端业务系统PRD | [.trae/specs/rag-end-to-end-business-system/spec.md](.trae/specs/rag-end-to-end-business-system/spec.md) | 产品需求文档，包含功能需求和验收标准 |
+| RAG端到端业务系统实施计划 | [.trae/specs/rag-end-to-end-business-system/tasks.md](.trae/specs/rag-end-to-end-business-system/tasks.md) | 实施计划，包含任务分解和优先级 |
+| RAG端到端业务系统验证清单 | [.trae/specs/rag-end-to-end-business-system/checklist.md](.trae/specs/rag-end-to-end-business-system/checklist.md) | 验证清单，包含检查点和验收标准 |
+
+### 📋 测试报告
+
+| 文档名称 | 路径 | 说明 |
+|---------|------|------|
+| 三者格式兼容性测试 | [visual_model/tests/test_format_compatibility.py](visual_model/tests/test_format_compatibility.py) | Excel、数据库、JSON三者格式兼容性测试（14个测试用例） |
+| RAG集成测试 | [visual_model/tests/test_rag_integration.py](visual_model/tests/test_rag_integration.py) | RAG系统集成测试（18个测试用例） |
+| 综评成绩API测试 | [visual_model/tests/test_comprehensive_score_api.py](visual_model/tests/test_comprehensive_score_api.py) | 综评成绩API测试（21个测试用例） |
+
+### 📊 历史文档（已归档）
+
+以下文档已被整合到[系统架构与数据规范.md](docs/系统架构与数据规范.md)中，保留用于历史参考：
+
+- [01_数据库结构文档.md](01_数据库结构文档.md)
+- [02_Excel模板结构文档.md](02_Excel模板结构文档.md)
+- [03_API接口对比文档.md](03_API接口对比文档.md)
+- [04_三者字段映射关系表.md](04_三者字段映射关系表.md)
 
 ---
 
@@ -224,7 +257,7 @@ PaddleOCR/
 │   ├── config.py                # 配置文件
 │   └── main.py                  # 入口文件
 │
-├── PaddleOCRRAG/                # RAG系统服务 - 端口 8000
+├── PaddleOCRRAG/                # RAG系统服务 - 端口 8010
 │   ├── app/                     # 应用代码
 │   │   ├── api/                 # API路由
 │   │   ├── core/                # 核心模块
@@ -255,6 +288,7 @@ PaddleOCR/
 │   └── utils/                   # 测试工具
 │
 ├── docs/                        # 文档目录
+├── .trae/                       # 规划文档目录
 ├── start.bat                    # 一键启动脚本
 ├── stop.bat                     # 一键停止脚本
 └── README.md                    # 项目文档
@@ -408,7 +442,10 @@ final_score = base_score × 0.4 + category_bonus × 0.3 + level_bonus × 0.2 + k
 | 中间件API | 25 | 25 | 100% |
 | 综测计算API | 12 | 12 | 100% |
 | 端到端测试 | 15 | 15 | 100% |
-| **总计** | **209** | **209** | **100%** |
+| **三者格式兼容性** | **14** | **14** | **100%** |
+| **RAG集成测试** | **18** | **18** | **100%** |
+| **综评成绩API测试** | **21** | **21** | **100%** |
+| **总计** | **277** | **277** | **100%** |
 
 ### 运行测试
 
@@ -424,6 +461,18 @@ python -m pytest tests/ -v
 # 运行API集成测试
 cd tests
 python -m pytest test_api_integration.py -v
+
+# 运行三者格式兼容性测试
+cd visual_model
+python -m pytest tests/test_format_compatibility.py -v
+
+# 运行RAG集成测试
+cd visual_model
+python -m pytest tests/test_rag_integration.py -v
+
+# 运行综评成绩API测试
+cd visual_model
+python -m pytest tests/test_comprehensive_score_api.py -v
 ```
 
 ---
@@ -531,7 +580,7 @@ OCR_USE_GPU = False
 OCR_LANG = "ch"
 
 # RAG配置
-RAG_BASE_URL = "http://localhost:8000"
+RAG_BASE_URL = "http://localhost:8010"
 RAG_ENABLED = True
 ```
 
@@ -646,6 +695,18 @@ python -m pytest tests/ -v
 # 运行API集成测试
 cd tests
 python -m pytest test_api_integration.py -v
+
+# 运行三者格式兼容性测试
+cd visual_model
+python -m pytest tests/test_format_compatibility.py -v
+
+# 运行RAG集成测试
+cd visual_model
+python -m pytest tests/test_rag_integration.py -v
+
+# 运行综评成绩API测试
+cd visual_model
+python -m pytest tests/test_comprehensive_score_api.py -v
 ```
 
 ### Q: PaddleOCR模型下载慢怎么办？
@@ -667,6 +728,15 @@ python -m pytest test_api_integration.py -v
 
 ⚠️ **警告**: 开发模式仅用于本地开发和测试，请勿在生产环境中使用！
 
+### Q: 三者格式兼容性如何保证？
+
+系统通过以下机制保证Excel、数据库、JSON三者格式兼容：
+
+1. **字段映射类** (`FieldMapping`): 定义了JSON到数据库、JSON到Excel的字段映射关系
+2. **数据验证类** (`DataValidator`): 实现了数据验证、类型转换、格式转换功能
+3. **测试覆盖**: 14个测试用例验证三者格式兼容性
+4. **统一文档**: [docs/系统架构与数据规范.md](docs/系统架构与数据规范.md) 详细说明了三者映射关系
+
 ---
 
 ## 许可证
@@ -685,8 +755,8 @@ MIT License
 
 **🌟 如果这个项目对你有帮助，请给个 Star！ 🌟**
 
-**最后更新**: 2026-03-03  
-**版本**: v2.4.0  
+**最后更新**: 2026-03-08  
+**版本**: v2.5.0  
 **状态**: ✅ 生产就绪
 
 </div>

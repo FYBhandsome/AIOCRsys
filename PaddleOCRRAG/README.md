@@ -564,18 +564,18 @@ C:\Users\<用户名>\.cache\
 
 ```bash
 # 开发模式
-python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8010 --reload
 
 # 生产模式
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8010 --workers 4
 ```
 
 ### 访问服务
 
-- **API 文档**: http://localhost:8000/docs
-- **健康检查**: http://localhost:8000/health
-- **交互式测试**: http://localhost:8000/static/api_test.html
-- **文档分析页面**: http://localhost:8000/static/document_analysis.html
+- **API 文档**: http://localhost:8010/docs
+- **健康检查**: http://localhost:8010/health
+- **交互式测试**: http://localhost:8010/static/api_test.html
+- **文档分析页面**: http://localhost:8010/static/document_analysis.html
 
 ---
 
@@ -610,7 +610,7 @@ python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
 import requests
 
 # AI对话
-url = "http://localhost:8000/api/v1/chat"
+url = "http://localhost:8010/api/v1/chat"
 data = {
     "message": "蓝桥杯省赛一等奖加多少分",
     "chat_history": []
@@ -620,7 +620,7 @@ result = response.json()
 print(f"回复: {result['data']['response']}")
 
 # 计算加分
-url = "http://localhost:8000/api/v1/calculate-score"
+url = "http://localhost:8010/api/v1/calculate-score"
 data = {
     "competition_name": "蓝桥杯",
     "award_level": "一等奖",
