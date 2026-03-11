@@ -412,7 +412,7 @@ export default {
     const loadConfigs = async () => {
       loading.value = true
       try {
-        const response = await commonAPI.get('/admin/comprehensive-score/configs')
+        const response = await commonAPI.get('/v1/admin/comprehensive-score/configs')
         configs.value = response.configs || []
       } catch (error) {
         ElMessage.error('加载配置失败: ' + error.message)
@@ -424,7 +424,7 @@ export default {
     // 加载默认配置
     const loadDefaultConfig = async () => {
       try {
-        const response = await commonAPI.get('/admin/comprehensive-score/default-config')
+        const response = await commonAPI.get('/v1/admin/comprehensive-score/default-config')
         if (response) {
           Object.assign(formData, {
             name: response.name || '',
@@ -451,7 +451,7 @@ export default {
     // 加载可用字段
     const loadAvailableFields = async () => {
       try {
-        const response = await commonAPI.get('/admin/comprehensive-score/fields')
+        const response = await commonAPI.get('/v1/admin/comprehensive-score/fields')
         availableFields.value = response.fields || []
       } catch (error) {
         console.error('加载可用字段失败:', error)
@@ -588,7 +588,7 @@ export default {
           }
         )
         
-        await commonAPI.delete(`/admin/comprehensive-score/config/${config.id}`)
+        await commonAPI.delete(`/v1/admin/comprehensive-score/config/${config.id}`)
         ElMessage.success('删除成功')
         await loadConfigs()
       } catch (error) {
@@ -611,10 +611,10 @@ export default {
         submitting.value = true
         
         if (dialogMode.value === 'create') {
-          await commonAPI.post('/admin/comprehensive-score/config', formData)
+          await commonAPI.post('/v1/admin/comprehensive-score/config', formData)
           ElMessage.success('创建成功')
         } else {
-          await commonAPI.put(`/admin/comprehensive-score/config/${currentConfig.value.id}`, formData)
+          await commonAPI.put(`/v1/admin/comprehensive-score/config/${currentConfig.value.id}`, formData)
           ElMessage.success('更新成功')
         }
         
@@ -645,7 +645,7 @@ export default {
       
       try {
         calculating.value = true
-        const result = await commonAPI.post('/admin/comprehensive-score/calculate', {
+        const result = await commonAPI.post('/v1/admin/comprehensive-score/calculate', {
           config_id: calculateForm.config_id,
           academic_year: calculateForm.academic_year,
           semester: calculateForm.semester,
@@ -683,7 +683,7 @@ export default {
       
       try {
         previewing.value = true
-        const result = await commonAPI.post('/admin/comprehensive-score/preview', {
+        const result = await commonAPI.post('/v1/admin/comprehensive-score/preview', {
           config_id: previewForm.config_id,
           student_id: previewForm.student_id,
           academic_year: previewForm.academic_year,

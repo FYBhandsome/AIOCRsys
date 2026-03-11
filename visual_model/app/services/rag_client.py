@@ -455,7 +455,7 @@ class RAGClient:
         Returns:
             重置结果
         """
-        url = f"{self.base_url}{self.api_prefix}/vector-db/reset"
+        url = f"{self.base_url}{self.api_prefix}/vector_db/reset"
         data = {
             "confirm": confirm,
             "rebuild": rebuild
@@ -475,7 +475,7 @@ class RAGClient:
     
     async def rebuild_vector_db(self) -> Dict[str, Any]:
         """重建向量数据库"""
-        url = f"{self.base_url}{self.api_prefix}/vector-db/rebuild"
+        url = f"{self.base_url}{self.api_prefix}/vector_db/rebuild"
         
         try:
             async with httpx.AsyncClient(timeout=60.0) as client:
@@ -495,7 +495,7 @@ class RAGClient:
     
     async def get_system_stats(self) -> Dict[str, Any]:
         """获取系统统计信息"""
-        url = f"{self.base_url}{self.api_prefix}/stats"
+        url = f"{self.base_url}{self.api_prefix}/system/vector_db/stats"
         
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
@@ -511,7 +511,7 @@ class RAGClient:
     
     async def health_check(self) -> Dict[str, Any]:
         """健康检查"""
-        url = f"{self.base_url}{self.api_prefix}/system/health"
+        url = f"{self.base_url}/health"
         
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:

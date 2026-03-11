@@ -324,7 +324,7 @@ const licenseStatus = computed(() => {
 // 获取系统信息
 const getSystemInfo = async () => {
   try {
-    const response = await axios.get(`${API_BASE}/api/license/system-info`)
+    const response = await axios.get(`${API_BASE}/api/v1/license/system-info`)
     systemInfo.value = response.data
   } catch (error) {
     console.error('获取系统信息失败:', error)
@@ -335,7 +335,7 @@ const getSystemInfo = async () => {
 // 检查持久化授权
 const checkPersistentLicense = async () => {
   try {
-    const response = await axios.get(`${API_BASE}/api/license/persistent/check`)
+    const response = await axios.get(`${API_BASE}/api/v1/license/persistent/check`)
     persistentLicense.value = {
       checked: true,
       ...response.data
@@ -358,7 +358,7 @@ const checkPersistentLicense = async () => {
 const getCurrentToken = async () => {
   fetchingToken.value = true
   try {
-    const response = await axios.get(`${API_BASE}/api/license/token`)
+    const response = await axios.get(`${API_BASE}/api/v1/license/token`)
     verifyForm.token = response.data.token
     ElMessage.success('Token获取成功')
   } catch (error) {
@@ -380,7 +380,7 @@ const verifyLicense = async () => {
     verifyResult.value = null
     
     try {
-      const response = await axios.post(`${API_BASE}/api/license/verify`, {
+      const response = await axios.post(`${API_BASE}/api/v1/license/verify`, {
         license: verifyForm.license.trim(),
         token: verifyForm.token.trim(),
         prefer_offline: verifyForm.prefer_offline
@@ -412,7 +412,7 @@ const verifyLicense = async () => {
 // 保存到持久化存储
 const savePersistentLicense = async () => {
   try {
-    await axios.post(`${API_BASE}/api/license/persistent/save`, {
+    await axios.post(`${API_BASE}/api/v1/license/persistent/save`, {
       license: verifyForm.license.trim(),
       token: verifyForm.token.trim()
     })
@@ -439,7 +439,7 @@ const clearPersistentLicense = async () => {
     )
     
     clearing.value = true
-    await axios.post(`${API_BASE}/api/license/persistent/clear`)
+    await axios.post(`${API_BASE}/api/v1/license/persistent/clear`)
     
     ElMessage.success('持久化授权已清除')
     await checkPersistentLicense()
@@ -457,7 +457,7 @@ const clearPersistentLicense = async () => {
 const refreshStorageInfo = async () => {
   fetchingStorage.value = true
   try {
-    const response = await axios.get(`${API_BASE}/api/license/storage-info`)
+    const response = await axios.get(`${API_BASE}/api/v1/license/storage-info`)
     storageInfo.value = response.data
   } catch (error) {
     console.error('获取存储信息失败:', error)

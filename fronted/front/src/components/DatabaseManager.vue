@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="database-manager">
     <div class="page-header">
       <h1>数据库管理</h1>
@@ -171,7 +171,7 @@ const refreshingTables = reactive({})
 // 加载数据表列表
 const loadTables = async () => {
   try {
-    const response = await api.get('/api/v1/admin/database/tables')
+    const response = await api.get('/v1/admin/database/tables')
     tables.value = response.data
   } catch (error) {
     console.error('加载表列表失败:', error)
@@ -182,7 +182,7 @@ const loadTables = async () => {
 // 加载统计信息
 const loadStats = async () => {
   try {
-    const response = await api.get('/api/v1/admin/database/stats')
+    const response = await api.get('/v1/admin/database/stats')
     stats.tables = response.data.tables
     stats.total_records = response.data.total_records
   } catch (error) {
@@ -202,7 +202,7 @@ const viewTableData = async (tableName) => {
 const loadTableData = async () => {
   try {
     const skip = (pagination.page - 1) * pagination.limit
-    const response = await api.get(`/api/v1/admin/database/tables/${currentTable.value}/data`, {
+    const response = await api.get(`/v1/admin/database/tables/${currentTable.value}/data`, {
       params: {
         skip,
         limit: pagination.limit
@@ -253,7 +253,7 @@ const deleteRecord = async (recordId) => {
       }
     )
 
-    await api.delete(`/api/v1/admin/database/tables/${currentTable.value}/records/${recordId}`)
+    await api.delete(`/v1/admin/database/tables/${currentTable.value}/records/${recordId}`)
     ElMessage.success('删除成功')
     await loadTableData()
     await loadTables()
@@ -282,7 +282,7 @@ const handleClearTable = async (tableName) => {
       }
     )
 
-    await api.delete(`/api/v1/admin/database/tables/${tableName}/clear`, {
+    await api.delete(`/v1/admin/database/tables/${tableName}/clear`, {
       params: { confirm: tableName }
     })
 
@@ -320,7 +320,7 @@ const handleClearAll = async () => {
     )
 
     clearingAll.value = true
-    await api.delete('/api/v1/admin/database/clear-all', {
+    await api.delete('/v1/admin/database/clear-all', {
       params: { confirm: 'DELETE_ALL_DATA' }
     })
 
