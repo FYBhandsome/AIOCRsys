@@ -191,7 +191,7 @@ visual_model/logs/
 visual_model/uploads/
 visual_model/temp/
 visual_model/results/
-
+visual_model/venv/
 visual_model/testphoto/
 .trae
 .docs

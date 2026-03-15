@@ -5,7 +5,6 @@
       <p>查看和管理系统数据</p>
     </div>
     <div class="database-content">
-        <!-- 统计信息 -->
         <el-row :gutter="20" class="stats-row">
           <el-col :span="6">
             <el-card class="stat-card">
@@ -31,7 +30,6 @@
           </el-col>
         </el-row>
 
-        <!-- 表格列表 -->
         <el-card class="tables-card">
           <template #header>
             <div class="card-header-content">
@@ -88,7 +86,6 @@
           </el-table>
         </el-card>
 
-        <!-- 数据查看对话框 -->
         <el-dialog
           v-model="dataDialogVisible"
           :title="`${currentTable} - 数据详情`"
@@ -172,7 +169,8 @@ const refreshingTables = reactive({})
 const loadTables = async () => {
   try {
     const response = await api.get('/v1/admin/database/tables')
-    tables.value = response.data
+    // 【修复问题四】：增加响应数据的容错处理，兼容拦截器“脱壳”的情况
+    tables.value = response.data !== undefined ? response.data : response
   } catch (error) {
     console.error('加载表列表失败:', error)
     ElMessage.error('加载表列表失败')
@@ -183,8 +181,10 @@ const loadTables = async () => {
 const loadStats = async () => {
   try {
     const response = await api.get('/v1/admin/database/stats')
-    stats.tables = response.data.tables
-    stats.total_records = response.data.total_records
+    // 【修复问题四】：增加响应数据的容错处理
+    const data = response.data !== undefined ? response.data : response
+    stats.tables = data.tables || {}
+    stats.total_records = data.total_records || 0
   } catch (error) {
     console.error('加载统计信息失败:', error)
   }
@@ -209,8 +209,10 @@ const loadTableData = async () => {
       }
     })
 
-    tableData.value = response.data.data
-    pagination.total = response.data.total
+    // 【修复问题四】：增加响应数据的容错处理
+    const resData = response.data !== undefined ? response.data : response
+    tableData.value = resData.data || []
+    pagination.total = resData.total || 0
 
     // 提取列名
     if (tableData.value.length > 0) {
@@ -289,7 +291,7 @@ const handleClearTable = async (tableName) => {
     ElMessage.success(`表 ${tableName} 已清空`)
     await loadTables()
     await loadStats()
-    
+
     // 如果当前正在查看这个表的数据，关闭对话框
     if (currentTable.value === tableName) {
       dataDialogVisible.value = false
@@ -452,4 +454,3 @@ onMounted(() => {
   padding: 20px;
 }
 </style>
-

@@ -13,7 +13,6 @@
         </div>
       </template>
       
-      <!-- 系统信息展示 -->
       <div class="system-info" v-if="systemInfo">
         <el-descriptions :column="2" border>
           <el-descriptions-item label="MAC地址">
@@ -38,7 +37,6 @@
       </div>
     </el-card>
 
-    <!-- 持久化授权状态 -->
     <el-card class="status-card" shadow="hover" v-if="persistentLicense.checked">
       <template #header>
         <div class="card-header">
@@ -46,9 +44,9 @@
             <el-icon><Document /></el-icon>
             持久化授权状态
           </span>
-          <el-button 
-            type="danger" 
-            size="small" 
+          <el-button
+            type="danger"
+            size="small"
             @click="clearPersistentLicense"
             v-if="persistentLicense.valid"
             :loading="clearing"
@@ -57,7 +55,7 @@
           </el-button>
         </div>
       </template>
-      
+
       <div v-if="persistentLicense.valid" class="license-valid">
         <el-result icon="success" title="授权有效">
           <template #sub-title>
@@ -79,7 +77,7 @@
           </template>
         </el-result>
       </div>
-      
+
       <div v-else class="license-invalid">
         <el-alert
           title="未找到有效的持久化授权"
@@ -91,7 +89,6 @@
       </div>
     </el-card>
 
-    <!-- 授权码验证表单 -->
     <el-card class="verify-card" shadow="hover">
       <template #header>
         <div class="card-header">
@@ -99,9 +96,9 @@
             <el-icon><Check /></el-icon>
             授权码验证
           </span>
-          <el-button 
-            type="primary" 
-            size="small" 
+          <el-button
+            type="primary"
+            size="small"
             @click="getCurrentToken"
             :loading="fetchingToken"
           >
@@ -109,11 +106,11 @@
           </el-button>
         </div>
       </template>
-      
-      <el-form 
-        ref="verifyFormRef" 
-        :model="verifyForm" 
-        :rules="verifyRules" 
+
+      <el-form
+        ref="verifyFormRef"
+        :model="verifyForm"
+        :rules="verifyRules"
         label-width="120px"
         class="verify-form"
       >
@@ -126,7 +123,7 @@
             clearable
           />
         </el-form-item>
-        
+
         <el-form-item label="Token验证码" prop="token">
           <el-input
             v-model="verifyForm.token"
@@ -147,23 +144,23 @@
             </el-text>
           </div>
         </el-form-item>
-        
+
         <el-form-item label="验证模式">
           <el-radio-group v-model="verifyForm.prefer_offline">
             <el-radio :label="true">离线优先</el-radio>
             <el-radio :label="false">在线优先</el-radio>
           </el-radio-group>
         </el-form-item>
-        
+
         <el-form-item label="保存授权">
           <el-checkbox v-model="verifyForm.savePersistent">
             验证成功后保存到持久化存储
           </el-checkbox>
         </el-form-item>
-        
+
         <el-form-item>
-          <el-button 
-            type="primary" 
+          <el-button
+            type="primary"
             @click="verifyLicense"
             :loading="verifying"
             size="large"
@@ -179,7 +176,6 @@
       </el-form>
     </el-card>
 
-    <!-- 验证结果 -->
     <el-card class="result-card" shadow="hover" v-if="verifyResult">
       <template #header>
         <div class="card-header">
@@ -189,8 +185,8 @@
           </span>
         </div>
       </template>
-      
-      <el-result 
+
+      <el-result
         :icon="verifyResult.valid ? 'success' : 'error'"
         :title="verifyResult.valid ? '授权验证成功' : '授权验证失败'"
       >
@@ -229,7 +225,6 @@
       </el-result>
     </el-card>
 
-    <!-- 存储信息 -->
     <el-card class="storage-card" shadow="hover" v-if="storageInfo">
       <template #header>
         <div class="card-header">
@@ -237,9 +232,9 @@
             <el-icon><FolderOpened /></el-icon>
             存储信息
           </span>
-          <el-button 
-            type="primary" 
-            size="small" 
+          <el-button
+            type="primary"
+            size="small"
             @click="refreshStorageInfo"
             :loading="fetchingStorage"
           >
@@ -247,7 +242,7 @@
           </el-button>
         </div>
       </template>
-      
+
       <el-descriptions :column="2" border>
         <el-descriptions-item label="存储目录">
           {{ storageInfo.storage_dir }}
@@ -273,13 +268,14 @@
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { 
-  Key, Document, Check, Refresh, RefreshLeft, InfoFilled, 
-  FolderOpened 
+import {
+  Key, Document, Check, Refresh, RefreshLeft, InfoFilled,
+  FolderOpened
 } from '@element-plus/icons-vue'
 import axios from 'axios'
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8010'
+// 【修复问题三】：修改默认基础路径，使其走 Vite 代理而不是写死 8010 端口
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api'
 
 // 响应式数据
 const systemInfo = ref(null)
@@ -324,8 +320,9 @@ const licenseStatus = computed(() => {
 // 获取系统信息
 const getSystemInfo = async () => {
   try {
-    const response = await axios.get(`${API_BASE}/api/v1/license/system-info`)
-    systemInfo.value = response.data
+    const response = await axios.get(`${API_BASE}/v1/license/system-info`)
+    // 兼容可能存在的脱壳处理
+    systemInfo.value = response.data !== undefined ? response.data : response
   } catch (error) {
     console.error('获取系统信息失败:', error)
     ElMessage.error('获取系统信息失败')
@@ -335,13 +332,14 @@ const getSystemInfo = async () => {
 // 检查持久化授权
 const checkPersistentLicense = async () => {
   try {
-    const response = await axios.get(`${API_BASE}/api/v1/license/persistent/check`)
+    const response = await axios.get(`${API_BASE}/v1/license/persistent/check`)
+    const data = response.data !== undefined ? response.data : response
     persistentLicense.value = {
       checked: true,
-      ...response.data
+      ...data
     }
-    
-    if (response.data.valid) {
+
+    if (data.valid) {
       ElMessage.success('检测到有效的持久化授权')
     }
   } catch (error) {
@@ -358,8 +356,9 @@ const checkPersistentLicense = async () => {
 const getCurrentToken = async () => {
   fetchingToken.value = true
   try {
-    const response = await axios.get(`${API_BASE}/api/v1/license/token`)
-    verifyForm.token = response.data.token
+    const response = await axios.get(`${API_BASE}/v1/license/token`)
+    const data = response.data !== undefined ? response.data : response
+    verifyForm.token = data.token
     ElMessage.success('Token获取成功')
   } catch (error) {
     console.error('获取Token失败:', error)
@@ -372,31 +371,32 @@ const getCurrentToken = async () => {
 // 验证授权码
 const verifyLicense = async () => {
   if (!verifyFormRef.value) return
-  
+
   await verifyFormRef.value.validate(async (valid) => {
     if (!valid) return
-    
+
     verifying.value = true
     verifyResult.value = null
-    
+
     try {
-      const response = await axios.post(`${API_BASE}/api/v1/license/verify`, {
+      const response = await axios.post(`${API_BASE}/v1/license/verify`, {
         license: verifyForm.license.trim(),
         token: verifyForm.token.trim(),
         prefer_offline: verifyForm.prefer_offline
       })
-      
-      verifyResult.value = response.data
+
+      const data = response.data !== undefined ? response.data : response
+      verifyResult.value = data
       ElMessage.success('授权验证成功')
-      
+
       // 如果选择保存到持久化存储
       if (verifyForm.savePersistent) {
         await savePersistentLicense()
       }
     } catch (error) {
       console.error('验证失败:', error)
-      const errorDetail = error.response?.data?.detail
-      
+      const errorDetail = error.response?.data?.detail || error.response?.data || error
+
       if (typeof errorDetail === 'object') {
         verifyResult.value = errorDetail
         ElMessage.error(errorDetail.reason || '授权验证失败')
@@ -412,11 +412,11 @@ const verifyLicense = async () => {
 // 保存到持久化存储
 const savePersistentLicense = async () => {
   try {
-    await axios.post(`${API_BASE}/api/v1/license/persistent/save`, {
+    await axios.post(`${API_BASE}/v1/license/persistent/save`, {
       license: verifyForm.license.trim(),
       token: verifyForm.token.trim()
     })
-    
+
     ElMessage.success('授权已保存到持久化存储')
     await checkPersistentLicense()
   } catch (error) {
@@ -437,10 +437,10 @@ const clearPersistentLicense = async () => {
         cancelButtonText: '取消'
       }
     )
-    
+
     clearing.value = true
-    await axios.post(`${API_BASE}/api/v1/license/persistent/clear`)
-    
+    await axios.post(`${API_BASE}/v1/license/persistent/clear`)
+
     ElMessage.success('持久化授权已清除')
     await checkPersistentLicense()
   } catch (error) {
@@ -457,8 +457,9 @@ const clearPersistentLicense = async () => {
 const refreshStorageInfo = async () => {
   fetchingStorage.value = true
   try {
-    const response = await axios.get(`${API_BASE}/api/v1/license/storage-info`)
-    storageInfo.value = response.data
+    const response = await axios.get(`${API_BASE}/v1/license/storage-info`)
+    const data = response.data !== undefined ? response.data : response
+    storageInfo.value = data
   } catch (error) {
     console.error('获取存储信息失败:', error)
     ElMessage.error('获取存储信息失败')
@@ -487,11 +488,11 @@ const formatFileSize = (bytes) => {
 // 获取有效期类型（用于着色）
 const getExpiryType = (expiryDate) => {
   if (!expiryDate) return 'info'
-  
+
   const expiry = new Date(expiryDate)
   const now = new Date()
   const daysLeft = Math.ceil((expiry - now) / (1000 * 60 * 60 * 24))
-  
+
   if (daysLeft < 0) return 'danger'
   if (daysLeft < 7) return 'warning'
   if (daysLeft < 30) return 'warning'
@@ -607,7 +608,7 @@ onMounted(async () => {
   .license-management {
     padding: 10px;
   }
-  
+
   .card-header {
     flex-direction: column;
     gap: 10px;
@@ -615,4 +616,3 @@ onMounted(async () => {
   }
 }
 </style>
-

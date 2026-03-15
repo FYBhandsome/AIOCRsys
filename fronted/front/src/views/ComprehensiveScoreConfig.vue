@@ -17,7 +17,7 @@
             {{ row.name }}
           </template>
         </el-table-column>
-        
+
         <el-table-column label="权重配置" min-width="200">
           <template #default="{ row }">
             <div class="weight-display">
@@ -27,7 +27,7 @@
             </div>
           </template>
         </el-table-column>
-        
+
         <el-table-column label="学业成绩字段" min-width="200">
           <template #default="{ row }">
             <div style="display: flex; flex-direction: column; gap: 4px;">
@@ -43,7 +43,7 @@
             </div>
           </template>
         </el-table-column>
-        
+
         <el-table-column label="适用范围" min-width="150">
           <template #default="{ row }">
             <div v-if="row.applicable_grade || row.applicable_semester">
@@ -53,28 +53,28 @@
             <span v-else>全部</span>
           </template>
         </el-table-column>
-        
+
         <el-table-column label="创建时间" width="180">
           <template #default="{ row }">
             {{ formatDate(row.created_at) }}
           </template>
         </el-table-column>
-        
+
         <el-table-column label="操作" width="250" fixed="right">
           <template #default="{ row }">
             <el-button size="small" @click="viewConfig(row)">查看</el-button>
             <el-button size="small" type="primary" @click="editConfig(row)">编辑</el-button>
-            <el-button 
-              v-if="!row.is_default" 
-              size="small" 
-              type="danger" 
+            <el-button
+              v-if="!row.is_default"
+              size="small"
+              type="danger"
               @click="deleteConfig(row)"
             >
               删除
             </el-button>
-            <el-button 
-              size="small" 
-              type="success" 
+            <el-button
+              size="small"
+              type="success"
               @click="showCalculateDialog(row)"
             >
               应用计算
@@ -88,7 +88,7 @@
     </el-card>
 
     <!-- 创建/编辑配置对话框 -->
-    <el-dialog 
+    <el-dialog
       v-model="showCreateDialog"
       width="600px"
       @close="resetForm"
@@ -96,10 +96,10 @@
       <template #header>
         <div class="dialog-header">
           <span>{{ dialogMode === 'create' ? '新建配置' : '编辑配置' }}</span>
-          <el-button 
-            v-if="dialogMode === 'create'" 
-            type="text" 
-            size="small" 
+          <el-button
+            v-if="dialogMode === 'create'"
+            type="text"
+            size="small"
             @click="loadDefaultConfig"
           >
             加载默认配置
@@ -110,67 +110,67 @@
         <el-form-item label="配置名称" prop="name">
           <el-input v-model="formData.name" placeholder="请输入配置名称"></el-input>
         </el-form-item>
-        
+
         <el-form-item label="配置描述" prop="description">
-          <el-input 
-            v-model="formData.description" 
-            type="textarea" 
+          <el-input
+            v-model="formData.description"
+            type="textarea"
             :rows="3"
             placeholder="请输入配置描述（可选）"
           ></el-input>
         </el-form-item>
-        
+
         <el-divider>权重配置</el-divider>
-        
+
         <el-form-item label="A类材料权重" prop="a_weight">
-          <el-slider 
-            v-model="formData.a_weight" 
-            :min="0" 
-            :max="100" 
+          <el-slider
+            v-model="formData.a_weight"
+            :min="0"
+            :max="100"
             show-input
             @change="adjustWeights('a')"
           ></el-slider>
         </el-form-item>
-        
+
         <el-form-item label="B类材料权重" prop="b_weight">
-          <el-slider 
-            v-model="formData.b_weight" 
-            :min="0" 
-            :max="100" 
+          <el-slider
+            v-model="formData.b_weight"
+            :min="0"
+            :max="100"
             show-input
             @change="adjustWeights('b')"
           ></el-slider>
         </el-form-item>
-        
+
         <el-form-item label="C类材料权重" prop="c_weight">
-          <el-slider 
-            v-model="formData.c_weight" 
-            :min="0" 
-            :max="100" 
+          <el-slider
+            v-model="formData.c_weight"
+            :min="0"
+            :max="100"
             show-input
             @change="adjustWeights('c')"
           ></el-slider>
         </el-form-item>
-        
-        <el-alert 
-          :title="`权重总和: ${totalWeight}% ${totalWeight === 100 ? '✓' : '（必须为100%）'}`" 
+
+        <el-alert
+          :title="`权重总和: ${totalWeight}% ${totalWeight === 100 ? '✓' : '（必须为100%）'}`"
           :type="totalWeight === 100 ? 'success' : 'warning'"
           :closable="false"
           style="margin-bottom: 20px"
         ></el-alert>
-        
+
         <el-divider>学业成绩配置</el-divider>
-        
+
         <el-form-item label="学业成绩字段" prop="academic_score_field">
-          <el-select 
-            v-model="formData.academic_score_field" 
+          <el-select
+            v-model="formData.academic_score_field"
             placeholder="请选择"
             @change="onFieldChange"
           >
-            <el-option 
-              v-for="field in availableFields" 
+            <el-option
+              v-for="field in availableFields"
               :key="field.value"
-              :label="field.label" 
+              :label="field.label"
               :value="field.value"
             >
               <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -190,12 +190,12 @@
             {{ getFieldDescription(formData.academic_score_field) }}
           </div>
         </el-form-item>
-        
+
         <el-form-item label="缩放系数" prop="academic_score_scale">
-          <el-input-number 
-            v-model="formData.academic_score_scale" 
-            :min="0.1" 
-            :max="100" 
+          <el-input-number
+            v-model="formData.academic_score_scale"
+            :min="0.1"
+            :max="100"
             :step="0.1"
             :precision="1"
           ></el-input-number>
@@ -203,34 +203,34 @@
             用于将成绩转换为百分制。例如GPA（0-4）转百分制需要×25
           </div>
         </el-form-item>
-        
+
         <el-divider>其他选项</el-divider>
-        
+
         <el-form-item label="适用年级">
           <el-input v-model="formData.applicable_grade" placeholder="如：2021（可选）"></el-input>
         </el-form-item>
-        
+
         <el-form-item label="适用学期">
           <el-input v-model="formData.applicable_semester" placeholder="如：2024-1（可选）"></el-input>
         </el-form-item>
-        
+
         <el-form-item label="状态">
-          <el-switch 
+          <el-switch
             v-model="formData.is_active"
             active-text="启用"
             inactive-text="停用"
           ></el-switch>
         </el-form-item>
-        
+
         <el-form-item label="设为默认配置">
-          <el-switch 
+          <el-switch
             v-model="formData.is_default"
             active-text="是"
             inactive-text="否"
           ></el-switch>
         </el-form-item>
       </el-form>
-      
+
       <template #footer>
         <el-button @click="showCreateDialog = false">取消</el-button>
         <el-button type="primary" @click="submitForm" :loading="submitting">
@@ -240,7 +240,7 @@
     </el-dialog>
 
     <!-- 批量计算对话框 -->
-    <el-dialog 
+    <el-dialog
       title="批量计算综测成绩"
       v-model="showCalculateDialogVisible"
       width="500px"
@@ -249,25 +249,25 @@
         <el-form-item label="学年">
           <el-input v-model="calculateForm.academic_year" placeholder="如：2024-2025"></el-input>
         </el-form-item>
-        
+
         <el-form-item label="学期">
           <el-input v-model="calculateForm.semester" placeholder="如：2024-1"></el-input>
         </el-form-item>
-        
+
         <el-form-item label="班级">
-          <el-input 
-            v-model="calculateForm.class_name" 
+          <el-input
+            v-model="calculateForm.class_name"
             placeholder="可选，不填则计算所有班级"
           ></el-input>
         </el-form-item>
-        
-        <el-alert 
+
+        <el-alert
           title="将使用此配置计算所有符合条件的学生的综测成绩"
           type="info"
           :closable="false"
         ></el-alert>
       </el-form>
-      
+
       <template #footer>
         <el-button @click="showCalculateDialogVisible = false">取消</el-button>
         <el-button type="primary" @click="executeCalculate" :loading="calculating">
@@ -277,7 +277,7 @@
     </el-dialog>
 
     <!-- 预览成绩对话框 -->
-    <el-dialog 
+    <el-dialog
       title="预览综测成绩"
       v-model="showPreviewDialogVisible"
       width="600px"
@@ -286,22 +286,22 @@
         <el-form-item label="学生学号">
           <el-input v-model="previewForm.student_id" placeholder="请输入学生学号"></el-input>
         </el-form-item>
-        
+
         <el-form-item label="学年">
           <el-input v-model="previewForm.academic_year" placeholder="如：2024-2025"></el-input>
         </el-form-item>
-        
+
         <el-form-item label="学期">
           <el-input v-model="previewForm.semester" placeholder="如：2024-1"></el-input>
         </el-form-item>
-        
+
         <el-form-item>
           <el-button type="primary" @click="executePreview" :loading="previewing">
             预览成绩
           </el-button>
         </el-form-item>
       </el-form>
-      
+
       <!-- 预览结果 -->
       <div v-if="previewResult" class="preview-result">
         <el-divider>预览结果</el-divider>
@@ -319,7 +319,7 @@
           </el-descriptions-item>
           <el-descriptions-item label="班级排名">{{ previewResult.class_rank || '暂无' }}</el-descriptions-item>
         </el-descriptions>
-        
+
         <div class="score-breakdown">
           <h4>成绩构成分析</h4>
           <div class="score-chart">
@@ -335,7 +335,7 @@
           </div>
         </div>
       </div>
-      
+
       <template #footer>
         <el-button @click="showPreviewDialogVisible = false">关闭</el-button>
       </template>
@@ -362,9 +362,9 @@ export default {
     const calculating = ref(false)
     const previewing = ref(false)
     const formRef = ref(null)
-    
+
     const availableFields = ref([])
-    
+
     const formData = reactive({
       name: '',
       description: '',
@@ -378,23 +378,23 @@ export default {
       is_active: true,
       is_default: false
     })
-    
+
     const calculateForm = reactive({
       config_id: null,
       academic_year: '',
       semester: '',
       class_name: ''
     })
-    
+
     const previewForm = reactive({
       config_id: null,
       student_id: '',
       academic_year: '',
       semester: ''
     })
-    
+
     const previewResult = ref(null)
-    
+
     const formRules = {
       name: [
         { required: true, message: '请输入配置名称', trigger: 'blur' }
@@ -403,16 +403,16 @@ export default {
         { required: true, message: '请选择学业成绩字段', trigger: 'change' }
       ]
     }
-    
+
     const totalWeight = computed(() => {
       return formData.a_weight + formData.b_weight + formData.c_weight
     })
-    
+
     // 加载配置列表
     const loadConfigs = async () => {
       loading.value = true
       try {
-        const response = await commonAPI.get('/v1/admin/comprehensive-score/configs')
+        const response = await commonAPI.get('/v1/admin/comprehensive-score-config')
         configs.value = response.configs || []
       } catch (error) {
         ElMessage.error('加载配置失败: ' + error.message)
@@ -420,7 +420,7 @@ export default {
         loading.value = false
       }
     }
-    
+
     // 加载默认配置
     const loadDefaultConfig = async () => {
       try {
@@ -447,25 +447,25 @@ export default {
         ElMessage.error('加载默认配置失败: ' + error.message)
       }
     }
-    
+
     // 加载可用字段
     const loadAvailableFields = async () => {
       try {
-        const response = await commonAPI.get('/v1/admin/comprehensive-score/fields')
+        const response = await commonAPI.get('/v1/admin/comprehensive-score-config/fields')
         availableFields.value = response.fields || []
       } catch (error) {
         console.error('加载可用字段失败:', error)
       }
     }
-    
+
     // 调整权重（自动调整其他权重使总和为100%）
     const adjustWeights = (changedType) => {
       const total = totalWeight.value
       if (total === 100) return
-      
+
       const others = ['a', 'b', 'c'].filter(t => t !== changedType)
       const otherTotal = others.reduce((sum, t) => sum + formData[`${t}_weight`], 0)
-      
+
       if (otherTotal > 0) {
         const ratio = (100 - formData[`${changedType}_weight`]) / otherTotal
         others.forEach(t => {
@@ -473,7 +473,7 @@ export default {
         })
       }
     }
-    
+
     // 字段改变时更新缩放系数
     const onFieldChange = (value) => {
       const field = availableFields.value.find(f => f.value === value)
@@ -481,7 +481,7 @@ export default {
         formData.academic_score_scale = field.scale
       }
     }
-    
+
     // 字段中英文映射
     const fieldLabelMap = {
       'arithmetic_average': '算术平均分',
@@ -490,7 +490,7 @@ export default {
       'average_credit_gpa': '平均学分绩点',
       'credit_gpa_sum': '学分绩点和'
     }
-    
+
     // 获取字段标签
     const getFieldLabel = (value) => {
       // 优先使用本地映射
@@ -501,20 +501,20 @@ export default {
       const field = availableFields.value.find(f => f.value === value)
       return field ? field.label : value
     }
-    
+
     // 获取字段描述
     const getFieldDescription = (value) => {
       const field = availableFields.value.find(f => f.value === value)
       return field ? field.description : ''
     }
-    
+
     // 格式化日期
     const formatDate = (dateStr) => {
       if (!dateStr) return ''
       const date = new Date(dateStr)
       return date.toLocaleString('zh-CN')
     }
-    
+
     // 重置表单
     const resetForm = () => {
       Object.assign(formData, {
@@ -532,7 +532,7 @@ export default {
       })
       currentConfig.value = null
     }
-    
+
     // 查看配置
     const viewConfig = (config) => {
       ElMessageBox.alert(
@@ -556,7 +556,7 @@ export default {
         }
       )
     }
-    
+
     // 编辑配置
     const editConfig = (config) => {
       dialogMode.value = 'edit'
@@ -576,7 +576,7 @@ export default {
       })
       showCreateDialog.value = true
     }
-    
+
     // 删除配置
     const deleteConfig = async (config) => {
       try {
@@ -587,7 +587,7 @@ export default {
             type: 'warning'
           }
         )
-        
+
         await commonAPI.delete(`/v1/admin/comprehensive-score/config/${config.id}`)
         ElMessage.success('删除成功')
         await loadConfigs()
@@ -597,19 +597,19 @@ export default {
         }
       }
     }
-    
+
     // 提交表单
     const submitForm = async () => {
       try {
         await formRef.value.validate()
-        
+
         if (totalWeight.value !== 100) {
           ElMessage.error('权重总和必须为100%')
           return
         }
-        
+
         submitting.value = true
-        
+
         if (dialogMode.value === 'create') {
           await commonAPI.post('/v1/admin/comprehensive-score/config', formData)
           ElMessage.success('创建成功')
@@ -617,7 +617,7 @@ export default {
           await commonAPI.put(`/v1/admin/comprehensive-score/config/${currentConfig.value.id}`, formData)
           ElMessage.success('更新成功')
         }
-        
+
         showCreateDialog.value = false
         await loadConfigs()
       } catch (error) {
@@ -626,7 +626,7 @@ export default {
         submitting.value = false
       }
     }
-    
+
     // 显示计算对话框
     const showCalculateDialog = (config) => {
       calculateForm.config_id = config.id
@@ -635,14 +635,14 @@ export default {
       calculateForm.class_name = ''
       showCalculateDialogVisible.value = true
     }
-    
+
     // 执行计算
     const executeCalculate = async () => {
       if (!calculateForm.academic_year || !calculateForm.semester) {
         ElMessage.warning('请填写学年和学期')
         return
       }
-      
+
       try {
         calculating.value = true
         const result = await commonAPI.post('/v1/admin/comprehensive-score/calculate', {
@@ -651,7 +651,7 @@ export default {
           semester: calculateForm.semester,
           class_name: calculateForm.class_name || null
         })
-        
+
         ElMessage.success(
           `计算完成！处理: ${result.processed}人，成功: ${result.updated}人，失败: ${result.failed}人`
         )
@@ -662,7 +662,7 @@ export default {
         calculating.value = false
       }
     }
-    
+
     // 显示预览对话框
     const showPreviewDialog = (config) => {
       currentConfig.value = config
@@ -673,14 +673,14 @@ export default {
       previewResult.value = null
       showPreviewDialogVisible.value = true
     }
-    
+
     // 执行预览
     const executePreview = async () => {
       if (!previewForm.student_id || !previewForm.academic_year || !previewForm.semester) {
         ElMessage.warning('请填写完整信息')
         return
       }
-      
+
       try {
         previewing.value = true
         const result = await commonAPI.post('/v1/admin/comprehensive-score/preview', {
@@ -689,7 +689,7 @@ export default {
           academic_year: previewForm.academic_year,
           semester: previewForm.semester
         })
-        
+
         previewResult.value = result
       } catch (error) {
         ElMessage.error('预览失败: ' + error.message)
@@ -697,12 +697,12 @@ export default {
         previewing.value = false
       }
     }
-    
+
     onMounted(() => {
       loadConfigs()
       loadAvailableFields()
     })
-    
+
     return {
         loading,
         configs,
