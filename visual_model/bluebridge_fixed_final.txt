@@ -1,0 +1,168 @@
+﻿python : [33mChecking connectivity to the model ho
+sters, this may take a while. To bypass this check,
+ set `DISABLE_MODEL_SOURCE_CHECK` to `True`.[0m
+所在位置 行:1 字符: 31
++ ...  cd d:\AIOCR\visual_model; python test_bluebr
+idge_cup.py 2>&1 | Out-F ...
++                                ~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([33m 
+   Checking c... to `True`.[0m:String) [], Remot  
+  eException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+D:\anaconda\Lib\site-packages\paramiko\pkey.py:82: 
+CryptographyDeprecationWarning: TripleDES has been 
+moved to cryptography.hazmat.decrepit.ciphers.algor
+ithms.TripleDES and will be removed from cryptograp
+hy.hazmat.primitives.ciphers.algorithms in 48.0.0.
+  "cipher": algorithms.TripleDES,
+D:\anaconda\Lib\site-packages\paramiko\transport.py
+:243: CryptographyDeprecationWarning: TripleDES has
+ been moved to cryptography.hazmat.decrepit.ciphers
+.algorithms.TripleDES and will be removed from cryp
+tography.hazmat.primitives.ciphers.algorithms in 48
+.0.0.
+  "class": algorithms.TripleDES,
+[32mCreating model: ('PP-LCNet_x1_0_doc_ori', None
+)[0m
+[32mModel files already exist. Using cached files.
+ To redownload, please delete the directory manuall
+y: `C:\Users\Lenovo\.paddlex\official_models\PP-LCN
+et_x1_0_doc_ori`.[0m
+信息: 用提供的模式无法找到文件。
+C:\Users\Lenovo\AppData\Roaming\Python\Python312\si
+te-packages\paddle\utils\cpp_extension\extension_ut
+ils.py:718: UserWarning: No ccache found. Please be
+ aware that recompiling all source files may be req
+uired. You can download and install ccache from: ht
+tps://github.com/ccache/ccache/blob/master/doc/INST
+ALL.md
+  warnings.warn(warning_message)
+WARNING: Logging before InitGoogleLogging() is writ
+ten to STDERR
+I0404 18:11:40.416676 40500 onednn_context.cc:81] o
+neDNN v3.6.2
+[32mCreating model: ('UVDoc', None)[0m
+[32mModel files already exist. Using cached files.
+ To redownload, please delete the directory manuall
+y: `C:\Users\Lenovo\.paddlex\official_models\UVDoc`
+.[0m
+[32mCreating model: ('PP-LCNet_x1_0_textline_ori',
+ None)[0m
+[32mModel files already exist. Using cached files.
+ To redownload, please delete the directory manuall
+y: `C:\Users\Lenovo\.paddlex\official_models\PP-LCN
+et_x1_0_textline_ori`.[0m
+[32mCreating model: ('PP-OCRv5_server_det', None)
+[0m
+[32mModel files already exist. Using cached files.
+ To redownload, please delete the directory manuall
+y: `C:\Users\Lenovo\.paddlex\official_models\PP-OCR
+v5_server_det`.[0m
+[32mCreating model: ('PP-OCRv5_server_rec', None)
+[0m
+[32mModel files already exist. Using cached files.
+ To redownload, please delete the directory manuall
+y: `C:\Users\Lenovo\.paddlex\official_models\PP-OCR
+v5_server_rec`.[0m
+Initializing database connection...
+Database initialized successfully
+======================================================================
+蓝桥杯证书完整流程测试
+======================================================================
+证书路径: D:\AIOCR\B4D2B5C7CCB4979EC52D2DE24D1C1BE0.jpg
+开始时间: 2026-04-04 18:11:33
+
+
+[步骤1] OCR文字识别
+------------------------------------------------------------
+  正在识别证书图片: D:\AIOCR\B4D2B5C7CCB4979EC52D2DE24D1C1BE0.jpg
+
+  识别结果预览 (前200字):
+  蓝桥杯 蓝桥杯 蓝桥杯 蓝桥杯 蓝桥杯 蓝桥杯 蓝桥村 蓝桥杯 杯 蓝桥杯 荣获第十六届蓝桥杯全国软件和信息技术 蓝 等奖。 蓝桥林 蓝桥杯 蓝 桥杯 蓝桥杯 蓝桥 68 蓝桥杯 蓝桥杯 蓝桥杯 人 蓝桥杯 息化部 蓝桥杯 H 业和信息化部 交流中 组织委员会 桥杯 蓝桥杯 2025年5月26日...
+  [PASS] OCR文字识别 (44.35s)
+       成功提取34个文本块
+
+[步骤2] RAG规则检索
+------------------------------------------------------------
+  正在检索相关规则...
+  查询文本: 蓝桥杯 蓝桥杯 蓝桥杯 蓝桥杯 蓝桥杯 蓝桥杯 蓝桥村 蓝桥杯 杯 蓝桥杯 荣获第十六届蓝桥杯全国软件和信息技术 蓝 等奖。 蓝桥林 蓝桥杯 蓝 桥杯 蓝桥杯 蓝桥 68 蓝桥杯 蓝桥杯 蓝桥杯 人 ...
+
+  RAG检索结果:
+    - 类别: 蓝桥杯全国软件和信息技术专业人才大赛（省赛）
+    - 分数: 49.0
+    - 置信度: 1.00
+    - 使用RAG: 是
+    - 检索规则数: 3
+
+  匹配的规则:
+    1. 规则1 (分数: N/A)
+    2. 规则2 (分数: N/A)
+    3. 规则3 (分数: N/A)
+  [PASS] RAG规则检索 (10.10s)
+       类别=蓝桥杯全国软件和信息技术专业人才大赛（省赛）, 分数=49.0, 规则数=3
+
+[步骤3] LLM智能评分
+------------------------------------------------------------
+  正在进行智能分类和算分...
+
+  LLM评分结果:
+    - 证书类别: A
+    - 加分分数: 6.0
+    - 评分理由: RAG智能评分(蓝桥杯全国软件和信息技术专业人才大赛（省赛)): 证书中多次出现‘蓝桥杯’字样，且为‘全国软件和信息技术专业人才大赛’，与规则1高度匹配，因此获得6分加分。
+    - 置信度: 0.80
+    - 使用方法: RAG+LLM
+    - 使用RAG: 是
+
+  评分标准:
+    - 当前得分: 6.0
+    - 得分率: 30.0%
+
+  验证结果:
+    - 类别正确 (A): [OK]
+    - 分数合理 (>=10.0): [FAIL]
+  [PASS] LLM智能评分 (12.38s)
+       类别=A(期望A), 分数=6.0(期望>=10.0)
+
+[步骤4] 综测成绩创建/更新
+------------------------------------------------------------
+  计算综测成绩...
+    - 学号: 130984200509062426
+    - 学年: 2024-2025
+    - 学期: 2
+
+  综测成绩计算完成:
+    - A类成绩 (思想道德): 0.0
+    - B类成绩 (学习成绩): 0.0
+    - C类成绩 (素质拓展): 0.0
+    - 总成绩: 0.0
+    - 操作类型: 更新
+    - 数据库记录: [OK] 已保存
+  [PASS] 综测成绩更新 (0.02s)
+       总分=0.0, A=0.0, B=0.0, C=0.0, 更新
+
+======================================================================
+测试报告汇总
+======================================================================
+
+总测试项: 4
+通过: 4
+失败: 0
+通过率: 100.0%
+总耗时: 66.85秒
+
+详细结果:
+  [PASS] OCR文字识别 (44.35s)
+      └─ 成功提取34个文本块
+  [PASS] RAG规则检索 (10.10s)
+      └─ 类别=蓝桥杯全国软件和信息技术专业人才大赛（省赛）, 分数=49.0, 规则数=3
+  [PASS] LLM智能评分 (12.38s)
+      └─ 类别=A(期望A), 分数=6.0(期望>=10.0)
+  [PASS] 综测成绩更新 (0.02s)
+      └─ 总分=0.0, A=0.0, B=0.0, C=0.0, 更新
+
+======================================================================
+[SUCCESS] All tests passed! BlueBridge Cup certificate flow works!
+======================================================================
+Database connection closed
