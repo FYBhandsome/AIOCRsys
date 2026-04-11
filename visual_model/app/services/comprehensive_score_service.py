@@ -244,9 +244,6 @@ class ComprehensiveScoreService:
                     semester=semester,
                     academic_year=academic_year,
                     defaults={
-                        'student_name': student.name,
-                        'class_name': class_id,
-                        'major': student.major,
                         'a1_score': a_score['a1'],
                         'a2_score': a_score['a2'],
                         'a3_score': a_score['a3'],

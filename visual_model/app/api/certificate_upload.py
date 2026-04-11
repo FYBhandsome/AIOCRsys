@@ -2,13 +2,14 @@
 # -*- coding: utf-8 -*-
 """
 证书上传API路由
-支持多张证书图片上传
+支持多张证书图片上传，OCR识别，RAG检索和加分计算
 """
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Query
 from fastapi.responses import JSONResponse
 from typing import List, Optional
 import json
 import uuid
+import asyncio
 from datetime import datetime
 
 from app.services.certificate_storage_service import get_certificate_storage_service
@@ -37,29 +38,24 @@ async def upload_certificates(
     """
     上传证书图片（支持多张）
     
-    Args:
-        files: 证书图片文件列表
-        student_id: 学号
-        title: 证书名称
-        certificate_type: 证书类型
-        level: 证书级别
-        issuer: 颁发机构
-        issue_date: 颁发日期
-        category: 证书类别
-        sub_category: 子类别
-        score: 加分分数
-        upload_ip: 上传IP
-        upload_device: 上传设备信息
+    完整流程:
+    1. 上传证书图片
+    2. OCR识别提取文字
+    3. RAG检索相关规则
+    4. AI计算加分
     
     Returns:
-        上传结果
+        上传结果，包含OCR识别结果、RAG检索信息、加分结果
     """
-    logger.info(f"开始上传证书: student_id={student_id}, file_count={len(files)}")
+    logger.info(f"[证书上传] 开始处理: student_id={student_id}, file_count={len(files)}")
+    logger.info(f"[证书上传] 文件列表: {[f.filename for f in files]}")
     
     if not student_id:
+        logger.warning(f"[证书上传] 学号为空")
         raise HTTPException(status_code=400, detail="学号不能为空")
     
     if not files:
+        logger.warning(f"[证书上传] 未提供任何文件")
         raise HTTPException(status_code=400, detail="未提供任何文件")
     
     try:
@@ -80,6 +76,7 @@ async def upload_certificates(
         for file in files:
             content = await file.read()
             file_list.append((file.filename, content))
+            logger.info(f"[证书上传] 读取文件: {file.filename}, size={len(content)}")
         
         result = await service.upload_certificate_images(
             student_id=student_id,
@@ -89,21 +86,117 @@ async def upload_certificates(
             upload_device=upload_device
         )
         
-        if result["success"]:
-            return JSONResponse(content={
-                "success": True,
-                "message": f"上传完成: 成功{result['success_count']}个，失败{result['failed_count']}个",
-                "certificate_id": result["certificate_id"],
-                "batch_id": result["batch_id"],
-                "images": result["images"]
-            })
-        else:
+        if not result["success"]:
+            logger.error(f"[证书上传] 存储失败: {result.get('error')}")
             raise HTTPException(status_code=500, detail=result.get("error", "上传失败"))
+        
+        certificate_id = result["certificate_id"]
+        logger.info(f"[证书上传] 证书存储成功: certificate_id={certificate_id}")
+        
+        ocr_results = []
+        rag_results = []
+        score_results = []
+        
+        try:
+            from app.services.ocr_service import get_ocr_service
+            from app.services.certificate_service import get_certificate_service
+            from app.core.executor import get_executor
+            
+            ocr_service = get_ocr_service()
+            cert_service = get_certificate_service()
+            executor = get_executor()
+            
+            for i, (filename, content) in enumerate(file_list):
+                logger.info(f"[证书上传] 开始OCR识别: {filename}")
+                
+                import tempfile
+                import os
+                with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(filename)[1]) as tmp:
+                    tmp.write(content)
+                    tmp_path = tmp.name
+                
+                try:
+                    recognition_results = await asyncio.get_event_loop().run_in_executor(
+                        executor,
+                        ocr_service.recognize_text,
+                        tmp_path,
+                        None
+                    )
+                    
+                    certificate_info_extracted = ocr_service.extract_certificate_info(
+                        image_path=tmp_path,
+                        ocr_results=recognition_results
+                    )
+                    
+                    cert_text = certificate_info_extracted.get("raw_text", "")
+                    if not cert_text:
+                        cert_text = " ".join([item.get("text", "") for item in recognition_results])
+
+                    logger.info(f"[证书上传] OCR识别完成: {filename}, text_length={len(cert_text)}")
+
+                    ocr_result = {
+                        "filename": filename,
+                        "recognition_results": recognition_results,
+                        "certificate_info": certificate_info_extracted,
+                        "raw_text": cert_text
+                    }
+                    ocr_results.append(ocr_result)
+
+                    logger.info(f"[证书上传] 开始RAG检索和加分计算: {filename}")
+
+                    classification_result = await cert_service.classify_and_calculate_score(
+                        certificate_text=cert_text,
+                        certificate_info=certificate_info_extracted,
+                        student_info={"student_id": student_id}
+                    )
+                    
+                    logger.info(f"[证书上传] 加分计算完成: category={classification_result.get('category')}, score={classification_result.get('score')}")
+                    
+                    rag_result = {
+                        "filename": filename,
+                        "used_rag": classification_result.get("rag_used", False),
+                        "retrieved_rules": classification_result.get("rag_rules", []),
+                        "confidence": classification_result.get("confidence", 0.0),
+                        "method": classification_result.get("method", "unknown")
+                    }
+                    rag_results.append(rag_result)
+                    
+                    score_result = {
+                        "filename": filename,
+                        "category": classification_result.get("category", "C"),
+                        "score": classification_result.get("score", 0.0),
+                        "reason": classification_result.get("reason", "")
+                    }
+                    score_results.append(score_result)
+                    
+                finally:
+                    if os.path.exists(tmp_path):
+                        os.remove(tmp_path)
+                        
+        except Exception as e:
+            logger.warning(f"[证书上传] OCR/RAG处理失败，使用默认值: {e}")
+        
+        total_score = sum(s["score"] for s in score_results)
+        
+        logger.info(f"[证书上传] 上传完成: student_id={student_id}, certificate_id={certificate_id}, total_score={total_score}")
+        
+        return JSONResponse(content={
+            "success": True,
+            "message": f"上传完成: 成功{result['success_count']}个，失败{result['failed_count']}个",
+            "certificate_id": certificate_id,
+            "batch_id": result["batch_id"],
+            "images": result["images"],
+            "ocr_results": ocr_results,
+            "rag_results": rag_results,
+            "score_results": score_results,
+            "total_score": total_score,
+            "processed_at": datetime.now().isoformat()
+        })
             
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"上传证书失败: {e}", exc_info=True)
+        logger.error(f"[证书上传] 上传失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"上传失败: {str(e)}")
 
 

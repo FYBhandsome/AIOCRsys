@@ -319,7 +319,7 @@ export const studentAPI = {
   uploadCertificate: (file, onProgress) => {
     const formData = new FormData()
     formData.append('file', file)
-    
+
     return api.post(API_ENDPOINTS.STUDENT.CERTIFICATE_UPLOAD, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
       onUploadProgress: progressEvent => {
@@ -328,7 +328,7 @@ export const studentAPI = {
           onProgress(percentCompleted)
         }
       },
-      timeout: 60000,
+      timeout: 120000,  // 增加到120秒，因为OCR+RAG+LLM流程需要约65秒
       ...createRetryConfig({}, 2, 2000)
     })
   },
@@ -344,7 +344,16 @@ export const studentAPI = {
     timeout: 120000
   }),
   
-  getMaterials: () => api.get('/v1/student/materials')
+  getMaterials: () => api.get('/v1/student/materials'),
+  
+  deleteMaterial: (materialId) => api.delete(`/v1/student/materials/${materialId}`),
+  
+  getMaterialDetail: (materialId) => api.get(`/v1/student/materials/${materialId}`),
+  
+  getMaterialPreviewUrl: (materialId) => {
+    const baseURL = import.meta.env.VITE_API_BASE_URL || ''
+    return `${baseURL}/v1/student/materials/${materialId}/preview`
+  }
 }
 
 export const teacherAPI = {
@@ -642,7 +651,10 @@ export const comprehensiveScoreAPI = {
   getClassStats: (classId, academicYear, semester) =>
     api.get(`/v1/comprehensive-score/class/${classId}/stats`, {
       params: { academic_year: academicYear, semester }
-    })
+    }),
+
+  deleteConfig: (configId) =>
+    api.delete(`/v1/comprehensive-score/config/${configId}`)
 }
 
 export const excelFillAPI = {

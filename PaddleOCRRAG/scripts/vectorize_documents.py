@@ -17,7 +17,6 @@ PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.rag.vector_db import get_vector_db
-from app.rag.loaders.enhanced_loader import EnhancedRuleLoader
 from app.core.logger import get_logger
 
 logger = get_logger(__name__)
@@ -34,6 +33,8 @@ class DocumentVectorizer:
         """
         self.collection_name = collection_name
         self.vector_db = get_vector_db(collection_name)
+        from app.rag import get_enhanced_rule_loader
+        EnhancedRuleLoader, _ = get_enhanced_rule_loader()
         self.loader = EnhancedRuleLoader()
         self.stats = {
             "total_files": 0,

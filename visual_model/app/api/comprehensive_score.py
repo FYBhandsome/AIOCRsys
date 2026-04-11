@@ -236,6 +236,20 @@ async def update_config(config_id: int, config: ConfigCreate):
     return JSONResponse(content={'success': True, 'message': '配置更新成功'})
 
 
+@router.delete("/config/{config_id}")
+async def delete_config(config_id: int):
+    """删除综测配置"""
+    existing = await ComprehensiveScoreConfig.get_or_none(id=config_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="配置不存在")
+    
+    if existing.is_default:
+        raise HTTPException(status_code=400, detail="无法删除默认配置")
+    
+    await existing.delete()
+    return JSONResponse(content={'success': True, 'message': '配置删除成功'})
+
+
 @router.get("/classes")
 async def list_classes():
     """获取班级列表"""

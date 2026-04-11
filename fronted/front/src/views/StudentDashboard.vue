@@ -182,7 +182,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Lightning, Upload, TrendCharts, Document, Delete } from '@element-plus/icons-vue'
 import MaterialUpload from '@/views/MaterialUpload.vue'
 import AIAssistant from '@/components/AIAssistant.vue'
-import { studentAPI } from '@/services/api'
+import { studentAPI, certificateAPI } from '@/services/api'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -255,18 +255,27 @@ const showHistory = () => {
 // 删除上传记录
 const deleteUpload = async (uploadId) => {
   try {
-    await ElMessageBox.confirm('确定要删除这条上传记录吗？', '提示', {
-      confirmButtonText: '确定',
+    await ElMessageBox.confirm('确定要删除这条上传记录吗？删除后将无法恢复。', '删除确认', {
+      confirmButtonText: '确定删除',
       cancelButtonText: '取消',
-      type: 'warning'
+      type: 'warning',
+      confirmButtonClass: 'el-button--danger'
     })
     
-    // 这里调用删除API（如果后端支持）
-    ElMessage.success('删除成功')
-    await loadStudentData()
+    // 调用后端删除API
+    const result = await certificateAPI.delete(uploadId, userStore.userInfo.username)
+    
+    if (result.success) {
+      ElMessage.success('删除成功')
+      // 重新加载数据以更新显示
+      await loadStudentData()
+    } else {
+      ElMessage.error(result.message || '删除失败')
+    }
   } catch (error) {
     if (error !== 'cancel') {
-      ElMessage.error('删除失败')
+      console.error('删除失败:', error)
+      ElMessage.error(error.response?.data?.detail || '删除失败，请稍后重试')
     }
   }
 }

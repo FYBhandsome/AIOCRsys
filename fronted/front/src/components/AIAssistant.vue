@@ -174,7 +174,7 @@ const sendMessage = async () => {
       requestData.session_id = sessionId.value
     }
     
-    const resp = await commonAPI.post('/ai/chat', requestData)
+    const resp = await commonAPI.post('/v1/ai/chat', requestData)
     
     if (resp?.session_id) {
       sessionId.value = resp.session_id

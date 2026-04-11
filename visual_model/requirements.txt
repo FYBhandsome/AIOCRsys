@@ -28,7 +28,7 @@ loguru==0.7.2
 # 数据库ORM
 aerich==0.7.2
 tortoise-orm==0.25.3
-aiosqlite==0.21.0
+aiosqlite==0.20.0
 
 # JWT认证依赖
 python-jose[cryptography]==3.3.0

@@ -5,7 +5,7 @@
 提供数据库清理、重置、统计等功能
 """
 
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, UploadFile, File, Form
 from pydantic import BaseModel
 from typing import Dict, Any, Optional, List
 from pathlib import Path
@@ -16,6 +16,7 @@ from datetime import datetime
 
 from app.core.logger import get_logger
 from app.core.config_manager import settings
+from app.core.api_response import ResponseBuilder, ResponseCode
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/vector-db", tags=["向量数据库管理"])
@@ -45,6 +46,36 @@ class ResetResult(BaseModel):
     success: bool
     message: str
     backup_path: Optional[str] = None
+
+
+class RAGDocumentUploadResult(BaseModel):
+    document_id: str
+    filename: str
+    chunk_count: int = 0
+    status: str = "processed"
+    message: str = ""
+
+
+class RAGDocumentListItem(BaseModel):
+    source_file: str
+    chunk_count: int = 0
+    category: Optional[str] = None
+
+
+class RAGDocumentListResponse(BaseModel):
+    documents: list = []
+    total_documents: int = 0
+    total_chunks: int = 0
+
+
+class RAGDocumentDeleteResult(BaseModel):
+    success: bool
+    message: str
+    deleted_count: int = 0
+
+
+ALLOWED_RAG_FILE_TYPES = {".docx", ".txt", ".pdf", ".xlsx"}
+MAX_RAG_FILE_SIZE = 50 * 1024 * 1024
 
 
 def get_db_path() -> Path:
@@ -237,6 +268,228 @@ async def reset_vector_db(background_tasks: BackgroundTasks, backup: bool = True
         logger.error(f"[reset_vector_db] 重置失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"重置失败: {str(e)}")
 
+# TODO: 增加或者完善上传RAG文档的功能
+
+import uuid
+
+
+@router.post("/documents/upload", summary="上传RAG文档")
+async def upload_rag_document(
+    file: UploadFile = File(...),
+    category: str = Form(default="default"),
+    description: str = Form(default="")
+):
+    logger.info(f"[upload_rag_document] 开始上传文档: {file.filename}, category={category}")
+
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="文件名不能为空")
+
+    file_ext = Path(file.filename).suffix.lower()
+    if file_ext not in ALLOWED_RAG_FILE_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"不支持的文件类型: {file_ext}，允许的类型: {ALLOWED_RAG_FILE_TYPES}"
+        )
+
+    content = await file.read()
+    if len(content) > MAX_RAG_FILE_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"文件大小超过限制: {format_size(len(content))}，最大允许: {format_size(MAX_RAG_FILE_SIZE)}"
+        )
+
+    document_id = str(uuid.uuid4())[:8]
+    save_path = Path(settings.RULES_DOCS_PATH) / file.filename
+    Path(settings.RULES_DOCS_PATH).mkdir(parents=True, exist_ok=True)
+
+    try:
+        with open(save_path, "wb") as f:
+            f.write(content)
+
+        from app.rag.vector_db import get_vector_db
+        from app.rag import get_enhanced_rule_loader
+
+        EnhancedRuleLoader, _ = get_enhanced_rule_loader()
+        loader = EnhancedRuleLoader()
+        file_path_str = str(save_path)
+
+        if file_ext == ".docx":
+            loader._load_docx(file_path_str, file.filename)
+        elif file_ext == ".txt":
+            loader._load_txt(file_path_str, file.filename)
+        elif file_ext == ".pdf":
+            loader._load_pdf(file_path_str, file.filename)
+        elif file_ext == ".xlsx":
+            loader._load_excel(file_path_str, file.filename)
+
+        chunks = loader.get_chunks_as_dicts()
+        chunk_count = len(chunks)
+
+        if chunks:
+            vector_db = get_vector_db()
+            vector_db.add_documents(chunks)
+
+        logger.info(
+            f"[upload_rag_document] 上传完成: {file.filename}, chunks={chunk_count}"
+        )
+
+        return ResponseBuilder.success(
+            data={
+                "document_id": document_id,
+                "filename": file.filename,
+                "chunk_count": chunk_count,
+                "status": "processed",
+                "message": f"文档处理完成，生成{chunk_count}个文档块"
+            },
+            message="RAG文档上传成功"
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[upload_rag_document] 上传失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"文档上传处理失败: {str(e)}")
+
+
+@router.get("/documents", summary="获取RAG文档列表")
+async def list_rag_documents():
+    logger.info("[list_rag_documents] 获取RAG文档列表")
+
+    try:
+        from app.rag.vector_db import get_vector_db
+
+        vector_db = get_vector_db()
+        result = vector_db.collection.get(include=["metadatas"])
+
+        documents_map = {}
+        total_chunks = 0
+
+        if result and result.get("metadatas"):
+            for meta in result["metadatas"]:
+                source_file = meta.get("source_file", "unknown")
+                cat = meta.get("category", None)
+
+                if source_file not in documents_map:
+                    documents_map[source_file] = {
+                        "source_file": source_file,
+                        "chunk_count": 0,
+                        "category": cat
+                    }
+
+                documents_map[source_file]["chunk_count"] += 1
+                total_chunks += 1
+
+        documents_list = list(documents_map.values())
+
+        logger.info(
+            f"[list_rag_documents] 查询完成: 文档数={len(documents_list)}, 总chunks={total_chunks}"
+        )
+
+        return ResponseBuilder.success(
+            data={
+                "documents": documents_list,
+                "total_documents": len(documents_list),
+                "total_chunks": total_chunks
+            },
+            message="查询成功"
+        )
+
+    except Exception as e:
+        logger.error(f"[list_rag_documents] 查询失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"获取文档列表失败: {str(e)}")
+
+
+@router.delete("/documents/{source_file}", summary="删除RAG文档")
+async def delete_rag_document(source_file: str):
+    logger.info(f"[delete_rag_document] 删除文档: {source_file}")
+
+    try:
+        from app.rag.vector_db import get_vector_db
+
+        vector_db = get_vector_db()
+        filtered_docs = vector_db.collection.get(
+            where={"source_file": source_file},
+            include=["metadatas"]
+        )
+
+        deleted_count = 0
+        if filtered_docs and filtered_docs.get("ids"):
+            deleted_count = len(filtered_docs["ids"])
+            vector_db.delete_documents_by_filter({"source_file": source_file})
+
+        logger.info(f"[delete_rag_document] 删除完成: {source_file}, 删除{deleted_count}个chunks")
+
+        return ResponseBuilder.success(
+            data={
+                "success": True,
+                "message": f"文档 {source_file} 已删除，共删除 {deleted_count} 个文档块",
+                "deleted_count": deleted_count
+            },
+            message=f"成功删除文档，共删除{deleted_count}个文档块"
+        )
+
+    except Exception as e:
+        logger.error(f"[delete_rag_document] 删除失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"删除文档失败: {str(e)}")
+
+
+@router.post("/documents/process", summary="处理已有文件到向量库")
+async def process_existing_file(file_path: str = Form(...)):
+    logger.info(f"[process_existing_file] 处理文件: {file_path}")
+
+    path_obj = Path(file_path)
+    if not path_obj.exists():
+        raise HTTPException(status_code=400, detail=f"文件不存在: {file_path}")
+
+    file_ext = path_obj.suffix.lower()
+    if file_ext not in ALLOWED_RAG_FILE_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"不支持的文件类型: {file_ext}，允许的类型: {ALLOWED_RAG_FILE_TYPES}"
+        )
+
+    try:
+        from app.rag.vector_db import get_vector_db
+        from app.rag import get_enhanced_rule_loader
+
+        EnhancedRuleLoader, _ = get_enhanced_rule_loader()
+        loader = EnhancedRuleLoader()
+
+        if file_ext == ".docx":
+            loader._load_docx(str(path_obj), path_obj.name)
+        elif file_ext == ".txt":
+            loader._load_txt(str(path_obj), path_obj.name)
+        elif file_ext == ".pdf":
+            loader._load_pdf(str(path_obj), path_obj.name)
+        elif file_ext == ".xlsx":
+            loader._load_excel(str(path_obj), path_obj.name)
+
+        chunks = loader.get_chunks_as_dicts()
+        chunk_count = len(chunks)
+
+        if chunks:
+            vector_db = get_vector_db()
+            vector_db.add_documents(chunks)
+
+        logger.info(f"[process_existing_file] 处理完成: {path_obj.name}, chunks={chunk_count}")
+
+        return ResponseBuilder.success(
+            data={
+                "filename": path_obj.name,
+                "file_path": file_path,
+                "chunk_count": chunk_count,
+                "status": "processed",
+                "message": f"文件处理完成，生成{chunk_count}个文档块"
+            },
+            message="文件处理成功"
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[process_existing_file] 处理失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"文件处理失败: {str(e)}")
+
 
 @router.post("/reindex", summary="重新索引文档")
 async def reindex_documents(background_tasks: BackgroundTasks):
@@ -251,8 +504,9 @@ async def reindex_documents(background_tasks: BackgroundTasks):
     
     try:
         from app.rag.vector_db import get_vector_db
-        from app.rag.loaders.enhanced_loader import EnhancedRuleLoader
-        
+        from app.rag import get_enhanced_rule_loader
+
+        EnhancedRuleLoader, _ = get_enhanced_rule_loader()
         vector_db = get_vector_db()
         loader = EnhancedRuleLoader()
         

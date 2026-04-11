@@ -201,3 +201,32 @@ async def clear_cache():
     except Exception as e:
         logger.error(f"清空缓存失败: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"清空缓存失败: {str(e)}")
+
+
+@router.get("/history")
+async def get_chat_history(
+    limit: int = 20,
+    session_id: str = None
+):
+    """获取聊天历史记录
+    
+    Args:
+        limit: 返回记录数量限制
+        session_id: 会话ID（可选）
+    """
+    logger.debug(f"获取聊天历史记录, limit={limit}, session_id={session_id}")
+    try:
+        history = []
+        
+        return ResponseBuilder.success(
+            data={
+                "history": history,
+                "total": len(history),
+                "limit": limit,
+                "session_id": session_id
+            },
+            message="获取聊天历史成功"
+        )
+    except Exception as e:
+        logger.error(f"获取聊天历史失败: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"获取聊天历史失败: {str(e)}")

@@ -824,14 +824,7 @@ class EnhancedRuleLoader:
         
         return None
     
-    def get_chunks(self) -> List[EnhancedChunk]:
-        """获取所有chunk
-        
-        Returns:
-            chunk列表
-        """
-        return self.chunks
-    
+
     def get_chunks_as_dicts(self) -> List[Dict[str, Any]]:
         """获取所有chunk（字典格式）
         
@@ -840,14 +833,7 @@ class EnhancedRuleLoader:
         """
         return [chunk.to_dict() for chunk in self.chunks]
     
-    def get_chunks_as_langchain(self) -> List[Any]:
-        """获取所有chunk（LangChain格式）
-        
-        Returns:
-            LangChain Document列表
-        """
-        return [chunk.to_langchain_format() for chunk in self.chunks]
-    
+
     def get_stats(self) -> Dict[str, Any]:
         """获取统计信息
         

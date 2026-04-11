@@ -398,6 +398,96 @@ async def upload_scores(
         )
 
 
+@router.post("/scores/preview")
+async def preview_scores(
+    file: UploadFile = File(..., description="成绩单文件（Excel）"),
+    rows: int = Form(default=10, description="预览行数"),
+    current_user: TokenData = Depends(get_teacher_user),
+    upload_service: UploadService = Depends(get_upload_service),
+    score_service: ScoreImportService = Depends(get_score_import_service)
+):
+    """预览成绩单数据
+    
+    上传Excel文件并预览前N行数据，不保存到数据库
+    
+    参数：
+    - file: Excel文件
+    - rows: 预览行数（默认10行）
+    """
+    trace_id = generate_trace_id()
+    logger.info(f"[{trace_id}] 教师 {current_user.username} 预览成绩单")
+    
+    try:
+        if not file.filename:
+            raise FileValidationError(
+                error_code=ErrorCode.FILE_NOT_FOUND,
+                message="未选择文件",
+                filename=None
+            )
+        
+        if not file.filename.lower().endswith(ALLOWED_EXTENSIONS):
+            raise FileValidationError(
+                error_code=ErrorCode.FILE_INVALID_FORMAT,
+                message=f"文件格式不支持: {file.filename}",
+                filename=file.filename,
+                details=[{
+                    "code": ErrorCode.FILE_INVALID_FORMAT,
+                    "message": f"当前文件扩展名: {Path(file.filename).suffix}",
+                    "field": "file_extension",
+                    "value": Path(file.filename).suffix,
+                    "suggestion": f"请上传 {', '.join(ALLOWED_EXTENSIONS)} 格式的Excel文件"
+                }]
+            )
+        
+        file_path, file_id = await upload_service.save_uploaded_file(file)
+        logger.info(f"[{trace_id}] 成绩文件已保存: {file_path}")
+        
+        try:
+            parse_result = score_service.parse_excel_file(file_path)
+            scores = parse_result.scores[:rows]
+            
+            preview_data = []
+            for idx, score_data in enumerate(scores, start=1):
+                preview_data.append({
+                    "row": idx,
+                    "student_id": score_data.get("student_id", ""),
+                    "student_name": score_data.get("student_name", ""),
+                    "class_name": score_data.get("class_name", ""),
+                    "arithmetic_average": score_data.get("arithmetic_average", 0),
+                    "weighted_average": score_data.get("weighted_average", 0),
+                    "average_gpa": score_data.get("average_gpa", 0),
+                    "total_score": score_data.get("total_score", 0)
+                })
+            
+            return create_success_response(
+                message=f"预览成功，共{len(parse_result.scores)}行数据，显示前{len(preview_data)}行",
+                data={
+                    "filename": file.filename,
+                    "total_rows": len(parse_result.scores),
+                    "preview_rows": len(preview_data),
+                    "data": preview_data,
+                    "warnings": parse_result.warnings[:5] if parse_result.warnings else [],
+                    "errors": parse_result.errors[:5] if parse_result.errors else []
+                },
+                trace_id=trace_id
+            )
+            
+        finally:
+            if file_path and os.path.exists(file_path):
+                os.remove(file_path)
+                logger.info(f"[{trace_id}] 临时文件已删除: {file_path}")
+    
+    except FileValidationError as e:
+        logger.error(f"[{trace_id}] 文件验证失败: {e.message}")
+        raise
+    except Exception as e:
+        logger.error(f"[{trace_id}] 预览成绩单失败: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"预览成绩单失败: {str(e)}"
+        )
+
+
 @router.get("/scores/analysis")
 async def analyze_scores(
     class_name: Optional[str] = None,

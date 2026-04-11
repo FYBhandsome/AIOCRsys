@@ -604,6 +604,10 @@ async def main():
             
             await db_manager.init_connection()
             success = await db_manager.migrate_all()
+            if success:
+                logger.info("\n✓ 所有迁移执行成功")
+            else:
+                logger.error("\n✗ 部分迁移执行失败，请检查日志")
             return 0 if success else 1
         
         elif args.command == "migrate-users":

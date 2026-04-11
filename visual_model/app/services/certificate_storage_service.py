@@ -523,20 +523,60 @@ class CertificateStorageService:
         Returns:
             操作结果字典
         """
-        certificate = await Certificate.get_or_none(id=certificate_id)
+        certificate = await Certificate.get_or_none(id=certificate_id).prefetch_related('student')
         if not certificate:
             return {"success": False, "error": "证书不存在"}
 
+        # 保存学生ID用于缓存失效
+        student_id = certificate.student_id if hasattr(certificate, 'student_id') else None
+        
+        # 执行软删除
         certificate.is_valid = False
         certificate.invalid_reason = f"用户删除 - {deleted_by}"
+        certificate.status = "deleted"
         await certificate.save()
+
+        # 删除关联的图片文件（可选）
+        try:
+            images = await CertificateImage.filter(certificate_id=certificate_id).all()
+            for image in images:
+                if image.file_path and os.path.exists(image.file_path):
+                    os.remove(image.file_path)
+                    logger.info(f"已删除文件: {image.file_path}")
+        except Exception as e:
+            logger.warning(f"删除关联文件失败: {e}")
+
+        # 使缓存失效
+        await self._invalidate_cache(student_id)
 
         self._log_data_trace("删除证书", {
             "certificate_id": certificate_id,
-            "deleted_by": deleted_by
+            "deleted_by": deleted_by,
+            "student_id": student_id
         })
 
-        return {"success": True, "message": "证书已删除"}
+        return {
+            "success": True, 
+            "message": "证书已删除",
+            "certificate_id": certificate_id,
+            "student_id": student_id
+        }
+
+    async def _invalidate_cache(self, student_id: Optional[str] = None):
+        """使缓存失效
+        
+        Args:
+            student_id: 学生ID
+        """
+        try:
+            # 使学生上传历史缓存失效
+            if student_id:
+                from app.core.cache_service import get_cache_service
+                cache_service = get_cache_service()
+                cache_service.invalidate_student(student_id)
+                logger.info(f"已使学生 {student_id} 的缓存失效")
+        except Exception as e:
+            logger.warning(f"缓存失效失败: {e}")
 
     async def update_certificate_info(
         self,

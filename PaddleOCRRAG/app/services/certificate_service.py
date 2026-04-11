@@ -35,7 +35,7 @@ class CertificateService:
             self._vector_db = get_vector_db()
         return self._vector_db
     
-    def _retrieve_rules(self, query: str, top_k: int = 3) -> str:
+    def _retrieve_rules(self, query: str, top_k: int = 3) -> tuple:
         """检索相关规则
         
         Args:
@@ -43,13 +43,13 @@ class CertificateService:
             top_k: 检索结果数量
             
         Returns:
-            格式化的规则文本
+            (格式化的规则文本, 规则列表)
         """
         try:
             results = self.vector_db.search_relevant(
                 query=query,
                 top_k=top_k,
-                similarity_threshold=0.65
+                similarity_threshold=0.3
             )
             
             documents = results.get("documents", [])
@@ -57,20 +57,27 @@ class CertificateService:
             
             if not documents:
                 logger.warning(f"未找到相关规则: {query[:50]}")
-                return ""
+                return "", []
             
             rules_parts = []
+            rules_list = []
             for i, (doc, meta) in enumerate(zip(documents, metadatas), 1):
                 category = meta.get("category", "未知类别") if meta else "未知类别"
                 rules_parts.append(f"[规则{i}] 类别: {category}\n{doc}")
+                rules_list.append({
+                    "id": i,
+                    "category": category,
+                    "content": doc,
+                    "metadata": meta
+                })
             
             rules = "\n\n".join(rules_parts)
             logger.info(f"检索到{len(documents)}条相关规则")
-            return rules
+            return rules, rules_list
             
         except Exception as e:
             logger.error(f"检索规则失败: {str(e)}")
-            return ""
+            return "", []
     
     def calculate_score(self, certificate_text: str, student_info: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """计算证书加分（新接口）
@@ -80,12 +87,12 @@ class CertificateService:
             student_info: 学生信息（可选）
             
         Returns:
-            计算结果字典
+            计算结果字典，包含检索到的规则列表
         """
         try:
-            rules = self._retrieve_rules(certificate_text)
+            rules_text, rules_list = self._retrieve_rules(certificate_text)
             
-            if rules:
+            if rules_text:
                 calculation_prompt = f"""
 请根据以下证书信息和相关规则计算加分：
 
@@ -93,18 +100,32 @@ class CertificateService:
 学生信息: {student_info or '无'}
 
 相关规则：
-{rules}
+{rules_text}
+
+【重要】请严格按照以下综测加分标准计算分数：
+
+A类竞赛（学科竞赛）加分标准：
+- 国家级：特等奖40分，一等奖30分，二等奖25分，三等奖20分
+- 省部级：特等奖25分，一等奖20分，二等奖15分，三等奖10分
+- 市级：特等奖15分，一等奖12分，二等奖10分，三等奖8分
+- 校级：一等奖8分，二等奖6分，三等奖4分
+
+C类证书（社会活动等）加分标准：
+- 国家级荣誉：10分
+- 省级荣誉：8分
+- 市级荣誉：6分
+- 校级荣誉：5分
 
 请提供以下信息，并以JSON格式返回：
 {{
-    "category": "证书类别",
-    "score": 证书加分值 (0-10分),
+    "category": "A或C",
+    "score": 证书加分值 (必须为0-40之间的具体数字),
     "rules": "匹配的规则条文",
     "confidence": 匹配置信度 (0.0-1.0),
-    "explanation": "加分说明"
+    "explanation": "加分说明（包含级别和奖项等级的判断依据）"
 }}
 """
-                logger.info(f"证书加分计算使用RAG增强，检索到{len(rules)}字符规则")
+                logger.info(f"证书加分计算使用RAG增强，检索到{len(rules_list)}条规则")
             else:
                 calculation_prompt = f"""
 请根据以下证书信息计算加分：
@@ -124,19 +145,32 @@ class CertificateService:
                 logger.warning("证书加分计算未使用RAG，直接计算")
             
             response = self.llm_manager.generate(calculation_prompt)
-            
+
             category = "其他"
             score = 5.0
             rules_matched = "根据证书内容进行评估"
             confidence = 0.8
             explanation = response
-            
+
             try:
                 json_match = re.search(r'\{.*\}', response, re.DOTALL)
                 if json_match:
                     result_data = json.loads(json_match.group())
                     category = result_data.get("category", category)
-                    score = float(result_data.get("score", score))
+                    raw_score = float(result_data.get("score", score))
+
+                    # 分数范围校验：根据综测规则，A类竞赛最高40分（国家级特等奖）
+                    # 合理范围：0-40分
+                    MAX_VALID_SCORE = 40.0
+                    if raw_score > MAX_VALID_SCORE:
+                        logger.warning(f"LLM返回分数{raw_score}超出合理范围(0-{MAX_VALID_SCORE})，进行截断")
+                        score = MAX_VALID_SCORE
+                    elif raw_score < 0:
+                        logger.warning(f"LLM返回负分数{raw_score}，修正为0")
+                        score = 0.0
+                    else:
+                        score = raw_score
+
                     rules_matched = result_data.get("rules", rules_matched)
                     confidence = float(result_data.get("confidence", confidence))
                     explanation = result_data.get("explanation", explanation)
@@ -151,7 +185,8 @@ class CertificateService:
                 "explanation": explanation,
                 "certificate_text": certificate_text,
                 "calculated_at": datetime.now().isoformat(),
-                "used_rag": bool(rules)
+                "used_rag": bool(rules_text),
+                "retrieved_rules": rules_list
             }
             
         except Exception as e:

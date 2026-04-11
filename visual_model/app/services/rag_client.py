@@ -41,16 +41,18 @@ class RAGClient:
     async def calculate_score(
         self,
         certificate_text: str,
-        student_info: Optional[Dict[str, Any]] = None
+        student_info: Optional[Dict[str, Any]] = None,
+        rag_rules: Optional[List[Dict]] = None
     ) -> Dict[str, Any]:
         """计算综测加分
         
         Args:
             certificate_text: 证书文本信息
             student_info: 学生信息（可选）
+            rag_rules: RAG检索到的规则（可选）
             
         Returns:
-            加分计算结果
+            加分计算结果，包含RAG检索到的规则信息
         """
         url = f"{self.base_url}{self.api_prefix}/certificate/calculate"
         data = {
@@ -58,30 +60,63 @@ class RAGClient:
             "student_info": student_info or {}
         }
         
+        if rag_rules:
+            data["rag_rules"] = rag_rules
+        
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(url, json=data)
                 if response.status_code == 404:
                     logger.warning(f"RAG计算加分API不存在 (404): {url}")
-                    return {"score": 0.0, "category": "未分类", "details": "服务不可用"}
+                    return {
+                        "score": 0.0, 
+                        "category": "未分类", 
+                        "details": "服务不可用",
+                        "rag_rules": [],
+                        "rag_used": False
+                    }
                 response.raise_for_status()
                 result = response.json()
-                # 适配不同的响应格式
                 if "score" in result and "category" in result:
-                    return result
+                    return {
+                        "score": result.get("score", 0.0),
+                        "category": result.get("category", "未分类"),
+                        "reason": result.get("reason", ""),
+                        "confidence": result.get("confidence", 0.0),
+                        "rag_rules": result.get("rag_rules", result.get("retrieved_rules", [])),
+                        "rag_used": result.get("rag_used", result.get("used_rag", False)),
+                        "details": result
+                    }
                 elif "data" in result and ("score" in result["data"] or "score_value" in result["data"]):
                     data_result = result["data"]
                     return {
                         "score": data_result.get("score", data_result.get("score_value", 0.0)),
                         "category": data_result.get("category", "未分类"),
+                        "reason": data_result.get("explanation", data_result.get("reason", "")),
+                        "confidence": data_result.get("confidence", 0.0),
+                        "rag_rules": data_result.get("retrieved_rules", data_result.get("rules", [])),
+                        "rag_used": data_result.get("used_rag", False),
                         "details": data_result
                     }
                 else:
                     logger.warning(f"未知的响应格式: {result}")
-                    return {"score": 0.0, "category": "未分类", "details": result}
+                    return {
+                        "score": 0.0, 
+                        "category": "未分类", 
+                        "details": result,
+                        "rag_rules": [],
+                        "rag_used": False
+                    }
         except Exception as e:
             logger.warning(f"调用RAG计算加分失败: {e}")
-            return {"score": 0.0, "category": "未分类", "details": "服务不可用"}
+            return {
+                "score": 0.0, 
+                "category": "未分类", 
+                "details": "服务不可用",
+                "rag_rules": [],
+                "rag_used": False,
+                "error": str(e)
+            }
     
     async def chat(
         self,
@@ -455,7 +490,7 @@ class RAGClient:
         Returns:
             重置结果
         """
-        url = f"{self.base_url}{self.api_prefix}/vector_db/reset"
+        url = f"{self.base_url}{self.api_prefix}/vector-db/reset"
         data = {
             "confirm": confirm,
             "rebuild": rebuild
@@ -475,7 +510,7 @@ class RAGClient:
     
     async def rebuild_vector_db(self) -> Dict[str, Any]:
         """重建向量数据库"""
-        url = f"{self.base_url}{self.api_prefix}/vector_db/rebuild"
+        url = f"{self.base_url}{self.api_prefix}/system/vector_db/rebuild"
         
         try:
             async with httpx.AsyncClient(timeout=60.0) as client:
@@ -488,6 +523,54 @@ class RAGClient:
         except Exception as e:
             logger.warning(f"重建向量数据库失败: {e}")
             return {"success": False, "message": "向量数据库服务暂时不可用"}
+    
+    async def clear_vector_db(self) -> Dict[str, Any]:
+        """清空向量数据库"""
+        url = f"{self.base_url}{self.api_prefix}/vector-db/clear"
+        
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(url)
+                if response.status_code == 404:
+                    logger.warning(f"向量数据库清空API不存在 (404): {url}")
+                    return {"success": False, "message": "向量数据库服务暂时不可用"}
+                response.raise_for_status()
+                return response.json()
+        except Exception as e:
+            logger.warning(f"清空向量数据库失败: {e}")
+            return {"success": False, "message": "向量数据库服务暂时不可用"}
+    
+    async def get_vector_db_collections(self) -> Dict[str, Any]:
+        """获取向量数据库集合列表"""
+        url = f"{self.base_url}{self.api_prefix}/vector-db/collections"
+        
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.get(url)
+                if response.status_code == 404:
+                    logger.warning(f"向量数据库集合API不存在 (404): {url}")
+                    return {"collections": []}
+                response.raise_for_status()
+                return response.json()
+        except Exception as e:
+            logger.warning(f"获取向量数据库集合失败: {e}")
+            return {"collections": []}
+    
+    async def get_vector_db_health(self) -> Dict[str, Any]:
+        """向量数据库健康检查"""
+        url = f"{self.base_url}{self.api_prefix}/vector-db/health"
+        
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.get(url)
+                if response.status_code == 404:
+                    logger.warning(f"向量数据库健康检查API不存在 (404): {url}")
+                    return {"status": "unavailable", "healthy": False}
+                response.raise_for_status()
+                return response.json()
+        except Exception as e:
+            logger.warning(f"向量数据库健康检查失败: {e}")
+            return {"status": "unavailable", "healthy": False}
     
     # ============================================================================
     # 系统信息

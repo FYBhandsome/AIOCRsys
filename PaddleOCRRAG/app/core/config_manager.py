@@ -317,11 +317,19 @@ class ConfigManager:
     # 便捷属性访问方法（兼容旧的settings方式）
     @property
     def CHROMA_DB_PATH(self) -> str:
-        return self.config.vector_db.chroma_db_path
+        path = self.config.vector_db.chroma_db_path
+        if not os.path.isabs(path):
+            base_dir = Path(__file__).parent.parent.parent
+            path = str(base_dir / path)
+        return path
     
     @property
     def RULES_DOCS_PATH(self) -> str:
-        return self.config.vector_db.rules_docs_path
+        path = self.config.vector_db.rules_docs_path
+        if not os.path.isabs(path):
+            base_dir = Path(__file__).parent.parent.parent
+            path = str(base_dir / path)
+        return path
     
     @property
     def EMBEDDING_MODEL(self) -> str:

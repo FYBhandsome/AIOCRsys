@@ -178,8 +178,10 @@ def test_enhanced_loader():
     print("测试5: 增强文档加载器")
     print("="*60)
     
-    from app.rag.loaders.enhanced_loader import EnhancedRuleLoader
+    from app.rag import get_enhanced_rule_loader
     from app.rag.preprocessors.competition_mapper import CompetitionMapper
+
+    EnhancedRuleLoader, _ = get_enhanced_rule_loader()
     
     rules_path = os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))),

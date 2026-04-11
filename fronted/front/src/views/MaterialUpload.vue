@@ -70,22 +70,93 @@
           </template>
         </el-table-column>
         <el-table-column prop="create_time" label="上传时间" width="180" />
-        <el-table-column label="操作" width="120">
+        <el-table-column label="操作" width="180">
           <template #default="{ row }">
             <el-button type="primary" size="small" @click="viewDetail(row)">
               查看
+            </el-button>
+            <el-button type="danger" size="small" @click="deleteMaterial(row.id, row.file_name)">
+              删除
             </el-button>
           </template>
         </el-table-column>
       </el-table>
     </el-card>
+    
+    <!-- 材料详情/预览对话框 -->
+    <el-dialog
+      v-model="showDetailDialog"
+      :title="`材料详情 - ${detailData?.filename || ''}`"
+      width="70%"
+      :close-on-click-modal="true"
+      destroy-on-close
+    >
+      <div v-if="detailLoading" style="text-align: center; padding: 40px;">
+        <el-icon class="is-loading" :size="40"><Loading /></el-icon>
+        <p style="margin-top: 10px;">加载中...</p>
+      </div>
+      
+      <div v-else-if="detailError" style="text-align: center; padding: 40px; color: #f56c6c;">
+        <el-icon :size="48"><WarningFilled /></el-icon>
+        <p style="margin-top: 10px;">{{ detailError }}</p>
+      </div>
+      
+      <div v-else-if="detailData" class="material-detail">
+        <el-descriptions :column="2" border>
+          <el-descriptions-item label="文件名">{{ detailData.filename }}</el-descriptions-item>
+          <el-descriptions-item label="文件类型">
+            {{ getTypeText(detailData.file_type) }}
+          </el-descriptions-item>
+          <el-descriptions-item label="文件大小">
+            {{ formatFileSize(detailData.file_size) }}
+          </el-descriptions-item>
+          <el-descriptions-item label="上传时间">
+            {{ detailData.created_at || '-' }}
+          </el-descriptions-item>
+        </el-descriptions>
+        
+        <!-- 图片预览区域 -->
+        <div class="preview-section" v-if="detailData.file_exists">
+          <h4>📷 证书图片预览</h4>
+          <div class="image-preview-container">
+            <img
+              :src="previewImageUrl"
+              :alt="detailData.filename"
+              class="preview-image"
+              @load="onImageLoad"
+              @error="onImageError"
+            />
+          </div>
+        </div>
+        
+        <div v-else class="preview-error">
+          <el-result
+            icon="warning"
+            title="文件不可预览"
+            sub-title="原始文件可能已被删除或损坏"
+          />
+        </div>
+      </div>
+      
+      <template #footer>
+        <el-button @click="showDetailDialog = false">关闭</el-button>
+        <el-button 
+          v-if="detailData?.file_exists" 
+          type="primary" 
+          @click="downloadMaterial"
+        >
+          <el-icon><Download /></el-icon>
+          下载文件
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Refresh } from '@element-plus/icons-vue'
+import { ref, reactive, onMounted, computed } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Refresh, Loading, WarningFilled, Download } from '@element-plus/icons-vue'
 import CertificateUpload from '@/components/CertificateUpload.vue'
 import FileUpload from '@/components/FileUpload.vue'
 import AIInfoCard from '@/components/AIInfoCard.vue'
@@ -98,6 +169,11 @@ const initialForm = {
 
 const uploadHistory = ref([])
 const historyLoading = ref(false)
+
+const showDetailDialog = ref(false)
+const detailData = ref(null)
+const detailLoading = ref(false)
+const detailError = ref(null)
 
 const validateForm = (form) => {
   if (!form.type) {
@@ -189,8 +265,83 @@ const fetchUploadHistory = async () => {
   }
 }
 
-const viewDetail = (row) => {
-  ElMessage.info(`查看材料详情: ${row.file_name}`)
+const viewDetail = async (row) => {
+  showDetailDialog.value = true
+  detailData.value = null
+  detailError.value = null
+  detailLoading.value = true
+  
+  try {
+    const result = await studentAPI.getMaterialDetail(row.id)
+    detailData.value = result
+  } catch (error) {
+    console.error('获取材料详情失败:', error)
+    detailError.value = error.response?.data?.detail || '获取材料详情失败'
+  } finally {
+    detailLoading.value = false
+  }
+}
+
+const previewImageUrl = computed(() => {
+  if (!detailData.value?.id) return ''
+  return studentAPI.getMaterialPreviewUrl(detailData.value.id)
+})
+
+const formatFileSize = (bytes) => {
+  if (!bytes || bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
+
+const onImageLoad = () => {
+  console.log('图片加载成功')
+}
+
+const onImageError = (e) => {
+  console.error('图片加载失败:', e)
+  detailError.value = '图片加载失败，文件可能已损坏或格式不支持'
+}
+
+const downloadMaterial = () => {
+  if (!previewImageUrl.value) return
+  const link = document.createElement('a')
+  link.href = previewImageUrl.value
+  link.download = detailData.value?.filename || 'download'
+  link.target = '_blank'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+}
+
+const deleteMaterial = async (materialId, fileName) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除材料 "${fileName}" 吗？删除后将无法恢复。`,
+      '删除确认',
+      {
+        confirmButtonText: '确定删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+        confirmButtonClass: 'el-button--danger'
+      }
+    )
+    
+    const result = await studentAPI.deleteMaterial(materialId)
+    
+    if (result && result.success) {
+      ElMessage.success('删除成功')
+      await fetchUploadHistory()
+    } else {
+      ElMessage.error(result?.message || '删除失败')
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除材料失败:', error)
+      ElMessage.error(error.response?.data?.detail || '删除失败，请稍后重试')
+    }
+  }
 }
 
 onMounted(() => {
@@ -211,5 +362,40 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.material-detail {
+  padding: 10px 0;
+}
+
+.preview-section {
+  margin-top: 24px;
+}
+
+.preview-section h4 {
+  margin-bottom: 16px;
+  color: #303133;
+  font-size: 16px;
+}
+
+.image-preview-container {
+  text-align: center;
+  background: #f5f7fa;
+  border-radius: 8px;
+  padding: 20px;
+  max-height: 70vh;
+  overflow: auto;
+}
+
+.preview-image {
+  max-width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
+  border-radius: 4px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+.preview-error {
+  margin-top: 24px;
 }
 </style>

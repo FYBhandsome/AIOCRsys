@@ -203,6 +203,10 @@ class BaseVectorDB:
                 texts.append(str(doc))
                 metadatas.append({})
         
+        print(f"准备添加 {len(texts)} 条文档")
+        print(f"元数据示例: {metadatas[0]}")
+        print(f"文档示例: {texts[:5]}")
+        
         return texts, metadatas
     
     def _generate_document_ids(self, count: int, start_index: int = 0) -> List[str]:

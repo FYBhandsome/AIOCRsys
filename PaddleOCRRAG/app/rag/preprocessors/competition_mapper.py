@@ -55,8 +55,13 @@ class CompetitionMapper:
         self.name_list: List[str] = []
         self.alias_map: Dict[str, str] = {}
         
-        if excel_path:
-            self.load_from_excel(excel_path)
+        try:
+            if excel_path:
+                self.load_from_excel(excel_path)
+                logger.debug(f"[CompetitionMapper] 加载Excel文件: {excel_path}")
+        except Exception as e:
+                logger.error(f"[CompetitionMapper] 加载Excel文件失败: {e}")
+                logger.error(f"[CompetitionMapper] 请检查Excel文件格式是否正确")
         
         self._initialized = True
         logger.info(f"[CompetitionMapper] 初始化完成, 已加载 {len(self.competition_map)} 条竞赛记录")

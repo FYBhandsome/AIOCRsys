@@ -246,7 +246,9 @@ class RuleVectorDB(BaseVectorDB):
             results = self.collection.query(**query_params)
             
             processed_results = self._process_query_results(results)
-            
+            print(f"原始查询结果: {results}")
+            print(f"处理后结果: {processed_results}")
+
             filtered_results = self._filter_by_similarity(
                 processed_results,
                 similarity_threshold

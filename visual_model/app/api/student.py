@@ -6,6 +6,7 @@
 from fastapi import APIRouter, Depends, File, UploadFile, HTTPException
 from typing import Dict, Any, List
 import asyncio
+from datetime import datetime
 
 from app.models.auth import TokenData
 from app.models.upload import OCRResult
@@ -23,30 +24,32 @@ from config import settings
 router = APIRouter(prefix="/student", tags=["学生"])
 
 
-@router.post("/certificate/upload", response_model=OCRResult)
+@router.post("/certificate/upload")
 async def upload_certificate(
     file: UploadFile = File(..., description="获奖证书图片"),
     current_user: TokenData = Depends(get_student_user),
     db_service: DatabaseService = Depends(get_db_service),
     upload_service: UploadService = Depends(get_upload_service)
-):
+) -> Dict[str, Any]:
     """学生上传获奖证书
     
     上传证书图片并进行OCR识别，自动计算综测加分
+    
+    返回结果包含:
+    - 上传结果
+    - OCR识别结果
+    - RAG检索到的规则信息
+    - 加分结果
     """
     try:
-        # 验证文件
         upload_service.validate_image_file(file)
         
-        # 保存文件
         file_path, file_id = await upload_service.save_uploaded_file(file)
         
-        # 读取文件内容
         file.file.seek(0)
         file_content = await file.read()
         file_size = len(file_content)
         
-        # 创建文件记录（关联学生）
         await db_service.create_file(
             id=file_id,
             filename=file.filename,
@@ -56,7 +59,6 @@ async def upload_certificate(
             student_id=current_user.user_id
         )
         
-        # OCR识别
         ocr_service = get_ocr_service()
         executor = get_executor()
         
@@ -72,26 +74,55 @@ async def upload_certificate(
             ocr_results=recognition_results
         )
         
-        # 证书分类和算分（统一使用证书分类服务，内部会调用RAG如果启用）
         from app.services.certificate_service import get_certificate_service
         cert_service = get_certificate_service()
         
-        # 获取证书文本
         cert_text = certificate_info.get("raw_text", "")
         if not cert_text:
             cert_text = " ".join([item.get("text", "") for item in recognition_results])
-        
-        # 分类和算分
+
+        # OCR后处理：补全截断的文字（如"等奖"→"一等奖"）
+        from app.services.ocr_post_processor import process_ocr_text
+        post_process_result = process_ocr_text(cert_text)
+        processed_text = post_process_result['processed_text']
+
+        if post_process_result.get('fixes'):
+            logger.info(f"[学生证书上传] OCR后处理应用{len(post_process_result['fixes'])}个修复: "
+                       f"{[f.get('type') for f in post_process_result['fixes']]}")
+            for fix in post_process_result['fixes']:
+                if fix.get('type') == 'award_level_completion':
+                    logger.info(f"[学生证书上传]   奖项补全: '{fix.get('original')}' -> '{fix.get('replacement')}'")
+            # 使用处理后的文本进行后续分析
+            cert_text_for_analysis = processed_text
+        else:
+            cert_text_for_analysis = cert_text
+
+        rag_rules = None
+        if settings.RAG_ENABLED:
+            try:
+                rag_client = get_rag_client()
+                rag_result = await rag_client.calculate_score(
+                    certificate_text=cert_text_for_analysis,  # 使用后处理后的文本
+                    student_info={
+                        "student_id": current_user.user_id,
+                        "username": current_user.username
+                    }
+                )
+                rag_rules = rag_result.get("rag_rules", [])
+            except Exception as e:
+                logger.warning(f"获取RAG规则失败: {e}")
+                rag_rules = None
+
         classification_result = await cert_service.classify_and_calculate_score(
-            certificate_text=cert_text,
+            certificate_text=cert_text_for_analysis,  # 使用后处理后的文本
             certificate_info=certificate_info,
             student_info={
                 "student_id": current_user.user_id,
                 "username": current_user.username
-            }
+            },
+            rag_rules=rag_rules
         )
         
-        # 保存证书记录到数据库
         certificate = await db_service.create_certificate(
             student_id=current_user.user_id,
             file_id=file_id,
@@ -107,24 +138,94 @@ async def upload_certificate(
             classification_reason=classification_result.get("reason"),
             ocr_result=recognition_results,
             certificate_info=certificate_info,
-            status="approved"  # 学生上传默认通过
+            status="approved"
         )
         
-        # 添加分类结果到证书信息
-        certificate_info["classification"] = classification_result
+        try:
+            now = datetime.now()
+            current_semester = "春季学期" if now.month >= 2 and now.month <= 7 else "秋季学期"
+            current_academic_year = f"{now.year}-{now.year + 1}" if now.month >= 9 else f"{now.year - 1}-{now.year}"
+            
+            await db_service.update_comprehensive_score_with_certificates(
+                student_id=current_user.user_id,
+                semester=current_semester,
+                academic_year=current_academic_year
+            )
+            logger.info(f"综测分数更新成功: student_id={current_user.user_id}")
+        except Exception as e:
+            logger.warning(f"更新综测分数失败（证书已保存）: {e}")
         
         logger.info(
             f"学生 {current_user.username} 上传证书成功: {file_id}, "
             f"类别={classification_result['category']}, 分数={classification_result['score']}"
         )
         
-        return OCRResult(
-            file_id=file_id,
-            filename=file.filename,
-            file_size=file_size,
-            recognition_results=recognition_results,
-            certificate_info=certificate_info
-        )
+        certificate_info_with_score = {
+            **certificate_info,
+            "rag_score": {
+                "score": classification_result["score"],
+                "category": classification_result["category"],
+                "rules": classification_result.get("reason", ""),
+                "confidence": classification_result.get("confidence", 0.0),
+                "rag_used": classification_result.get("rag_used", False),
+                "rag_rules": classification_result.get("rag_rules", []),
+                "scoring_rubric": classification_result.get("scoring_rubric", {}),
+                "method": classification_result.get("method", "unknown")
+            }
+        }
+        
+        return {
+            "success": True,
+            "message": "证书上传成功",
+            
+            "file_id": file_id,
+            "filename": file.filename,
+            "file_size": file_size,
+            "file_path": file_path,
+            
+            "recognition_results": recognition_results,
+            
+            "certificate_info": certificate_info_with_score,
+            
+            "raw_text": cert_text,
+            
+            "category": classification_result["category"],
+            "score": classification_result["score"],
+            "reason": classification_result.get("reason", ""),
+            
+            "rag_used": classification_result.get("rag_used", False),
+            "rag_rules": classification_result.get("rag_rules", []),
+            "rag_confidence": classification_result.get("confidence", 0.0),
+            "rag_method": classification_result.get("method", "unknown"),
+            "scoring_rubric": classification_result.get("scoring_rubric", {}),
+            
+            "certificate_id": certificate.get("id") if isinstance(certificate, dict) else certificate.id if certificate else None,
+            "processed_at": datetime.now().isoformat(),
+            
+            "upload_result": {
+                "file_id": file_id,
+                "filename": file.filename,
+                "file_size": file_size,
+                "file_path": file_path
+            },
+            "ocr_result": {
+                "recognition_results": recognition_results,
+                "certificate_info": certificate_info,
+                "raw_text": cert_text
+            },
+            "rag_result": {
+                "used_rag": classification_result.get("rag_used", False),
+                "retrieved_rules": classification_result.get("rag_rules", []),
+                "confidence": classification_result.get("confidence", 0.0),
+                "method": classification_result.get("method", "unknown")
+            },
+            "score_result": {
+                "category": classification_result["category"],
+                "score": classification_result["score"],
+                "reason": classification_result.get("reason", ""),
+                "scoring_rubric": classification_result.get("scoring_rubric", {})
+            }
+        }
     
     except Exception as e:
         logger.error(f"上传证书失败: {e}", exc_info=True)
@@ -197,10 +298,21 @@ async def upload_certificates_batch(
                 cert_text = certificate_info.get("raw_text", "")
                 if not cert_text:
                     cert_text = " ".join([item.get("text", "") for item in recognition_results])
-                
+
+                # OCR后处理：补全截断的文字（如"等奖"→"一等奖"）
+                from app.services.ocr_post_processor import process_ocr_text
+                post_process_result = process_ocr_text(cert_text)
+                processed_text = post_process_result['processed_text']
+
+                if post_process_result.get('fixes'):
+                    logger.info(f"[批量上传] 文件{filename} OCR后处理应用{len(post_process_result['fixes'])}个修复")
+                    cert_text_for_analysis = processed_text
+                else:
+                    cert_text_for_analysis = cert_text
+
                 # 分类和算分
                 classification_result = await cert_service.classify_and_calculate_score(
-                    certificate_text=cert_text,
+                    certificate_text=cert_text_for_analysis,  # 使用后处理后的文本
                     certificate_info=certificate_info,
                     student_info={
                         "student_id": current_user.user_id,
@@ -254,6 +366,20 @@ async def upload_certificates_batch(
             student_id=current_user.user_id,
             status="approved"
         )
+        
+        try:
+            now = datetime.now()
+            current_semester = "春季学期" if now.month >= 2 and now.month <= 7 else "秋季学期"
+            current_academic_year = f"{now.year}-{now.year + 1}" if now.month >= 9 else f"{now.year - 1}-{now.year}"
+            
+            await db_service.update_comprehensive_score_with_certificates(
+                student_id=current_user.user_id,
+                semester=current_semester,
+                academic_year=current_academic_year
+            )
+            logger.info(f"批量上传后综测分数更新成功: student_id={current_user.user_id}")
+        except Exception as e:
+            logger.warning(f"批量上传后更新综测分数失败: {e}")
         
         logger.info(
             f"学生 {current_user.username} 批量上传证书完成: "
@@ -650,6 +776,7 @@ async def get_materials(
                 "filename": f.filename,
                 "file_type": f.file_type,
                 "file_size": f.file_size,
+                "file_path": f.file_path if hasattr(f, 'file_path') else None,
                 "created_at": f.created_at.isoformat() if f.created_at else None,
                 "status": f.status if hasattr(f, 'status') else "uploaded"
             })
@@ -663,4 +790,135 @@ async def get_materials(
     except Exception as e:
         logger.error(f"获取材料列表失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"获取材料列表失败: {str(e)}")
+
+
+@router.get("/materials/{material_id}")
+async def get_material_detail(
+    material_id: str,
+    current_user: TokenData = Depends(get_student_user),
+    db_service: DatabaseService = Depends(get_db_service)
+):
+    """获取单个材料的详细信息"""
+    try:
+        file_record = await db_service.get_file(file_id=material_id)
+        
+        if not file_record:
+            raise HTTPException(status_code=404, detail="材料不存在")
+        
+        if str(file_record.student_id) != str(current_user.user_id):
+            raise HTTPException(status_code=403, detail="无权查看此材料")
+        
+        import os
+        file_exists = file_record.file_path and os.path.exists(file_record.file_path)
+        
+        return {
+            "success": True,
+            "id": file_record.id,
+            "filename": file_record.filename,
+            "file_type": file_record.file_type,
+            "file_size": file_record.file_size,
+            "file_path": file_record.file_path,
+            "file_exists": file_exists,
+            "created_at": file_record.created_at.isoformat() if file_record.created_at else None,
+            "student_id": file_record.student_id,
+            "preview_url": f"/v1/student/materials/{material_id}/preview" if file_exists else None
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"获取材料详情失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"获取材料详情失败: {str(e)}")
+
+
+@router.get("/materials/{material_id}/preview")
+async def preview_material(
+    material_id: str,
+    current_user: TokenData = Depends(get_student_user),
+    db_service: DatabaseService = Depends(get_db_service)
+):
+    """预览/下载已上传的材料文件（图片/PDF）"""
+    try:
+        from fastapi.responses import FileResponse
+        
+        file_record = await db_service.get_file(file_id=material_id)
+        
+        if not file_record:
+            raise HTTPException(status_code=404, detail="材料不存在")
+        
+        if str(file_record.student_id) != str(current_user.user_id):
+            raise HTTPException(status_code=403, detail="无权预览此材料")
+        
+        import os
+        if not file_record.file_path or not os.path.exists(file_record.file_path):
+            raise HTTPException(status_code=404, detail="文件不存在或已被删除")
+        
+        media_types = {
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+            '.png': 'image/png',
+            '.gif': 'image/gif',
+            '.pdf': 'application/pdf'
+        }
+        
+        _, ext = os.path.splitext(file_record.file_path)
+        media_type = media_types.get(ext.lower(), 'application/octet-stream')
+        
+        logger.info(f"学生 {current_user.username} 预览材料: {material_id} - {file_record.filename}")
+        
+        return FileResponse(
+            path=file_record.file_path,
+            filename=file_record.filename,
+            media_type=media_type
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"预览材料失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"预览材料失败: {str(e)}")
+
+
+@router.delete("/materials/{material_id}")
+async def delete_material(
+    material_id: str,
+    current_user: TokenData = Depends(get_student_user),
+    db_service: DatabaseService = Depends(get_db_service)
+):
+    """删除学生上传的材料"""
+    try:
+        file_record = await db_service.get_file(file_id=material_id)
+        
+        if not file_record:
+            raise HTTPException(status_code=404, detail="材料不存在")
+        
+        if str(file_record.student_id) != str(current_user.user_id):
+            raise HTTPException(status_code=403, detail="无权删除此材料")
+        
+        import os
+        if file_record.file_path and os.path.exists(file_record.file_path):
+            try:
+                os.remove(file_record.file_path)
+                logger.info(f"删除材料文件成功: {file_record.file_path}")
+            except Exception as e:
+                logger.warning(f"删除文件失败(记录仍会删除): {e}")
+        
+        deleted = await db_service.delete_file(file_id=material_id)
+        
+        if not deleted:
+            raise HTTPException(status_code=500, detail="删除材料失败")
+        
+        logger.info(f"学生 {current_user.username} 删除材料成功: material_id={material_id}")
+        
+        return {
+            "success": True,
+            "message": "材料删除成功",
+            "material_id": material_id
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"删除材料失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"删除材料失败: {str(e)}")
 

@@ -91,18 +91,83 @@
           <el-descriptions-item label="获奖等级" v-if="recognitionResult.certificate_info?.award_level">
             {{ recognitionResult.certificate_info.award_level }}
           </el-descriptions-item>
-          <el-descriptions-item label="综测加分" v-if="recognitionResult.certificate_info?.rag_score">
-            <el-tag type="success" size="large">
-              +{{ recognitionResult.certificate_info.rag_score.score }} 分
-            </el-tag>
+          <el-descriptions-item label="证书类别">
+            <template v-if="recognitionResult.certificate_info?.rag_score?.category">
+              <el-tag 
+                :type="getCategoryTagType(recognitionResult.certificate_info.rag_score.category)" 
+                size="large"
+              >
+                {{ recognitionResult.certificate_info.rag_score.category }}
+              </el-tag>
+            </template>
+            <template v-else>
+              <el-tag type="info" size="large">暂无类别</el-tag>
+            </template>
           </el-descriptions-item>
-          <el-descriptions-item label="加分规则" v-if="recognitionResult.certificate_info?.rag_score" :span="2">
+          <el-descriptions-item label="综测加分">
+            <template v-if="recognitionResult.certificate_info?.rag_score?.score !== undefined && 
+                            recognitionResult.certificate_info?.rag_score?.score !== null &&
+                            !isNaN(recognitionResult.certificate_info?.rag_score?.score)">
+              <el-tag type="success" size="large">
+                +{{ Number(recognitionResult.certificate_info.rag_score.score).toFixed(1) }} 分
+              </el-tag>
+            </template>
+            <template v-else>
+              <el-tag type="info" size="large">暂无加分</el-tag>
+            </template>
+          </el-descriptions-item>
+          <el-descriptions-item label="加分规则" v-if="recognitionResult.certificate_info?.rag_score?.rules" :span="2">
             {{ recognitionResult.certificate_info.rag_score.rules }}
           </el-descriptions-item>
           <el-descriptions-item label="识别置信度" v-if="recognitionResult.certificate_info?.confidence">
             {{ (recognitionResult.certificate_info.confidence * 100).toFixed(1) }}%
           </el-descriptions-item>
         </el-descriptions>
+
+        <div class="rag-info-section" v-if="recognitionResult.certificate_info?.rag_score">
+          <h4>RAG评分信息</h4>
+          <el-descriptions :column="2" border>
+            <el-descriptions-item label="RAG使用状态">
+              <el-tag :type="recognitionResult.certificate_info.rag_score.rag_used ? 'success' : 'info'" size="large">
+                {{ recognitionResult.certificate_info.rag_score.rag_used ? '已使用' : '未使用' }}
+              </el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="评分方法">
+              <el-tag type="primary" size="large">
+                {{ recognitionResult.certificate_info.rag_score.method || '默认评分' }}
+              </el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="匹配规则" v-if="recognitionResult.certificate_info.rag_score.rag_rules?.length" :span="2">
+              <el-tag 
+                v-for="(rule, index) in recognitionResult.certificate_info.rag_score.rag_rules" 
+                :key="index"
+                type="warning"
+                style="margin-right: 8px; margin-bottom: 4px;"
+              >
+                {{ rule }}
+              </el-tag>
+            </el-descriptions-item>
+          </el-descriptions>
+        </div>
+
+        <div class="scoring-rubric-section" v-if="recognitionResult.certificate_info?.scoring_rubric">
+          <h4>评分标准</h4>
+          <el-collapse>
+            <el-collapse-item title="查看详细评分标准" name="rubric">
+              <el-descriptions :column="1" border>
+                <el-descriptions-item label="类别定义" v-if="recognitionResult.certificate_info.scoring_rubric.category_definition">
+                  {{ recognitionResult.certificate_info.scoring_rubric.category_definition }}
+                </el-descriptions-item>
+                <el-descriptions-item label="分数范围" v-if="recognitionResult.certificate_info.scoring_rubric.score_range">
+                  {{ recognitionResult.certificate_info.scoring_rubric.score_range }}
+                </el-descriptions-item>
+                <el-descriptions-item label="评分依据" v-if="recognitionResult.certificate_info.scoring_rubric.scoring_basis">
+                  {{ recognitionResult.certificate_info.scoring_rubric.scoring_basis }}
+                </el-descriptions-item>
+              </el-descriptions>
+            </el-collapse-item>
+          </el-collapse>
+        </div>
         
         <div class="raw-text-section">
           <h4>原始识别文本：</h4>
@@ -172,6 +237,15 @@ const statusText = computed(() => {
       return '未知状态'
   }
 })
+
+const getCategoryTagType = (category) => {
+  if (!category) return 'info'
+  const categoryUpper = category.toUpperCase()
+  if (categoryUpper.includes('A') || categoryUpper === 'A类') return 'success'
+  if (categoryUpper.includes('B') || categoryUpper === 'B类') return 'primary'
+  if (categoryUpper.includes('C') || categoryUpper === 'C类') return 'warning'
+  return 'info'
+}
 
 // 文件选择处理
 const handleFileChange = (file, files) => {
@@ -371,12 +445,28 @@ onUnmounted(() => {
 }
 
 .raw-text-section h4,
-.ocr-results-section h4 {
+.ocr-results-section h4,
+.rag-info-section h4,
+.scoring-rubric-section h4 {
   margin: 0 0 10px 0;
   color: #333;
 }
 
 .ocr-results-section {
   margin-top: 20px;
+}
+
+.rag-info-section {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #f5f7fa;
+  border-radius: 4px;
+}
+
+.scoring-rubric-section {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #f5f7fa;
+  border-radius: 4px;
 }
 </style>

@@ -15,10 +15,77 @@ from app.core.logger import get_logger, LogContext, track_performance
 logger = get_logger(__name__)
 
 
+def extract_text_from_file(file_path: str) -> str:
+    """从文件中提取文本内容，支持多种格式
+
+    Args:
+        file_path: 文件路径
+
+    Returns:
+        提取的文本内容
+    """
+    path = Path(file_path)
+    suffix = path.suffix.lower()
+
+    try:
+        if suffix == '.docx':
+            try:
+                import docx2txt
+                text = docx2txt.process(file_path)
+                return text if text else ""
+            except ImportError:
+                logger.warning("docx2txt未安装，尝试使用python-docx")
+                try:
+                    from docx import Document
+                    doc = Document(file_path)
+                    text = "\n".join([para.text for para in doc.paragraphs])
+                    return text
+                except ImportError:
+                    raise ImportError("需要安装 docx2txt 或 python-docx 来处理.docx文件")
+
+        elif suffix == '.xlsx':
+            try:
+                import pandas as pd
+                df = pd.read_excel(file_path)
+                texts = []
+                for idx, row in df.iterrows():
+                    row_text = ' '.join([str(v) for v in row.values if pd.notna(v)])
+                    if row_text.strip():
+                        texts.append(row_text)
+                return '\n'.join(texts)
+            except ImportError:
+                raise ImportError("需要安装 pandas 和 openpyxl 来处理.xlsx文件")
+
+        elif suffix == '.pdf':
+            try:
+                import PyPDF2
+                with open(file_path, 'rb') as f:
+                    reader = PyPDF2.PdfReader(f)
+                    text = ""
+                    for page in reader.pages:
+                        text += page.extract_text() + "\n"
+                    return text
+            except ImportError:
+                raise ImportError("需要安装 PyPDF2 来处理.pdf文件")
+
+        elif suffix == '.txt' or suffix == '.md' or suffix == '.csv':
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                return f.read()
+
+        else:
+            # 默认尝试以UTF-8文本模式读取
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                return f.read()
+
+    except Exception as e:
+        logger.error(f"提取文件文本失败: {file_path}, 错误: {e}")
+        raise
+
+
 class DocumentManager:
     """文档管理器，负责管理向量数据库中的文档"""
     
-    def __init__(self, collection_name: str = "documents"):
+    def __init__(self, collection_name: str = "zongce_rules"):
         """初始化文档管理器
         
         Args:
@@ -56,8 +123,7 @@ class DocumentManager:
                 name = os.path.basename(file_path)
             
             try:
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    content = f.read()
+                content = extract_text_from_file(file_path)
                 self.logger.debug(f"文档内容读取成功: {len(content)} 字符")
             except Exception as e:
                 self.logger.error(f"读取文档失败: {e}", exc_info=True)
@@ -330,8 +396,7 @@ class DocumentManager:
                 return False
             
             # 重新读取文档内容
-            with open(file_path, 'r', encoding='utf-8') as f:
-                content = f.read()
+            content = extract_text_from_file(file_path)
             
             # 这里可以添加文档预处理逻辑，如分块等
             # 简化实现，直接更新文档内容

@@ -335,6 +335,53 @@ async def rebuild_vector_db(
         raise HTTPException(status_code=500, detail=f"重建向量数据库失败: {str(e)}")
 
 
+@router.post("/vector-db/clear")
+async def clear_vector_db(
+    current_user: TokenData = Depends(get_admin_user)
+):
+    """清空向量数据库
+    
+    删除所有向量数据，保留数据库结构
+    """
+    try:
+        logger.info(f"管理员 {current_user.username} 清空向量数据库")
+        
+        rag_client = get_rag_client()
+        result = await rag_client.clear_vector_db()
+        return result
+    except Exception as e:
+        logger.error(f"清空向量数据库失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"清空向量数据库失败: {str(e)}")
+
+
+@router.get("/vector-db/collections")
+async def get_vector_db_collections(
+    current_user: TokenData = Depends(get_admin_user)
+):
+    """获取向量数据库集合列表"""
+    try:
+        rag_client = get_rag_client()
+        result = await rag_client.get_vector_db_collections()
+        return result
+    except Exception as e:
+        logger.error(f"获取向量数据库集合失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"获取向量数据库集合失败: {str(e)}")
+
+
+@router.get("/vector-db/health")
+async def get_vector_db_health(
+    current_user: TokenData = Depends(get_admin_user)
+):
+    """向量数据库健康检查"""
+    try:
+        rag_client = get_rag_client()
+        result = await rag_client.get_vector_db_health()
+        return result
+    except Exception as e:
+        logger.error(f"向量数据库健康检查失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"向量数据库健康检查失败: {str(e)}")
+
+
 # ============================================================================
 # RAG系统信息
 # ============================================================================

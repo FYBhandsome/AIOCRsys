@@ -278,20 +278,15 @@ class ComprehensiveScore(Model):
     class_name = fields.CharField(max_length=50, null=True, description="班级")
     major = fields.CharField(max_length=100, null=True, description="专业")
     
-    # A类材料成绩（思想道德素质）
     a_total_score = fields.FloatField(default=0.0, description="A类材料总成绩")
     a1_score = fields.FloatField(default=0.0, description="A1类成绩")
     a2_score = fields.FloatField(default=0.0, description="A2类成绩")
     a3_score = fields.FloatField(default=0.0, description="A3类成绩")
     a_weighted_score = fields.FloatField(default=0.0, description="A类加权成绩(20%)")
     
-    # B类材料成绩（学习成绩)
     b_raw_score = fields.FloatField(default=0.0, description="B类原始成绩")
     b_weighted_score = fields.FloatField(default=0.0, description="B类加权成绩(70%)")
-    b_total_score = fields.FloatField(default=0.0, description="B类总成绩（兼容字段）")
-    b_total_score = fields.FloatField(default=0.0, description="B类总成绩（学业成绩）")
     
-    # C类材料成绩（素质拓展）
     c_total_score = fields.FloatField(default=0.0, description="C类材料总成绩")
     c1_score = fields.FloatField(default=0.0, description="C1类成绩-科技竞赛")
     c2_score = fields.FloatField(default=0.0, description="C2类成绩-体育竞技")
@@ -299,31 +294,27 @@ class ComprehensiveScore(Model):
     c4_score = fields.FloatField(default=0.0, description="C4类成绩-创新创业")
     c_weighted_score = fields.FloatField(default=0.0, description="C类加权成绩(10%)")
     
-    # 综测总成绩
     total_score = fields.FloatField(default=0.0, description="综测总成绩")
     ranking = fields.IntField(null=True, description="班级排名")
     
-    # 学期信息
     semester = fields.CharField(max_length=20, description="学期，如：1")
     academic_year = fields.CharField(max_length=20, description="学年，如：2024-2025")
     
-    # 配置关联
     config_id = fields.IntField(null=True, description="使用的配置ID")
     
-    # 学生关联
-    student = fields.ForeignKeyField("models.Student", related_name="comprehensive_scores", description="关联学生")
-    
-    # 来源追踪
     source_file = fields.CharField(max_length=255, null=True, description="来源文件名")
     source_type = fields.CharField(max_length=20, default="comprehensive_table", description="来源类型")
     
-    # 备注和详细信息
     remarks = fields.TextField(null=True, description="备注")
     details = fields.JSONField(null=True, description="详细分数信息")
     status = fields.CharField(max_length=20, default="active", description="状态")
     
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
+    
+    student: fields.ForeignKeyRelation["Student"] = fields.ForeignKeyField(
+        "models.Student", related_name="comprehensive_scores", null=True
+    )
     
     class Meta:
         table = "comprehensive_scores"
@@ -390,7 +381,6 @@ class Certificate(Model):
     """证书模型 - 存储证书基本信息"""
     id = fields.IntField(pk=True)
     
-    student_id = fields.CharField(max_length=50, description="学生ID（学号）")
     filename = fields.CharField(max_length=255, null=True, description="原始文件名")
     
     certificate_no = fields.CharField(max_length=100, null=True, description="证书编号")
@@ -430,6 +420,10 @@ class Certificate(Model):
     
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
+    
+    student: fields.ForeignKeyRelation["Student"] = fields.ForeignKeyField(
+        "models.Student", related_name="certificates", null=True
+    )
     
     class Meta:
         table = "certificates"

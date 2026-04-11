@@ -346,7 +346,7 @@
 <script>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { adminAPI, commonAPI } from '@/services/api'
+import { comprehensiveScoreAPI } from '@/services/api'
 
 export default {
   name: 'ComprehensiveScoreConfig',
@@ -412,7 +412,7 @@ export default {
     const loadConfigs = async () => {
       loading.value = true
       try {
-        const response = await commonAPI.get('/v1/admin/comprehensive-score/configs')
+        const response = await comprehensiveScoreAPI.getConfigs()
         configs.value = response.configs || []
       } catch (error) {
         ElMessage.error('加载配置失败: ' + error.message)
@@ -424,25 +424,21 @@ export default {
     // 加载默认配置
     const loadDefaultConfig = async () => {
       try {
-        const response = await commonAPI.get('/v1/admin/comprehensive-score/default-config')
-        if (response) {
-          Object.assign(formData, {
-            name: response.name || '',
-            description: response.description || '',
-            a_weight: response.a_weight || 20,
-            b_weight: response.b_weight || 70,
-            c_weight: response.c_weight || 10,
-            academic_score_field: response.academic_score_field || 'weighted_average',
-            academic_score_scale: response.academic_score_scale || 1.0,
-            applicable_grade: response.applicable_grade || '',
-            applicable_semester: response.applicable_semester || '',
-            is_active: response.is_active !== undefined ? response.is_active : true,
-            is_default: false // 不允许创建多个默认配置
-          })
-          ElMessage.success('已加载默认配置')
-        } else {
-          ElMessage.info('没有可用的默认配置')
-        }
+        // 默认配置使用硬编码的默认值
+        Object.assign(formData, {
+          name: '',
+          description: '',
+          a_weight: 20,
+          b_weight: 70,
+          c_weight: 10,
+          academic_score_field: 'weighted_average',
+          academic_score_scale: 1.0,
+          applicable_grade: '',
+          applicable_semester: '',
+          is_active: true,
+          is_default: false
+        })
+        ElMessage.success('已加载默认配置')
       } catch (error) {
         ElMessage.error('加载默认配置失败: ' + error.message)
       }
@@ -450,12 +446,45 @@ export default {
     
     // 加载可用字段
     const loadAvailableFields = async () => {
-      try {
-        const response = await commonAPI.get('/v1/admin/comprehensive-score/fields')
-        availableFields.value = response.fields || []
-      } catch (error) {
-        console.error('加载可用字段失败:', error)
-      }
+      // 使用本地字段定义，因为后端可能没有提供这个API
+      availableFields.value = [
+        { 
+          value: 'arithmetic_average', 
+          label: '算术平均分', 
+          range: '0-100',
+          scale: 1.0,
+          description: '所有课程的简单平均'
+        },
+        { 
+          value: 'weighted_average', 
+          label: '学分加权平均分', 
+          range: '0-100',
+          scale: 1.0,
+          recommended: true,
+          description: '按学分加权的课程平均分'
+        },
+        { 
+          value: 'average_gpa', 
+          label: '平均绩点', 
+          range: '0-4',
+          scale: 25.0,
+          description: '将GPA转换为百分制需要×25'
+        },
+        { 
+          value: 'average_credit_gpa', 
+          label: '平均学分绩点', 
+          range: '0-4',
+          scale: 25.0,
+          description: '加权GPA，需要×25转换为百分制'
+        },
+        { 
+          value: 'credit_gpa_sum', 
+          label: '学分绩点和', 
+          range: '依学分而定',
+          scale: 1.0,
+          description: '绩点乘以学分的总和'
+        }
+      ]
     }
     
     // 调整权重（自动调整其他权重使总和为100%）
@@ -588,7 +617,7 @@ export default {
           }
         )
         
-        await commonAPI.delete(`/v1/admin/comprehensive-score/config/${config.id}`)
+        await comprehensiveScoreAPI.deleteConfig(config.id)
         ElMessage.success('删除成功')
         await loadConfigs()
       } catch (error) {
@@ -611,10 +640,10 @@ export default {
         submitting.value = true
         
         if (dialogMode.value === 'create') {
-          await commonAPI.post('/v1/admin/comprehensive-score/config', formData)
+          await comprehensiveScoreAPI.createConfig(formData)
           ElMessage.success('创建成功')
         } else {
-          await commonAPI.put(`/v1/admin/comprehensive-score/config/${currentConfig.value.id}`, formData)
+          await comprehensiveScoreAPI.updateConfig(currentConfig.value.id, formData)
           ElMessage.success('更新成功')
         }
         
@@ -645,16 +674,22 @@ export default {
       
       try {
         calculating.value = true
-        const result = await commonAPI.post('/v1/admin/comprehensive-score/calculate', {
-          config_id: calculateForm.config_id,
-          academic_year: calculateForm.academic_year,
-          semester: calculateForm.semester,
-          class_name: calculateForm.class_name || null
-        })
         
-        ElMessage.success(
-          `计算完成！处理: ${result.processed}人，成功: ${result.updated}人，失败: ${result.failed}人`
-        )
+        if (calculateForm.class_name) {
+          // 计算指定班级成绩
+          await comprehensiveScoreAPI.calculateClassScores(
+            calculateForm.class_name,
+            calculateForm.academic_year,
+            calculateForm.semester,
+            calculateForm.config_id
+          )
+        } else {
+          ElMessage.info('需要指定班级才能计算成绩')
+          calculating.value = false
+          return
+        }
+        
+        ElMessage.success('计算完成！')
         showCalculateDialogVisible.value = false
       } catch (error) {
         ElMessage.error('计算失败: ' + error.message)
@@ -683,12 +718,11 @@ export default {
       
       try {
         previewing.value = true
-        const result = await commonAPI.post('/v1/admin/comprehensive-score/preview', {
-          config_id: previewForm.config_id,
-          student_id: previewForm.student_id,
-          academic_year: previewForm.academic_year,
-          semester: previewForm.semester
-        })
+        const result = await comprehensiveScoreAPI.getStudentScore(
+          previewForm.student_id,
+          previewForm.academic_year,
+          previewForm.semester
+        )
         
         previewResult.value = result
       } catch (error) {

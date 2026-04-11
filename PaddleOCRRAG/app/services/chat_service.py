@@ -7,7 +7,7 @@ import logging
 from datetime import datetime
 from typing import Dict, Any, List, Optional, Generator, AsyncGenerator
 from app.core.llm_manager import LLMManager
-from app.core.cache import cached, async_cached, cache_manager
+from app.core.cache import cache_manager
 from app.core.logger import get_logger
 from app.core.prompt_manager import PromptManager
 

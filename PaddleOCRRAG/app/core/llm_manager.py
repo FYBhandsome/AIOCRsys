@@ -86,9 +86,15 @@ class XunfeiSparkLLM(LLMProvider):
     
     def _build_headers(self) -> Dict[str, str]:
         """构建请求头 - 使用Bearer Token认证"""
+        # 讯飞MaaS平台使用 api_key:api_secret 组合作为Bearer Token
+        if self.api_secret:
+            auth_token = f"{self.api_key}:{self.api_secret}"
+        else:
+            auth_token = self.api_key
+        
         return {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.api_key}"
+            "Authorization": f"Bearer {auth_token}"
         }
     
     def _make_request(self, prompt: str, **kwargs) -> str:
@@ -419,17 +425,25 @@ class LLMManager:
             }
 
 
-llm_manager = None
+_llm_manager_instance = None
 
 def _get_llm_manager():
     """获取LLM管理器单例（内部使用）"""
-    global llm_manager
-    if llm_manager is None:
-        llm_manager = LLMManager()
-    return llm_manager
+    global _llm_manager_instance
+    if _llm_manager_instance is None:
+        _llm_manager_instance = LLMManager()
+    return _llm_manager_instance
 
 def __getattr__(name):
     """延迟初始化llm_manager"""
     if name == "llm_manager":
         return _get_llm_manager()
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+class _LLMManagerProxy:
+    """LLM管理器代理类，支持延迟初始化"""
+    def __getattr__(self, name):
+        return getattr(_get_llm_manager(), name)
+
+llm_manager = _LLMManagerProxy()
